@@ -1,0 +1,156 @@
+* {
+	margin: 0;
+	padding: 0;
+}
+
+/*!Type Writer Top Animation*/
+.top {
+	text-align: center;
+	height: calc(30vh - 8em);
+	padding: 2%;
+}
+.line-1 {
+	top: 25%;
+	width: 24em;
+	margin: 0 auto;
+	border-right: 2px solid rgba(255, 255, 255, 0.75);
+	font-size: 180%;
+	text-align: center;
+	white-space: nowrap;
+	overflow: hidden;
+	transform: translateY(-50%);
+}
+.anim-typewriter {
+	animation: typewriter 5s steps(44) 1s 1 normal both,
+		blinkTextCursor 1000ms steps(44) infinite normal;
+}
+@keyframes typewriter {
+	from {
+		width: 0;
+	}
+	to {
+		width: 38em;
+	}
+}
+@keyframes blinkTextCursor {
+	from {
+		border-right-color: rgba(255, 255, 255, 0.75);
+	}
+	to {
+		border-right-color: transparent;
+	}
+}
+
+/*! Loading Animation */
+#loadingholder {
+	display: flex;
+	/* align-items: center; */
+	justify-content: center;
+	position: relative;
+	background-color: black;
+}
+#bar {
+	flex-wrap: wrap;
+	margin: 3rem;
+	width: 500px;
+	height: 15px;
+	background: linear-gradient(to left, #32289b, #db1d4b);
+	border-radius: 50px;
+	position: absolute;
+	top: 20rem;
+	display: block;
+}
+#bar::before {
+	content: '';
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	border-radius: 50px;
+	background: linear-gradient(to right, red, orange);
+	animation: anim 10s;
+}
+@keyframes anim {
+	0% {
+		width: 0%;
+	}
+	20% {
+		width: 5%;
+	}
+	50% {
+		width: 25%;
+	}
+	60% {
+		width: 50%;
+	}
+	100% {
+		width: 100%;
+	}
+}
+#percentage {
+	margin: 3rem;
+	font-size: 13rem;
+	font-family: 'Courier New', Courier, monospace;
+	color: white;
+	display: flex;
+	position: absolute;
+	top: 0;
+}
+
+/*! Hover Animation Button */
+#forward {
+	padding-top: 2rem;
+	text-align: center;
+	width: 100%;
+	height: 100%;
+	place-items: center;
+}
+#forwardButton {
+	font-size: 50px;
+	padding: 10px 40px;
+	border: none;
+	border-radius: 10px;
+	color: #fff;
+	position: relative;
+	overflow: hidden;
+	z-index: 1;
+	cursor: pointer;
+	font-family: Comfortaa;
+}
+#forwardButton::before {
+	position: absolute;
+	top: 0;
+	left: 0;
+	content: '';
+	width: 100%;
+	height: 100%;
+	background: url('./btnBg.jpg') center/ cover;
+	transition: 0.8s;
+	z-index: -1;
+}
+#forwardButton:hover::before {
+	transform: scale(2);
+}
+#forwardButton .text {
+	z-index: 1;
+	position: relative;
+	transition: 0.3s;
+	font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande',
+		'Lucida Sans', Arial, sans-serif;
+}
+#forwardButton .text::before {
+	z-index: -1;
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%) scale(0.22);
+	transition: 0.3s;
+	color: #fff;
+	opacity: 0;
+}
+#forwardButton:hover .text {
+	transform: scale(5);
+	color: transparent;
+}
+#forwardButton:hover .text::before {
+	opacity: 1;
+}
