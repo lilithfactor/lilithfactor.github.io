@@ -1,0 +1,30 @@
+{
+  "name": "lilithfactor-portfolio",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check",
+    "format": "prettier --write .",
+    "test": "node --test scripts/",
+    "notion:check": "node --env-file=.env scripts/check-notion-access.mjs",
+    "notion:sync": "node --env-file=.env scripts/sync-notion.mjs"
+  },
+  "dependencies": {
+    "astro": "^7.2.1",
+    "three": "0.185.1"
+  },
+  "devDependencies": {
+    "@notionhq/client": "^5.24.0",
+    "@types/three": "^0.185.0",
+    "prettier": "^3.4.2",
+    "prettier-plugin-astro": "^0.14.1",
+    "typescript": "^5.7.2"
+  }
+}

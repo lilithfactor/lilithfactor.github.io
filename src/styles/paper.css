@@ -1,0 +1,282 @@
+/* ============================================================================
+ * THE PAPER PRIMITIVE
+ *
+ * Three things make paper believable, and only three:
+ *   1. The white is never white.
+ *   2. The shadow touches — paper sits ON something.
+ *   3. The corners are sharp.
+ * Get those right and a flat <div> reads as paper. Everything else is polish.
+ * ========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  /* Painted explicitly — a transparent body borrows the host's ground. */
+  margin: 0;
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--t-body-size);
+  font-weight: 400;
+  line-height: 1.65;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* NOTE: deliberately NO `overflow-x: clip` on body.
+ *
+ * It was here, and it hid a real bug: an unbreakable <h1> made the page wider
+ * than a phone, and `clip` silently cropped the content instead of showing a
+ * scrollbar. A defensive rule that conceals the failure it exists to prevent is
+ * worse than no rule. Overflow must be FIXED at the element, not masked here.
+ * Wide content (tables, code) scrolls inside .scroll-x. */
+
+/* --- Typography ---------------------------------------------------------- */
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.15;
+  text-wrap: balance;
+  margin: 0;
+}
+
+h1 {
+  font-size: var(--t-title-size);
+  letter-spacing: -0.01em;
+}
+h2 {
+  font-size: var(--t-heading-size);
+}
+h3 {
+  font-size: var(--t-subhead-size);
+  font-family: var(--font-body);
+  font-weight: 600;
+}
+
+p {
+  margin: 0 0 var(--s-4);
+  max-width: var(--measure);
+  text-wrap: pretty;
+}
+
+a {
+  color: var(--link);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+  transition: color var(--m-quick);
+}
+
+a:hover {
+  color: var(--accent);
+}
+
+/* Focus is always visible. Never outline: none. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.display {
+  font-family: var(--font-display);
+  font-size: var(--t-display-size);
+  font-weight: 700;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  margin: 0;
+  text-wrap: balance;
+  /* A long unbreakable word must never widen the page. This is the guard that
+   * replaces the old `overflow-x: clip` crutch. */
+  overflow-wrap: break-word;
+}
+
+/* Typed on paper — a form, a stamp, a spec. */
+.label {
+  font-family: var(--font-mono);
+  font-size: var(--t-label-size);
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  /* --ink-muted, never --ink-faint: 12px type needs the contrast. */
+  color: var(--text-muted);
+}
+
+.metric {
+  font-family: var(--font-mono);
+  font-size: var(--t-metric-size);
+  font-weight: 500;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+
+/* Margin notes are italic serif — NOT a handwriting font. Handwriting fonts are
+ * the fastest way to make a considered design look like a template. */
+.note {
+  font-style: italic;
+  font-size: var(--t-small-size);
+  color: var(--text-muted);
+}
+
+.chip {
+  display: inline-block;
+  padding: 0.25em 0.6em;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-chip);
+  background: var(--paper-aged);
+  font-family: var(--font-mono);
+  font-size: var(--t-label-size);
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+/* --- The sheet ----------------------------------------------------------- */
+
+.sheet {
+  position: relative;
+  isolation: isolate;
+  padding: var(--s-6);
+  background-color: var(--surface);
+  border-radius: var(--r-sheet);
+  box-shadow: var(--e-rest);
+  transition:
+    transform var(--m-settle),
+    box-shadow var(--m-settle);
+}
+
+/* Fibre. Every paper surface carries it. */
+.sheet::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: var(--grain);
+  background-size: 180px 180px;
+  opacity: var(--grain-opacity);
+  mix-blend-mode: multiply;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.sheet--lift {
+  box-shadow: var(--e-lift);
+}
+.sheet--open {
+  box-shadow: var(--e-open);
+}
+
+/* A card is a NARROW sheet. The askew and curled treatments below are only
+ * legible at this width — see the warning on --askew. */
+.sheet--card {
+  max-width: 34rem;
+}
+
+/* A used desk. Perfect alignment reads as a template.
+ *
+ * ⚠ ONLY on .sheet--card. Rotation displaces the corners by
+ * (width × sin θ), so 1.4° across a 1400px block moves them ~34px and reads as
+ * a skewed, broken banner rather than a casually-placed sheet. Angle stays
+ * small and the element stays narrow. */
+.sheet--askew {
+  transform: rotate(-0.8deg);
+}
+.sheet--askew-alt {
+  transform: rotate(0.6deg);
+}
+
+.sheet--aged {
+  background-color: var(--paper-aged);
+}
+
+/* The only curve paper gets is a CURLED corner — a dog-ear, not a radius.
+ *
+ * Implemented WITHOUT clip-path on purpose: clip-path on the parent also clips
+ * its own ::after, which cut the fold flap away and left a meaningless notch.
+ * The gradient does both jobs — the outer half paints the page ground so the
+ * corner reads as removed, the inner half is the flap lying on top. */
+.sheet--curled {
+  --curl: 1.75rem;
+}
+
+.sheet--curled::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  width: var(--curl);
+  height: var(--curl);
+  background:
+    linear-gradient(
+      315deg,
+      var(--bg) 0 50%,
+      var(--paper-edge) 50% 62%,
+      var(--paper-aged) 62% 100%
+    );
+  filter: drop-shadow(-1px -1px 1px rgb(36 30 24 / 0.14));
+  pointer-events: none;
+}
+
+/* Interactive sheets lift on hover. Transform + shadow only. */
+.sheet--interactive {
+  cursor: pointer;
+}
+.sheet--interactive:hover,
+.sheet--interactive:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: var(--e-lift);
+}
+
+/* --- Rules --------------------------------------------------------------- */
+
+hr,
+.rule {
+  border: 0;
+  border-top: 1px solid var(--rule);
+  margin: var(--s-6) 0;
+}
+
+/* --- Layout helpers ------------------------------------------------------ */
+
+.page {
+  /* 60rem, not 72rem: a sheet spanning 1150px with text capped at 66ch leaves
+   * half the paper empty, which reads as a layout mistake rather than margin. */
+  max-width: 60rem;
+  margin-inline: auto;
+  padding: var(--s-7) var(--s-5) var(--s-10);
+}
+
+.stack > * + * {
+  margin-block-start: var(--s-5);
+}
+
+.desk-ground {
+  background-color: var(--desk);
+  color: var(--paper-page);
+}
+
+/* Wide content scrolls inside itself — never the page. */
+.scroll-x {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.visually-hidden:not(:focus):not(:active) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

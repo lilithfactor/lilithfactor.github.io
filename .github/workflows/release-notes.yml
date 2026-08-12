@@ -1,0 +1,52 @@
+name: Release notes
+
+# Every push to main publishes a GitHub Release grouped Features / Fixes /
+# Changes from commit subjects. See brain/work/releases.md.
+# Tag pushes don't match the branch trigger, so releases can't loop.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          last=$(git describe --tags --abbrev=0 2>/dev/null || true)
+          range=${last:+$last..HEAD}
+          version=$(node -p "require('./package.json').version")
+          tag="v${version}-build.${{ github.run_number }}"
+
+          feats=""; fixes=""; changes=""
+          while IFS= read -r line; do
+            sha=${line%% *}; subj=${line#* }
+            case "$subj" in
+              "Sync content from Notion"*) continue ;;  # cron noise, not history
+              [Aa]dd*|[Ff]eat*) feats+="- ${subj} (${sha})"$'\n' ;;
+              [Ff]ix*)          fixes+="- ${subj} (${sha})"$'\n' ;;
+              *)                changes+="- ${subj} (${sha})"$'\n' ;;
+            esac
+          done < <(git log --no-merges --format='%h %s' $range)
+
+          notes=""
+          [ -n "$feats" ]   && notes+=$'## Features\n'"$feats"$'\n'
+          [ -n "$fixes" ]   && notes+=$'## Fixes\n'"$fixes"$'\n'
+          [ -n "$changes" ] && notes+=$'## Changes\n'"$changes"$'\n'
+          if [ -z "$notes" ]; then
+            echo "Nothing but sync commits since ${last:-the beginning}; no release."
+            exit 0
+          fi
+
+          gh release create "$tag" --target "$GITHUB_SHA" --title "$tag" --notes "$notes"

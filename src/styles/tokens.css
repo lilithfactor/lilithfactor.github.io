@@ -1,0 +1,124 @@
+/* ============================================================================
+ * DESIGN TOKENS — the source of truth.
+ *
+ * Never hardcode a hex, a duration, or a spacing value in a component. If you
+ * need a value that isn't here, add it here first. The moment one #fff lands in
+ * a component, the paper stops being one material.
+ *
+ * Reasoning for every value: brain/design/design-system.md
+ * ========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  /* --- Paper -------------------------------------------------------------
+   * The white is NEVER #FFFFFF. This is the most important value here — pure
+   * white next to warm paper reads as a bug. */
+  --paper-page: #faf7f0;
+  --paper-sheet: #f5f1e8;
+  --paper-aged: #ede6d6;
+  --paper-edge: #ded4be;
+
+  /* --- Desk --------------------------------------------------------------- */
+  --desk: #3b3229;
+  --desk-deep: #241e18;
+
+  /* --- Ink ---------------------------------------------------------------
+   * Contrast on --paper-page: ink 15.8:1 (AAA) · muted 5.6:1 (AA)
+   * --ink-faint is 3.4:1 and FAILS AA. Non-text only: rules, hairlines,
+   * decorative strokes. Never put words in it. */
+  --ink: #1f1b16;
+  --ink-muted: #6b6358;
+  --ink-faint: #8a8175;
+
+  /* --- Marks -------------------------------------------------------------- */
+  --red-pen: #b4472f;
+  --ink-blue: #2e4a6b;
+  --kraft: #c4a77d;
+  --highlighter: #e8d98a;
+
+  /* --- Semantic aliases — components use THESE, not the raw values above -- */
+  --bg: var(--paper-page);
+  --surface: var(--paper-sheet);
+  --text: var(--ink);
+  --text-muted: var(--ink-muted);
+  --rule: var(--paper-edge);
+  --link: var(--ink-blue);
+  --accent: var(--red-pen);
+
+  /* --- Type --------------------------------------------------------------- */
+  --font-display: "Fraunces", Georgia, serif;
+  --font-body: "Source Serif 4", Georgia, serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  /* 9vw floor, not a fixed 2.75rem: at 390px a fixed floor overflowed the
+   * viewport with a two-word name. The scale must survive 320px. */
+  --t-display-size: clamp(2.125rem, 9vw, 4.5rem);
+  --t-title-size: clamp(1.75rem, 3.2vw, 2.5rem);
+  --t-heading-size: 1.375rem;
+  --t-subhead-size: 1.125rem;
+  --t-body-size: 1.0625rem;
+  --t-small-size: 0.9375rem;
+  --t-label-size: 0.75rem;
+  --t-metric-size: clamp(1.75rem, 3vw, 2.75rem);
+
+  --measure: 66ch;
+
+  /* --- Space — 4pt base --------------------------------------------------- */
+  --s-1: 0.25rem;
+  --s-2: 0.5rem;
+  --s-3: 0.75rem;
+  --s-4: 1rem;
+  --s-5: 1.5rem;
+  --s-6: 2rem;
+  --s-7: 3rem;
+  --s-8: 4rem;
+  --s-9: 6rem;
+  --s-10: 8rem;
+
+  /* --- Form --------------------------------------------------------------
+   * Nothing on this site has a radius above 2px. A rounded corner is the
+   * clearest tell that something is a UI card rather than a sheet of paper. */
+  --r-sheet: 1px;
+  --r-chip: 2px;
+
+  /* --- Elevation — contact shadows. Paper rests ON something. ------------- */
+  --e-rest: 0 1px 2px rgb(36 30 24 / 0.1);
+  --e-lift:
+    0 1px 2px rgb(36 30 24 / 0.1), 0 6px 16px -8px rgb(36 30 24 / 0.22);
+  --e-open:
+    0 2px 4px rgb(36 30 24 / 0.12), 0 18px 40px -20px rgb(36 30 24 / 0.35);
+
+  /* --- Grain — inline SVG, so no image request. 3.5% is invisible as
+   * texture and unmistakable as material. Above ~6% it hurts text contrast. */
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23g)'/%3E%3C/svg%3E");
+  --grain-opacity: 0.035;
+
+  /* --- Motion — transform and opacity ONLY. Never width/height/top/left. -- */
+  --m-quick: 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --m-settle: 280ms cubic-bezier(0.16, 1, 0.3, 1);
+  --m-open: 420ms cubic-bezier(0.16, 1, 0.3, 1);
+  --m-turn: 620ms cubic-bezier(0.65, 0, 0.35, 1);
+  --m-camera: 700ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Reduced motion is a real mode, not a switch that disables things.
+ * Instant, not fast — `none`, not 50ms. See brain/design/ux-rules.md rule 2. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --m-quick: 0ms;
+    --m-settle: 0ms;
+    --m-open: 0ms;
+    --m-turn: 0ms;
+    --m-camera: 0ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
