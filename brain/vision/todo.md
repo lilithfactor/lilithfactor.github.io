@@ -6,8 +6,9 @@ Build-scoped tasks. Ideas live in [vision.md](vision.md); the flow is in
 > *Rebuilt 2026-08-12.* Previously the Muretabi app's todo list — EAS builds,
 > LiveKit quotas, Play Console. None of it applied. Replaced wholesale.
 
-**Current phase: 0 → 1.** Nothing has been built yet. The repo contains the old
-2019 site in `dump/` and these docs.
+**Current phase: 1 — content pipeline.** Phase 0 shipped 2026-08-13: the paper
+foundation is live at https://lilithfactor.github.io/ (repo made public — Pages
+requires it on the free plan; history was secret-scanned first).
 
 ---
 
@@ -46,8 +47,8 @@ Build-scoped tasks. Ideas live in [vision.md](vision.md); the flow is in
 
 ## Phase 0 — Foundation
 
-- [ ] Delete the tracked root files from the 2019 site; keep `dump/` untracked
-      until launch, then remove. *(Part of the first commit.)*
+- [x] 2019 site removed from tracking *(2026-08-13, commit `b79e3bd`)* —
+      archived locally in `dump/`, now gitignored. Delete `dump/` at launch.
 - [x] Scaffold *(2026-08-13)* — **Astro 7** + TS strict, Three.js pinned exact,
       `.nvmrc` = 24.15.0, Prettier, no ESLint. Builds clean in ~150ms.
 - [x] Fonts *(2026-08-13)* — subset, self-hosted, 8 woff2 files, **135KB latin
@@ -65,11 +66,17 @@ Build-scoped tasks. Ideas live in [vision.md](vision.md); the flow is in
       swallowed its own dog-ear `::after`.
 - [x] `.github/workflows/deploy.yml` *(2026-08-13)* — build → `deploy-pages`,
       concurrency-guarded.
-- [ ] **First commit + push + enable Pages (source = GitHub Actions).**
-      ⚠ Outward-facing: this replaces whatever the domain currently serves with
-      the Phase 0 specimen. Waiting on Pranav's go.
+- [x] First deploy *(2026-08-13, Pranav's go)* — commits `b79e3bd` + `b7ef733`
+      pushed, repo flipped public (by Pranav; Pages needs it on the free plan,
+      history secret-scanned clean first), Pages created with
+      `build_type=workflow`, deploy green, **live site curl-verified**: 200,
+      correct title, paper page, no trace of the old site.
+      *Gotcha recorded: the workflow token cannot CREATE a Pages site
+      (`configure-pages` `enablement: true` → "Resource not accessible") — the
+      one-time `gh api -X POST …/pages -f build_type=workflow` needs user
+      credentials; the workflow keeps it configured thereafter.*
 
-**Exit:** a warm paper page live at `lilithfactor.github.io`.
+**Exit: ✅ reached 2026-08-13** — a warm paper page live at `lilithfactor.github.io`.
 
 ## Phase 1 — Content pipeline
 
