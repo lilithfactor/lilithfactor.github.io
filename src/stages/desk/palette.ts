@@ -21,6 +21,10 @@ const SOURCES = {
   kraft: "--stage-kraft",
   ink: "--stage-ink",
   accent: "--stage-accent",
+  backdrop: "--stage-backdrop",
+  cut: "--stage-cut",
+  shadow: "--stage-shadow",
+  cool: "--stage-cool",
   keyLight: "--stage-key-light",
   fillLight: "--stage-fill-light",
   ambient: "--stage-ambient",
@@ -62,4 +66,19 @@ export function readPalette(root: Element = document.documentElement): Palette |
  */
 export function blend(a: Color, b: Color, amount: number): Color {
   return a.clone().lerp(b, amount);
+}
+
+/**
+ * A palette colour as a string a 2D canvas will accept.
+ *
+ * The round trip is exact and deliberate: `setStyle` reads the token as sRGB
+ * and stores it in the renderer's linear working space, and `getStyle` converts
+ * it back. Canvas is an sRGB surface, so a texture painted with these strings
+ * and then tagged `SRGBColorSpace` arrives at the shader as the same colour the
+ * stylesheet asked for — which is the whole reason there is no hex in here.
+ */
+export function css(color: Color, alpha = 1): string {
+  const { r, g, b } = color.clone().convertLinearToSRGB();
+  const c = (v: number) => Math.round(Math.min(Math.max(v, 0), 1) * 255);
+  return `rgba(${c(r)},${c(g)},${c(b)},${alpha})`;
 }

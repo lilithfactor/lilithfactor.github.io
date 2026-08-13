@@ -25,13 +25,19 @@
  * because nothing in the document can use them: they are colours of light, not
  * of ink or paper, and they mean nothing outside a renderer. */
 :root {
-  /* A LIT walnut, not the ink-token walnut. `--desk` (#3B3229) is the colour of
-   * desk in shadow — correct as a flat CSS ground, and near-black once a
-   * renderer multiplies it by its own falloff. The 3D surface is the same wood
-   * with a lamp on it, so it reads two stops up. Verified by render, not taste:
-   * at var(--desk) the whole scene photographed as black. */
-  --stage-desk: #6f5c46;
-  --stage-desk-deep: var(--desk);
+  /* THE DESK IS NOT WOOD. It used to be a lit walnut (#7D5F3D) because the
+   * stage used to be a photograph of a room. It is now a cut-paper diorama: a
+   * handmade model of a desk, and a model desk is made of the same card as
+   * everything standing on it. So this token is a warm mid-weight kraft board —
+   * a shade darker and more saturated than --kraft, which the objects use, so
+   * that a kraft crate sitting on it still has an edge.
+   *
+   * The name stays --stage-desk because it still names the desk surface. What
+   * changed is what the desk is made of, not what it is. */
+  --stage-desk: #c69b6a;
+  /* The same board seen from the side — the desk's own cut edge and the strip
+   * of thickness under its top sheet. */
+  --stage-desk-deep: #a97b47;
   --stage-paper: var(--paper-sheet);
   --stage-paper-aged: var(--paper-aged);
   --stage-paper-edge: var(--paper-edge);
@@ -39,14 +45,41 @@
   --stage-ink: var(--ink);
   --stage-accent: var(--red-pen);
 
-  /* The lamp, upper right — roughly 2900K. */
+  /* The sheet of card standing behind the whole model. Deep and desaturated so
+   * it recedes: a diorama needs its backdrop to be the darkest thing in frame,
+   * or the base sheet has no edge and the model has no depth. */
+  --stage-backdrop: #574433;
+
+  /* THE CUT EDGE — the single most important value in this file.
+   *
+   * What makes paper-craft read as paper-craft is not lighting and not texture.
+   * It is that every surface shows its own thickness: a sheet of card seen
+   * side-on is a darker, denser line than its face, because you are looking at
+   * the compressed core of the board rather than its printed skin. Every colour
+   * on the desk is blended toward this one to make its edges, so the whole model
+   * is cut from stock with the same core. */
+  --stage-cut: #6b4a2c;
+
+  /* Contact shadow. Warm and light — this is card resting on card in a lit
+   * room, not an object in a void. A neutral or black contact shadow is the
+   * fastest way to make a paper model look like grey plastic. */
+  --stage-shadow: #6a5136;
+
+  /* The one cool card in the model. Everything else is warm, and a set of five
+   * warm-brown book spines reads as five copies of the same book; one cold
+   * spine fixes that for free. */
+  --stage-cool: #6f8b96;
+
+  /* The lamp, roughly 2900K. It is now both a light and a painted glow — see
+   * desk.ts — because a paper lamp that only emits light has nothing on the
+   * desk to show for it. */
   --stage-key-light: #ffe6bd;
-  /* The window, off left — roughly 7000K. The temperature gap between these
-   * two is what gives the paper a gradient across the desk, and it is doing
-   * more work than any material setting in the scene. */
+  /* The cool half of the ambient gradient — daylight from off left, at roughly
+   * 7000K. The temperature gap against the lamp is what keeps flat card from
+   * reading as flat colour. */
   --stage-fill-light: #b6cde2;
-  /* Bounce off a dark room. Warm, because the walnut is what it bounced off. */
-  --stage-ambient: #4a4038;
+  /* The warm half: light bouncing back up off the kraft base sheet. */
+  --stage-ambient: #a08256;
 }
 
 /* --- The canvas -----------------------------------------------------------

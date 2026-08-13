@@ -29,7 +29,10 @@ const bookLine = (b: { name: string; author: string | null }) =>
   description="Product Manager who turns messy, high-stakes journeys into simple, confident experiences."
 >
   <main id="main-content" tabindex="-1" class="page stack">
-    <header class="stack">
+    {/* .masthead: on the desk stage this lifts out of the document flow and
+        sits on the desk itself, so a visitor knows whose desk they landed on
+        before they click anything. In the document page it is just a header. */}
+    <header class="stack masthead">
       <p class="label">Product Manager</p>
       <h1 class="display">Pranav Upadhyay</h1>
     </header>

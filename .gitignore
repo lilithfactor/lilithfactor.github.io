@@ -20,3 +20,6 @@ dump/
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Source audio (multi-MB mp3s). Transcoded opus/m4a in public/audio/ is what ships.
+bgm/

@@ -13,23 +13,28 @@
  * ========================================================================== */
 
 import {
-  PCFSoftShadowMap,
+  Box3,
+  BufferGeometry,
+  Float32BufferAttribute,
+  Mesh,
+  NeutralToneMapping,
   Scene,
+  SRGBColorSpace,
   Vector3,
   WebGLRenderer,
   type Material,
-  type Mesh,
   type Object3D,
 } from "three";
 import { DESK_MIN_WIDTH } from "../choose";
 import { bindAnchors, clearAnchors, projectAnchors, type Binding } from "./anchors";
 import { createCameraRig } from "./camera";
-import { buildLighting, buildRoom } from "./desk";
+import { buildLighting, buildRoom, DESK_SIZE, LAMP } from "./desk";
 import { ARTIFACT_IDS, PLACEMENTS, type ArtifactId } from "./layout";
 import { createMaterials } from "./materials";
 import { buildArtifact } from "./objects";
-import { readPalette } from "./palette";
+import { blend, readPalette } from "./palette";
 import { createGovernor, type Degradation } from "./quality";
+import { createTextures } from "./texture";
 
 const DEG = Math.PI / 180;
 /** How far an object rises when its section is hovered or focused. 18mm. */
@@ -49,6 +54,14 @@ interface Piece {
 
 function isMesh(o: Object3D): o is Mesh {
   return (o as Mesh).isMesh === true;
+}
+
+/** Where one object meets the base sheet, for its contact shadow. */
+interface Footprint {
+  readonly x: number;
+  readonly z: number;
+  readonly halfX: number;
+  readonly halfZ: number;
 }
 
 export function mountDesk(): DeskHandle | null {
@@ -78,10 +91,37 @@ export function mountDesk(): DeskHandle | null {
     return null;
   }
 
-  const scene = new Scene();
-  scene.background = palette.deskDeep;
+  /* --- Colour management --------------------------------------------------
+   * A cut-paper model is a set of known card colours, and the job of this block
+   * is to deliver them to the screen as the colours the stylesheet named.
+   *
+   * So: Neutral, not ACES. ACES was right when the stage was a photograph — it
+   * keeps a blown warm highlight from going chalky, which is a problem a
+   * photograph has. Flat matte card never gets near clipping, and running it
+   * through a film curve just desaturates every sheet and pulls the whole model
+   * toward orange. Khronos PBR Neutral leaves everything under the knee exactly
+   * where it was and compresses only the very top, which here is nothing but
+   * the middle of the lamp's glow. The card comes out as the card.
+   *
+   * Not NoToneMapping, though, which would be the purest version of that
+   * argument: the additive pool does push past 1 in its core, and with no curve
+   * at all it clips per channel and the hot centre turns pink.
+   *
+   * outputColorSpace is already sRGB by default in this version. It is set
+   * anyway, because the default is the kind of thing that changes between major
+   * versions and this is the line whose absence is impossible to diagnose from
+   * a screenshot. */
+  renderer.outputColorSpace = SRGBColorSpace;
+  renderer.toneMapping = NeutralToneMapping;
+  renderer.toneMappingExposure = 1.08;
 
-  const materials = createMaterials(palette);
+  const scene = new Scene();
+  // Darker than the backdrop card, so the backdrop reads as a sheet standing in
+  // a room rather than as the room itself.
+  scene.background = blend(palette.backdrop, palette.shadow, 0.6);
+
+  const textures = createTextures(renderer.capabilities.getMaxAnisotropy());
+  const materials = createMaterials(palette, textures);
   scene.add(buildRoom(palette, materials));
 
   const lighting = buildLighting(palette);
@@ -90,10 +130,14 @@ export function mountDesk(): DeskHandle | null {
   // --- Objects and their anchors ------------------------------------------
   const anchors = new Map<ArtifactId, Vector3>();
   const pieces: Piece[] = [];
+  // The lamp base is not an artifact, so it declares its own footprint; the
+  // eight artifacts measure theirs below.
+  const feet: Footprint[] = [{ x: LAMP.x, z: LAMP.z, halfX: 0.094, halfZ: 0.094 }];
+  const bounds = new Box3();
 
   for (const id of ARTIFACT_IDS) {
     const placement = PLACEMENTS[id];
-    const object = buildArtifact(id, materials);
+    const object = buildArtifact(id, palette, materials);
     object.position.set(...placement.position);
     object.rotation.y = placement.yaw * DEG;
     scene.add(object);
@@ -104,8 +148,75 @@ export function mountDesk(): DeskHandle | null {
     object.updateWorldMatrix(true, false);
     anchors.set(id, object.localToWorld(new Vector3(...placement.anchor)));
 
+    // Where this object touches the base sheet. Measured off the built object
+    // rather than tabulated, so moving something in layout.ts moves its shadow
+    // with it and there is no second table to forget.
+    bounds.setFromObject(object);
+    const onDesk =
+      bounds.min.y < 0.08 &&
+      Math.abs(bounds.max.x + bounds.min.x) / 2 < DESK_SIZE[0] / 2 &&
+      Math.abs(bounds.max.z + bounds.min.z) / 2 < DESK_SIZE[1] / 2;
+    if (onDesk) {
+      feet.push({
+        x: (bounds.max.x + bounds.min.x) / 2,
+        z: (bounds.max.z + bounds.min.z) / 2,
+        halfX: (bounds.max.x - bounds.min.x) / 2,
+        halfZ: (bounds.max.z - bounds.min.z) / 2,
+      });
+    }
+
     pieces.push({ id, object, restY: object.position.y, raised: false });
   }
+
+  /* --- Contact shadows ----------------------------------------------------
+   * One darkened quad per object, lying a millimetre above the base sheet, and
+   * all nine of them merged into a single mesh.
+   *
+   * This is the entire shadow system, and it replaces a 2048² shadow map and
+   * the second draw of every caster that went with it. The trade is honest: it
+   * cannot show one object shadowing another, and it only knows where the lamp
+   * is well enough to lean away from it. Neither matters for a paper model,
+   * whose shadows are short and soft and sit almost directly underneath — and a
+   * soft ellipse is what a card object resting on a card sheet actually looks
+   * like, where a sharp cast shadow would read as a rendering.
+   *
+   * Merged rather than nine meshes because nine transparent quads is nine draw
+   * calls for eighteen triangles, and the scene is close enough to its draw
+   * call budget that the geometry may as well be baked. It is also one object
+   * for the degrade ladder to switch off. */
+  const positions: number[] = [];
+  const uvs: number[] = [];
+  const indices: number[] = [];
+  for (const foot of feet) {
+    const rx = Math.max(foot.halfX, 0.05) * 2.3;
+    const rz = Math.max(foot.halfZ, 0.05) * 2.3;
+    // Nudged away from the lamp, by a fraction of the object's own size. A
+    // shadow centred exactly under its object is a halo; a shadow that leans
+    // away from the light is the one thing left in the scene that says where
+    // the light is, now that nothing casts a real one.
+    const dx = foot.x - LAMP.x;
+    const dz = foot.z - LAMP.z;
+    const away = Math.hypot(dx, dz) || 1;
+    const cx = foot.x + (dx / away) * rx * 0.16;
+    const cz = foot.z + (dz / away) * rz * 0.16;
+    const base = positions.length / 3;
+    for (const [sx, sz] of [
+      [-1, 1],
+      [1, 1],
+      [1, -1],
+      [-1, -1],
+    ] as const) {
+      positions.push(cx + sx * rx, 0.0009, cz + sz * rz);
+      uvs.push((sx + 1) / 2, (sz + 1) / 2);
+    }
+    indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+  }
+  const shadows = new Mesh(new BufferGeometry(), materials.contact);
+  shadows.name = "contact";
+  shadows.geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
+  shadows.geometry.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+  shadows.geometry.setIndex(indices);
+  scene.add(shadows);
 
   const size = { width: window.innerWidth, height: window.innerHeight };
   const rig = createCameraRig(anchors, size.width, size.height);
@@ -113,8 +224,10 @@ export function mountDesk(): DeskHandle | null {
 
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_DPR));
   renderer.setSize(size.width, size.height, false);
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = PCFSoftShadowMap;
+  // shadowMap stays disabled — the default. Nothing in this scene casts, and
+  // the contact quads above are the whole shadow system. That removes the
+  // shadow pass entirely: no second draw of every caster, no depth material
+  // compile, no 2048² depth buffer.
 
   document.body.prepend(canvas);
 
@@ -127,7 +240,8 @@ export function mountDesk(): DeskHandle | null {
    * way to reach anything. ux-rules.md rule 7. */
   const sectionOf = (node: EventTarget | null): ArtifactId | null => {
     if (!(node instanceof Element)) return null;
-    const id = node.closest<HTMLElement>("[data-artifact]")?.dataset.artifact;
+    const hit = node.closest<HTMLElement>("[data-artifact], [data-anchor]");
+    const id = hit?.dataset.artifact ?? hit?.dataset.anchor;
     return id && (ARTIFACT_IDS as readonly string[]).includes(id) ? (id as ArtifactId) : null;
   };
 
@@ -183,8 +297,8 @@ export function mountDesk(): DeskHandle | null {
     delete document.documentElement.dataset.stage;
 
     // Geometries and materials are not garbage collected — they are GPU
-    // allocations behind JS handles. Deduped, because nine materials are
-    // shared across forty-odd meshes.
+    // allocations behind JS handles. Deduped, because three materials are
+    // shared across fifty-odd meshes.
     const seen = new Set<object>();
     scene.traverse((o) => {
       if (!isMesh(o)) return;
@@ -199,6 +313,11 @@ export function mountDesk(): DeskHandle | null {
         mat.dispose();
       }
     });
+    // Textures are the other GPU allocation behind a JS handle, and unlike
+    // geometries they are not reachable from the scene graph once a material
+    // has been disposed — so they are freed by the module that made them.
+    textures.dispose();
+
     scene.clear();
     renderer.dispose();
     renderer.forceContextLoss();
@@ -226,15 +345,13 @@ export function mountDesk(): DeskHandle | null {
   /* --- Quality ------------------------------------------------------------ */
   const governor = createGovernor();
   const degrade = (step: Degradation | null) => {
-    if (step === "shadows-off") {
-      renderer.shadowMap.enabled = false;
-      scene.traverse((o) => {
-        if (!isMesh(o)) return;
-        o.castShadow = false;
-        // Materials compiled against a shadow map need recompiling without one.
-        const m = o.material;
-        for (const mat of Array.isArray(m) ? m : [m]) mat.needsUpdate = true;
-      });
+    if (step === "contact-off") {
+      // The ladder's first rung used to switch off the shadow map. There is no
+      // shadow map now, so it drops what actually costs fill rate in this
+      // scene: nine large overlapping transparent quads. Losing them costs the
+      // model its grounding, which is why it is still the first thing to go and
+      // not the last — appearance is what this ladder is for spending.
+      shadows.visible = false;
     } else if (step === "dpr-1.5") {
       renderer.setPixelRatio(Math.min(1.5, window.devicePixelRatio || 1));
       renderer.setSize(size.width, size.height, false);

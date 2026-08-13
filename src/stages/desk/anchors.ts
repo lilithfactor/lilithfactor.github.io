@@ -40,14 +40,23 @@ export function bindAnchors(
 ): Binding[] {
   const bindings: Binding[] = [];
   for (const [id, anchor] of anchors) {
-    const el = root.querySelector<HTMLElement>(`[data-artifact="${id}"]`);
-    if (!el) continue;
-    bindings.push({
-      id,
-      el,
-      anchor,
-      last: { x: NaN, y: NaN, scale: NaN, visible: false },
-    });
+    // Two kinds of node track an anchor, and both need the projection:
+    //   [data-artifact] — the section itself, which becomes the open panel
+    //   [data-anchor]   — its handle: the little paper tag sitting ON the
+    //                     object, which is what a visitor actually clicks.
+    // The handle exists because the panel is centred and hidden when closed,
+    // so it cannot double as the object's hit area. See stages/panels.ts.
+    const nodes = root.querySelectorAll<HTMLElement>(
+      `[data-artifact="${id}"], [data-anchor="${id}"]`,
+    );
+    for (const el of nodes) {
+      bindings.push({
+        id,
+        el,
+        anchor,
+        last: { x: NaN, y: NaN, scale: NaN, visible: false },
+      });
+    }
   }
   return bindings;
 }

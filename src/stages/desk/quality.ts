@@ -2,7 +2,7 @@
  * AUTO-DEGRADE — the desk gets simpler before it drops frames.
  *
  * Three steps, in the order that trades the least appearance for the most
- * headroom: shadows off, then DPR 1.5, then DPR 1.0.
+ * headroom: contact shadows off, then DPR 1.5, then DPR 1.0.
  *
  * It is a ratchet. Each step happens at most once and there is no path back
  * up, which is the entire design: a scene that recovers, re-degrades, and
@@ -22,9 +22,9 @@ const FLOOR = 50;
  */
 const WARMUP = 45;
 
-export type Degradation = "shadows-off" | "dpr-1.5" | "dpr-1.0";
+export type Degradation = "contact-off" | "dpr-1.5" | "dpr-1.0";
 
-const LADDER: readonly Degradation[] = ["shadows-off", "dpr-1.5", "dpr-1.0"];
+const LADDER: readonly Degradation[] = ["contact-off", "dpr-1.5", "dpr-1.0"];
 
 export interface Governor {
   /** Feed it every frame's delta in seconds. Returns a step, once, or null. */

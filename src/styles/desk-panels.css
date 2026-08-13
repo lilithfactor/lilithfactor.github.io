@@ -1,0 +1,270 @@
+/* ============================================================================
+ * THE LIVE DESK — panel presentation.
+ *
+ * Everything here is scoped to html[data-stage="desk"], which only ever gets
+ * set on a device that passed the capability gate. So this file cannot affect
+ * the no-JS document, the mobile stack, or a reduced-motion visitor: they keep
+ * the scrolling paper page, which is a complete experience on its own.
+ *
+ * The markup is identical in both. The desk does not get its own copy of the
+ * content — it re-presents the same sections. One source of truth, and Cmd-F
+ * still finds a case study because the text never left the DOM.
+ * ========================================================================== */
+
+/* --- The desk takes the page over --------------------------------------- */
+
+html[data-stage="desk"] body {
+  /* The desk is the page. Nothing scrolls behind it. */
+  overflow: hidden;
+  height: 100vh;
+}
+
+/* The document column stops being a document and becomes a layer that panels
+ * live in. Pointer events pass through to the canvas except on an open panel,
+ * so the desk stays clickable everywhere the paper isn't. */
+html[data-stage="desk"] main {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  display: block;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* --- The masthead stays on the desk -------------------------------------
+ * Name and role are the one thing that must be legible before any click:
+ * a visitor who lands and sees only objects has to guess whose desk it is. */
+html[data-stage="desk"] .masthead {
+  position: fixed;
+  /* Bottom-left, not top-left: up there it collided with the bookshelf and its
+   * LIBRARY tag, and the foreground half of the desk was empty. Moving it down
+   * solves the collision and fills the dead space in the same gesture. */
+  bottom: var(--s-7);
+  left: var(--s-7);
+  z-index: 3;
+  pointer-events: none;
+  max-width: min(38ch, 42vw);
+  text-shadow: 0 1px 12px rgb(0 0 0 / 0.45);
+  color: var(--paper-page);
+}
+
+html[data-stage="desk"] .masthead .label {
+  color: var(--paper-edge);
+}
+
+/* --- Sections become panels ---------------------------------------------- */
+
+html[data-stage="desk"] [data-artifact] {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 4;
+
+  width: min(46rem, 88vw);
+  max-height: 82vh;
+  margin: 0;
+  padding: var(--s-7);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+
+  background-color: var(--paper-page);
+  /* NO background-image: var(--grain) here. The token is a full-strength noise
+   * tile meant to be laid under `opacity: .035` on a pseudo-element (see
+   * .sheet in paper.css). Painted directly it reads as television static.
+   * The .sheet cards inside the panel already carry the fibre. */
+  border-radius: var(--r-sheet);
+  box-shadow:
+    0 2px 6px rgb(0 0 0 / 0.36),
+    0 30px 70px -20px rgb(0 0 0 / 0.6);
+
+  /* Closed: out of the way, unreachable, and invisible to assistive tech. */
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, calc(-50% + var(--s-4))) scale(0.985);
+  transition:
+    opacity var(--m-open),
+    transform var(--m-open),
+    visibility var(--m-open);
+}
+
+/* Focus lands here programmatically on open, purely so assistive tech
+ * announces the panel. It is not keyboard navigation, so it must not paint a
+ * focus ring around the whole sheet. Children keep their own rings. */
+html[data-stage="desk"] [data-artifact]:focus {
+  outline: none;
+}
+
+html[data-stage="desk"] [data-artifact][data-open] {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+  /* Settles — paper does not ease, it lands. */
+  transform: translate(-50%, -50%) scale(1);
+}
+
+/* A panel opened from an object gets the desk's own margin note treatment:
+ * the section's label sits in the corner like a file tab. */
+html[data-stage="desk"] [data-artifact] > header {
+  position: sticky;
+  top: calc(var(--s-7) * -1);
+  margin: calc(var(--s-7) * -1) calc(var(--s-7) * -1) var(--s-5);
+  padding: var(--s-5) var(--s-7) var(--s-4);
+  background-color: var(--paper-page);
+  border-block-end: 1px solid var(--rule);
+}
+
+/* --- Close affordance ----------------------------------------------------
+ * Injected by panels.ts rather than living in the markup, because it is
+ * meaningless without the desk — the document page has nothing to close. */
+html[data-stage="desk"] .panel-close {
+  position: absolute;
+  top: var(--s-4);
+  right: var(--s-4);
+  z-index: 1;
+
+  /* 44px minimum target — ux-rules.md rule 7. */
+  width: 2.75rem;
+  height: 2.75rem;
+  display: grid;
+  place-items: center;
+
+  border: 1px solid var(--rule);
+  border-radius: var(--r-chip);
+  background-color: var(--paper-sheet);
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: var(--t-label-size);
+  cursor: pointer;
+  transition:
+    color var(--m-quick),
+    border-color var(--m-quick);
+}
+
+html[data-stage="desk"] .panel-close:hover,
+html[data-stage="desk"] .panel-close:focus-visible {
+  color: var(--red-pen);
+  border-color: var(--red-pen);
+}
+
+/* --- Scrim ---------------------------------------------------------------
+ * Dims the desk behind an open panel so the paper is the brightest thing on
+ * screen, and gives click-outside-to-close a real hit area. */
+html[data-stage="desk"] .desk-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  background: radial-gradient(
+    ellipse at 62% 38%,
+    rgb(0 0 0 / 0.28),
+    rgb(0 0 0 / 0.62)
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--m-open);
+}
+
+html[data-stage="desk"] .desk-scrim[data-visible] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* --- Hint ----------------------------------------------------------------
+ * A visitor who lands on a desk with no instructions will click nothing.
+ * One line, dismissed on the first open, never shown again this session. */
+html[data-stage="desk"] .desk-hint {
+  position: fixed;
+  bottom: var(--s-6);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+
+  padding: var(--s-2) var(--s-4);
+  border-radius: var(--r-chip);
+  background-color: rgb(0 0 0 / 0.42);
+  color: var(--paper-page);
+  font-family: var(--font-mono);
+  font-size: var(--t-label-size);
+  letter-spacing: 0.06em;
+  pointer-events: none;
+  transition: opacity var(--m-open);
+}
+
+html[data-stage="desk"] .desk-hint[hidden] {
+  display: none;
+}
+
+/* Reduced motion never reaches the desk at all (the gate excludes it), but if
+ * a visitor flips the setting mid-session the transitions must stop dead. */
+@media (prefers-reduced-motion: reduce) {
+  html[data-stage="desk"] [data-artifact],
+  html[data-stage="desk"] .desk-scrim,
+  html[data-stage="desk"] .desk-hint {
+    transition: none;
+  }
+}
+
+/* --- Handles --------------------------------------------------------------
+ * The paper tag pinned to each desk object: the thing a visitor clicks.
+ * Positioned by the desk's own anchor projection (--x/--y/--a/--scale), so it
+ * tracks its object exactly without a raycaster and without a second rAF loop.
+ * Being a real <button> is what gives the desk a keyboard. */
+
+html[data-stage="desk"] .desk-handles {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  transition: opacity var(--m-open);
+}
+
+/* An open panel owns the screen — the tags behind it stop competing. */
+html[data-stage="desk"] .desk-handles[data-dimmed] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+html[data-stage="desk"] .desk-handle {
+  position: fixed;
+  top: 0;
+  left: 0;
+  /* --x/--y are written by anchors.ts every frame; --a is 0 when the object is
+   * off-frame, which is also when the tag must not be clickable. */
+  transform: translate3d(calc(var(--x, 50vw) - 50%), calc(var(--y, 50vh) - 50%), 0);
+  opacity: var(--a, 0);
+  pointer-events: auto;
+
+  /* 44px minimum target even though the tag reads small. */
+  min-height: 2.75rem;
+  padding: var(--s-2) var(--s-4);
+
+  background-color: var(--paper-page);
+  color: var(--ink);
+  border: 0;
+  border-radius: var(--r-chip);
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.3),
+    0 8px 18px -10px rgb(0 0 0 / 0.5);
+
+  font-family: var(--font-mono);
+  font-size: var(--t-label-size);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    opacity var(--m-quick),
+    background-color var(--m-quick),
+    color var(--m-quick);
+}
+
+html[data-stage="desk"] .desk-handle:hover,
+html[data-stage="desk"] .desk-handle:focus-visible {
+  background-color: var(--red-pen);
+  color: var(--paper-page);
+}

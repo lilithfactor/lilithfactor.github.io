@@ -1,49 +1,88 @@
 /* ============================================================================
- * MATERIALS
+ * MATERIALS — three of them, for the entire desk.
  *
- * Paper is matte. That is the whole shading model: high roughness, zero
- * metalness, no specular work, no env map. Its detail lives in edges and
- * contact shadows, which are geometry and lighting problems rather than
- * material ones — and both are nearly free.
+ * There used to be twelve MeshStandardMaterials here, each with its own
+ * roughness, metalness and envMapIntensity, spread apart so that walnut, kraft,
+ * book cloth and paper would each return the lamp differently. All of it is
+ * gone, and the reason is not that it was badly tuned — it was that it was
+ * answering a question the stage no longer asks. A cut-paper diorama is made of
+ * one material. Card has no gloss, no metal, no Fresnel and no environment
+ * response; giving it any of those is not extra fidelity, it is a mistake, and
+ * a convincing one, which is worse.
  *
- * Nine shared materials for ~44 meshes. Shared because a material is a shader
- * program: forty unique ones is forty compiles on the first frame, which is
- * exactly the stutter the desk must not have.
+ * What replaces it:
+ *
+ *   card     MeshLambertMaterial, matte, vertex-coloured. Every sheet, board,
+ *            spine and roll in the model, in one program.
+ *   contact  the darkened plane under each object. The whole shadow system.
+ *   glow     the lamp's warm light, painted on additively.
+ *
+ * Lambert rather than Standard: Lambert is diffuse-only, which is precisely the
+ * shading model card has, and it drops the entire specular/IBL half of the
+ * shader. Lambert rather than Basic: unlit card would throw away the warm-to-
+ * cool gradient across the model, which is the one thing keeping flat colour
+ * from reading as flat colour.
+ *
+ * Lambert rather than Toon, which the brief allowed and which sounds like the
+ * obvious paper-craft answer: a stepped gradient quantises the lamp's falloff,
+ * and across a 2.7-metre base sheet lit by one close lamp that produces two or
+ * three hard concentric rings on the desk. On a small object that reads as
+ * style; on the largest surface in the frame it reads as a bug. Flat card wants
+ * flat *shading*, not banded shading.
  * ========================================================================== */
 
-import { MeshStandardMaterial } from "three";
+import { AdditiveBlending, DoubleSide, MeshBasicMaterial, MeshLambertMaterial } from "three";
 import type { Palette } from "./palette";
+import type { StageTextures } from "./texture";
 
 export interface Materials {
-  readonly paper: MeshStandardMaterial;
-  readonly paperAged: MeshStandardMaterial;
-  readonly paperEdge: MeshStandardMaterial;
-  readonly kraft: MeshStandardMaterial;
-  readonly wood: MeshStandardMaterial;
-  readonly wall: MeshStandardMaterial;
-  readonly ink: MeshStandardMaterial;
-  readonly accent: MeshStandardMaterial;
-  readonly brass: MeshStandardMaterial;
+  readonly card: MeshLambertMaterial;
+  readonly contact: MeshBasicMaterial;
+  readonly glow: MeshBasicMaterial;
 }
 
-export function createMaterials(p: Palette): Materials {
-  const matte = (material: MeshStandardMaterial) => material;
-
+export function createMaterials(p: Palette, t: StageTextures): Materials {
   return {
-    paper: matte(new MeshStandardMaterial({ color: p.paper, roughness: 0.92, metalness: 0 })),
-    paperAged: matte(
-      new MeshStandardMaterial({ color: p.paperAged, roughness: 0.94, metalness: 0 }),
-    ),
-    paperEdge: matte(
-      new MeshStandardMaterial({ color: p.paperEdge, roughness: 0.95, metalness: 0 }),
-    ),
-    kraft: matte(new MeshStandardMaterial({ color: p.kraft, roughness: 0.9, metalness: 0 })),
-    // The desk is the one surface allowed a little sheen — a waxed walnut top
-    // catching the lamp is what tells you the paper is lying on something.
-    wood: new MeshStandardMaterial({ color: p.desk, roughness: 0.62, metalness: 0.04 }),
-    wall: new MeshStandardMaterial({ color: p.deskDeep, roughness: 1, metalness: 0 }),
-    ink: matte(new MeshStandardMaterial({ color: p.ink, roughness: 0.85, metalness: 0 })),
-    accent: matte(new MeshStandardMaterial({ color: p.accent, roughness: 0.8, metalness: 0 })),
-    brass: new MeshStandardMaterial({ color: p.kraft, roughness: 0.35, metalness: 0.7 }),
+    // White, because the colour comes from the vertex attribute — see cut.ts.
+    // The map is the card's tooth at ±4/255, which is under the threshold of
+    // "texture" and above the threshold of "one flat fill".
+    // DoubleSide because several pieces are genuinely single sheets — the
+    // lampshade is an open cone the camera looks down into, and a backface-
+    // culled cone is a cone with a hole in it. Card has no back.
+    card: new MeshLambertMaterial({ vertexColors: true, map: t.fibre, side: DoubleSide }),
+
+    // Contact shadows. depthWrite off because these planes lie a millimetre
+    // above the desk and must not fight each other where two overlap; they only
+    // ever darken what is already behind them, so they have nothing to write.
+    contact: new MeshBasicMaterial({
+      color: p.shadow,
+      map: t.contact,
+      transparent: true,
+      opacity: 0.62,
+      depthWrite: false,
+      // A decal offset, not a Y offset. These quads lie flat on the base sheet,
+      // and lifting them far enough to clear the depth buffer by position alone
+      // would lift them through the thin sheets of paper they sit under. A
+      // 16-bit depth buffer at this camera distance cannot resolve a millimetre
+      // — which is exactly what polygonOffset exists for.
+      polygonOffset: true,
+      polygonOffsetFactor: -4,
+      polygonOffsetUnits: -4,
+      // Not tone mapped: this is a stencil of how dark to go, not a colour that
+      // was lit. Running it through the curve would lift it back up again.
+      toneMapped: false,
+    }),
+
+    // The lamp's pool and the lit inside of its shade. Additive, so it can only
+    // ever add warmth to the card underneath and never flatten it into a
+    // washed-out disc the way an opaque overlay would.
+    glow: new MeshBasicMaterial({
+      color: p.keyLight,
+      map: t.pool,
+      transparent: true,
+      blending: AdditiveBlending,
+      depthWrite: false,
+      opacity: 0.52,
+    }),
   };
 }

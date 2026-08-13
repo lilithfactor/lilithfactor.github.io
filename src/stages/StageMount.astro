@@ -21,6 +21,10 @@
  * architecture.md Directives 3 and 4 · ux-rules.md rule 12.
  */
 import "../styles/stage.css";
+// The live-desk presentation: turns the document's sections into panels that
+// desk objects open. Scoped entirely to html[data-stage="desk"], so it cannot
+// reach the no-JS document or the mobile stack.
+import "../styles/desk-panels.css";
 ---
 
 <script>
@@ -32,8 +36,19 @@ import "../styles/stage.css";
   // document is parsed and the content is already readable. Nothing below can
   // block first paint. ux-rules.md rule 12, load order steps 3 and 4.
   if (canMountDesk()) {
-    void import("./desk/scene")
-      .then((module) => module.mountDesk())
+    void Promise.all([import("./desk/scene"), import("./panels")])
+      .then(([scene, panelsModule]) => {
+        // ORDER MATTERS. mountDesk() binds anchors once, by querying the DOM
+        // for [data-anchor] nodes; handles created after it are never bound and
+        // sit unpositioned at opacity 0. So panels mount FIRST — their handles
+        // must already exist when the desk looks for them.
+        const panels = panelsModule.mountPanels();
+        const desk = scene.mountDesk();
+        // ...but if the desk never arrives, the panels have to undo themselves:
+        // they mark sections aria-hidden, which would silently hide the whole
+        // portfolio from assistive tech on a page with no desk to open them.
+        if (!desk) panels.dispose();
+      })
       .catch(() => {
         // No desk. From the visitor's point of view nothing failed: they are
         // looking at the complete, prerendered portfolio either way, and an

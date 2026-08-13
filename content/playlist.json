@@ -1,0 +1,18 @@
+[
+  {
+    "id": "yesterday",
+    "name": "Yesterday",
+    "mood": "Acoustic",
+    "src": "/audio/yesterday",
+    "credit": "Aventure — Bensound.com",
+    "order": 0
+  },
+  {
+    "id": "rainyday",
+    "name": "Rainy Day",
+    "mood": "Ambient",
+    "src": "/audio/rainyday",
+    "credit": "Aventure — Bensound.com",
+    "order": 1
+  }
+]
