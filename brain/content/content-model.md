@@ -238,17 +238,22 @@ with block children. The row *properties* come from one query; the *body* needs 
 `blocks.children.list` per row. That is 56 extra API calls at today's counts —
 fine on a 30-minute cron, and the reason bodies are Phase 2 rather than Phase 1.
 
-**4. The body problem.** A case-study body is where a PM actually proves the
-craft — problem, insight, what shipped, what moved. Free-form Notion blocks make
-that unstructured and unrenderable in a fixed sheet layout.
-**Convention over parsing:** each case-study page body uses four H2s, always the
-same four, always in this order:
+**4. The body structure is STAR, and it is nested.** *(Corrected 2026-08-14:
+this doc originally prescribed an invented "Problem / Insight / What I shipped /
+Outcome" H2 convention. Pranav already writes bodies as **STAR under H1s** —
+Overview · Situation · Tasks · Actions · Results · Learning — so the convention
+was replaced by reality.)* Two facts the sync depends on:
 
-> `## Problem` · `## Insight` · `## What I shipped` · `## Outcome`
-
-The sync maps H2 → section and fails loudly if one is missing. This is worth the
-discipline: it makes every case study skimmable in the same shape, which is
-exactly what a hiring manager comparing five candidates needs.
+- **Recurse or get six words.** The prose under each heading is not a child of
+  the heading — it sits inside callouts and other containers that follow it.
+  The sync treats `callout`/`column_list`/`column`/`synced_block`/`toggle` as
+  transparent and flattens their children into the flow.
+- **Results bullets are `Metric: value` lines** ("~40% adoption from
+  configurator users."). The detail page splits on the first colon to build its
+  outcome grid — keep writing them in that shape and the numbers surface
+  automatically at the top of the page.
+- Images in bodies are downloaded to `public/case-studies/<slug>/` at sync time
+  (gotcha #1 applies: the signed URLs die in about an hour).
 
 **5. The official API needs the page shared with an integration.** Create an
 internal integration, put the token in the `NOTION_TOKEN` repo secret, and share

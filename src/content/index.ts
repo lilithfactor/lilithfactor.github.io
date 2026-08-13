@@ -27,6 +27,32 @@ const base = z.object({
   order: z.number(),
 });
 
+/* The renderable body tree the sync normalises Notion blocks into.
+ * STAR sections under H1s: Overview · Situation · Tasks · Actions · Results ·
+ * Learning. Bodies can be sparse or absent — a section renders only if it
+ * exists, and a case study without one still has its card. */
+const BodyBlock = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("para"), text: z.string() }),
+  z.object({ type: z.literal("quote"), text: z.string() }),
+  z.object({ type: z.literal("callout"), text: z.string() }),
+  z.object({ type: z.literal("list"), items: z.array(z.string()) }),
+  z.object({ type: z.literal("link"), url: z.string().url() }),
+  z.object({
+    type: z.literal("image"),
+    /** Local path under /case-studies/ — the sync downloads every asset
+     * because Notion's signed URLs die in ~1h. Never a remote URL. */
+    src: z.string().startsWith("/case-studies/"),
+    caption: z.string().nullable(),
+    width: z.number(),
+    height: z.number(),
+  }),
+]);
+
+const BodySection = z.object({
+  heading: z.string().min(1),
+  blocks: z.array(BodyBlock),
+});
+
 const CaseStudy = base.extend({
   summary: z.string().min(1),
   type: z.array(z.string()),
@@ -35,6 +61,7 @@ const CaseStudy = base.extend({
   kpis: z.array(z.string()),
   association: z.string().nullable(),
   links: z.array(z.string().url()),
+  body: z.array(BodySection).default([]),
 });
 
 const ProductDive = base.extend({

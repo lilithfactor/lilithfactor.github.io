@@ -11,12 +11,29 @@ export function getStaticPaths() {
 }
 
 const { cs } = Astro.props;
+
+/* Outcome before method (ux-rules.md rule 11): a hiring manager skimming for
+ * twenty seconds must hit the numbers. The Results bullets are written as
+ * "Metric: value", so they split cleanly into a metric grid at the top —
+ * presented, not parsed: no regex guessing at which token is the number. */
+const results = cs.body.find((s) => /result/i.test(s.heading));
+const outcomes = (
+  results?.blocks.flatMap((b) => (b.type === "list" ? b.items : [])) ?? []
+)
+  .map((line) => {
+    const i = line.indexOf(":");
+    return i > 0 && i < 40
+      ? { term: line.slice(0, i).trim(), value: line.slice(i + 1).trim() }
+      : { term: null, value: line };
+  })
+  .slice(0, 4);
+
+/* The narrative keeps every section in STAR order — including Results, in
+ * full, in place. The grid above is the skim path, not a replacement. */
+const body = cs.body;
 ---
 
-<Base
-  title={`${cs.name} — Pranav Upadhyay`}
-  description={cs.summary}
->
+<Base title={`${cs.name} — Pranav Upadhyay`} description={cs.summary}>
   <main id="main-content" tabindex="-1" class="page stack">
     <a class="back-link" href="/#case-studies">← Back to desk</a>
 
@@ -25,37 +42,93 @@ const { cs } = Astro.props;
       <h1 class="display">{cs.name}</h1>
     </header>
 
+    <p class="lead">{cs.summary}</p>
     <Chips items={cs.kpis} />
 
-    <div class="stack">
-      {cs.type.length > 0 && (
-        <div>
-          <p class="label">Type</p>
-          <Chips items={cs.type} />
-        </div>
-      )}
-      {cs.domain.length > 0 && (
-        <div>
-          <p class="label">Domain</p>
-          <Chips items={cs.domain} />
-        </div>
-      )}
-    </div>
-
-    <p class="lead">{cs.summary}</p>
-
-    {cs.links.length > 0 && (
-      <div>
-        <p class="label">Links</p>
-        <p class="link-row">
-          {cs.links.map((url) => (
-            <a href={url} target="_blank" rel="noopener">
-              {url}
-            </a>
+    {
+      outcomes.length > 0 && (
+        <section class="sheet outcome-grid" aria-label="Outcomes">
+          {outcomes.map((o) => (
+            <div class="outcome">
+              {o.term && <p class="label">{o.term}</p>}
+              <p class="outcome__value">{o.value}</p>
+            </div>
           ))}
+        </section>
+      )
+    }
+
+    {
+      body.length > 0 && (
+        <article class="stack case-body">
+          {body.map((section) => (
+            <section class="stack">
+              <h2>{section.heading}</h2>
+              {section.blocks.map((block) => {
+                if (block.type === "list")
+                  return (
+                    <ul class="case-body__list">
+                      {block.items.map((item) => (
+                        <li>{item}</li>
+                      ))}
+                    </ul>
+                  );
+                if (block.type === "quote") return <blockquote class="note">{block.text}</blockquote>;
+                if (block.type === "callout") return <p class="sheet sheet--aged case-body__callout">{block.text}</p>;
+                if (block.type === "para") return <p>{block.text}</p>;
+                if (block.type === "link")
+                  return (
+                    <p>
+                      <a href={block.url} target="_blank" rel="noopener">
+                        {new URL(block.url).hostname.replace(/^www\./, "")}
+                      </a>
+                    </p>
+                  );
+                if (block.type === "image")
+                  return (
+                    <figure class="case-body__figure">
+                      <img
+                        src={block.src}
+                        alt={block.caption ?? `${cs.name} — supporting figure`}
+                        width={block.width}
+                        height={block.height}
+                        loading="lazy"
+                        decoding="async"
+                      />
+                      {block.caption && <figcaption class="note">{block.caption}</figcaption>}
+                    </figure>
+                  );
+                return null;
+              })}
+            </section>
+          ))}
+        </article>
+      )
+    }
+
+    {
+      body.length === 0 && (
+        <p class="note">
+          The full write-up for this one is being typed up — the summary above is
+          the shape of it.
         </p>
-      </div>
-    )}
+      )
+    }
+
+    {
+      cs.links.length > 0 && (
+        <div>
+          <p class="label">Links</p>
+          <p class="link-row">
+            {cs.links.map((url) => (
+              <a href={url} target="_blank" rel="noopener">
+                {new URL(url).hostname.replace(/^www\./, "")}
+              </a>
+            ))}
+          </p>
+        </div>
+      )
+    }
 
     <hr class="rule" />
     <a class="back-link" href="/#case-studies">← Back to desk</a>

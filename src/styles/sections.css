@@ -170,3 +170,60 @@ figcaption {
 .back-link:focus-visible {
   color: var(--accent);
 }
+
+/* --- Case-study body ------------------------------------------------------ */
+
+/* The skim path: outcomes as a metric grid before the narrative. */
+.outcome-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--s-5);
+}
+
+.outcome__value {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t-subhead-size);
+  line-height: 1.35;
+  color: var(--accent);
+  margin: var(--s-1) 0 0;
+  max-width: none;
+  overflow-wrap: anywhere;
+}
+
+.case-body h2 {
+  margin-block-start: var(--s-6);
+}
+
+.case-body__list {
+  margin: 0;
+  padding-inline-start: 1.2em;
+  max-width: var(--measure);
+}
+
+.case-body__list li {
+  margin-block-end: var(--s-2);
+}
+
+.case-body__list li::marker {
+  color: var(--accent);
+}
+
+.case-body__callout {
+  padding: var(--s-5);
+  max-width: var(--measure);
+}
+
+.case-body__figure {
+  margin: var(--s-5) 0 0;
+}
+
+.case-body__figure img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--r-sheet);
+  border: 1px solid var(--rule);
+  box-shadow: var(--e-rest);
+  background-color: var(--surface);
+}

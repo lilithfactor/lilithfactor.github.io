@@ -1,5 +1,5 @@
 {
-  "syncedAt": "2026-08-13T18:28:15.679Z",
+  "syncedAt": "2026-08-13T18:56:27.016Z",
   "counts": {
     "caseStudies": 5,
     "productDives": 7,
@@ -9,6 +9,9 @@
     "beyond": 5
   },
   "warnings": [
+    "caseStudies \"Configurator: Visualize, Customize, Compare, Purchase\": body is only 6 words",
+    "caseStudies \"Brand-led agent: Expert Guidance, Instant\": body is only 2 words",
+    "caseStudies \"Visual Compare for Mass‑Market Buyers\": body contains an unrendered \"video\" block",
     "library: \"Thinking fast and slow\" has no Author",
     "library: \"Steal like an artist\" has no Author",
     "library: \"Hooked\" has no Author",

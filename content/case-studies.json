@@ -23,7 +23,70 @@
       "https://magniteconfigurator.nissan.in/#/presentation?prevPage=homepage",
       "https://www.chevroletarabia.com/sa-en/crossovers-and-suvs/tahoe"
     ],
-    "order": 0
+    "order": 0,
+    "body": [
+      {
+        "heading": "Case Study",
+        "blocks": [
+          {
+            "type": "link",
+            "url": "https://www.metadome.ai/module/configurator-module"
+          }
+        ]
+      },
+      {
+        "heading": "Screen Flow",
+        "blocks": [
+          {
+            "type": "image",
+            "src": "/case-studies/configurator-visualize-customize-compare-purchase/1.png",
+            "caption": "Brand integration / Landing.",
+            "width": 1192,
+            "height": 733
+          },
+          {
+            "type": "image",
+            "src": "/case-studies/configurator-visualize-customize-compare-purchase/2.png",
+            "caption": "Configurator.",
+            "width": 1192,
+            "height": 732
+          },
+          {
+            "type": "image",
+            "src": "/case-studies/configurator-visualize-customize-compare-purchase/3.png",
+            "caption": "Catalogue.",
+            "width": 1192,
+            "height": 733
+          },
+          {
+            "type": "image",
+            "src": "/case-studies/configurator-visualize-customize-compare-purchase/4.png",
+            "caption": "Compare.",
+            "width": 1192,
+            "height": 730
+          }
+        ]
+      },
+      {
+        "heading": "Brand Testimonials",
+        "blocks": [
+          {
+            "type": "image",
+            "src": "/case-studies/configurator-visualize-customize-compare-purchase/5.png",
+            "caption": null,
+            "width": 1065,
+            "height": 847
+          },
+          {
+            "type": "image",
+            "src": "/case-studies/configurator-visualize-customize-compare-purchase/6.png",
+            "caption": null,
+            "width": 1063,
+            "height": 847
+          }
+        ]
+      }
+    ]
   },
   {
     "id": "31cbe508-b291-802d-8239-d463377c019f",
@@ -46,7 +109,18 @@
     "links": [
       "https://www.metadome.ai/module/brand-led-agent"
     ],
-    "order": 1
+    "order": 1,
+    "body": [
+      {
+        "heading": "Case Study",
+        "blocks": [
+          {
+            "type": "link",
+            "url": "https://www.metadome.ai/module/brand-led-agent"
+          }
+        ]
+      }
+    ]
   },
   {
     "id": "2ebbe508-b291-8002-868e-c252a1a4b386",
@@ -69,7 +143,128 @@
     ],
     "association": "Org",
     "links": [],
-    "order": 2
+    "order": 2,
+    "body": [
+      {
+        "heading": "Overview",
+        "blocks": [
+          {
+            "type": "callout",
+            "text": "Re-engineered Royal Enfield AR onboarding (hypothesis-driven, user tested) serving 1.4M users: slashed scan time 60% (<15s), 2x engagement vs brand site (5+ min), halved bounce (↓45 pts), drove 8.6% lead lift."
+          },
+          {
+            "type": "image",
+            "src": "/case-studies/60-faster-onboarding-halved-bounce/1.png",
+            "caption": "New 3D scanning + onboarding flow ⇒ 60% faster via visual guidance + gesture support.",
+            "width": 1107,
+            "height": 480
+          },
+          {
+            "type": "image",
+            "src": "/case-studies/60-faster-onboarding-halved-bounce/2.png",
+            "caption": null,
+            "width": 1192,
+            "height": 946
+          }
+        ]
+      },
+      {
+        "heading": "Situation",
+        "blocks": [
+          {
+            "type": "list",
+            "items": [
+              "User & ICP: Royal Enfield website visitors (Android mobile/tablet, 25-45yo, 2-wheeler buyers) exploring AR visualization before purchase via our first standalone AR deployment.",
+              "Core JTBD: \"Show me this bike in my garage/space instantly without scanning confusion or tech frustration.\"",
+              "Pain points: >35s median scan time, confusing surface detection, 2D UI onboarding skipped; users needed hand-holding but got static instructions.",
+              "Starting hypothesis: \"Surface scanning + 2D onboarding friction kills sessions; 3D immersive flows + dynamic visual cues will cut scan time, and bounce.\""
+            ]
+          },
+          {
+            "type": "image",
+            "src": "/case-studies/60-faster-onboarding-halved-bounce/3.png",
+            "caption": "Old 2D Scanning Flow - 2D static instructions.",
+            "width": 1107,
+            "height": 420
+          }
+        ]
+      },
+      {
+        "heading": "Tasks",
+        "blocks": [
+          {
+            "type": "list",
+            "items": [
+              "Success Metrics: Primary: Bounce rate, scan time (<10s). Secondary: Engagement (5+ min), lead conversion.",
+              "Scope: Owned scanning + onboarding UX redesign, graphics/visual cues.",
+              "Process: Funnel differential analysis → identify bleed → user tests (~30 users) → design → iterate → ship.",
+              "Stakeholders: Royal Enfield brand team (approvals), small x-func team (Design/Eng/Graphics), tied to OKRs for module KPIs.",
+              "Frameworks: Funnel Diagnostics (bleed localization), JTBD (guided scanning for fast, seamless transition into AR), Usability Testing (contextual tasks + non-leading debriefs)."
+            ]
+          },
+          {
+            "type": "image",
+            "src": "/case-studies/60-faster-onboarding-halved-bounce/4.png",
+            "caption": "AR flows benchmarked.",
+            "width": 1107,
+            "height": 679
+          }
+        ]
+      },
+      {
+        "heading": "Actions",
+        "blocks": [
+          {
+            "type": "list",
+            "items": [
+              "Discovery: Funnel analysis pinpointed landing → onboarding bleed (>35s scan time); post-onboarding users showed 15-20% leads, 5+ min engagement → isolated scanning as culprit.",
+              "Key insight during user-testing: \"It would be helpful if I could mark a certain area and the bike would appear there\" → birthed \"Place Here\" feature (visual space preview + placement size and position estimate).",
+              "UX overhaul: Redesigned scanning: non-intrusive dynamic 3D visual cues (scannable area feedback, lighting feedback) vs static 2D instructions.",
+              "Onboarding pivot: Ditched 2D UI for immersive 3D onboarding integrated into AR experience; taught model interaction via in-world gestures and animations.",
+              "Gesture expansion: Supported common variants of user gestures (pinch, drag, rotate) observed in tests and articles; removed uncommon ones causing friction.",
+              "Insights and Opportunities: ~30 user tests (recent buyers, first-timers) using contextual tasks (\"found this on brand site\") + non-leading debriefs surfaced the key pain points and opportunities that shaped the redesign."
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Results",
+        "blocks": [
+          {
+            "type": "list",
+            "items": [
+              "Scan Time: 35s → 10-15s (⬇️ 60%)",
+              "Bounce Rate: ⬇️ 45 % points",
+              "Engagement: 2x brand site (5+ min)",
+              "Leads: ⬆️8.6%",
+              "Business lift: Case study helped push India scaling + Middle East expansion (10+ markets); core AR flow impacting 70k+ MAU across 10+ marquee clients.",
+              "Strategic: Reduced client churn risk, AR Module capability for future deployments."
+            ]
+          },
+          {
+            "type": "image",
+            "src": "/case-studies/60-faster-onboarding-halved-bounce/5.png",
+            "caption": null,
+            "width": 1177,
+            "height": 624
+          }
+        ]
+      },
+      {
+        "heading": "Learning",
+        "blocks": [
+          {
+            "type": "list",
+            "items": [
+              "Worked: Funnel differential diagnosis helped isolate scanning bleed; 3D immersive onboarding beat 2D (immersiveness-first for AR novices).",
+              "Key tactic: Non-leading user tests (contextual tasks + open debriefs) surfaced authentic pains like gesture mismatches and onboarding misses.",
+              "Growth: Prioritization by frequency/impact from 30+ tests; learned dynamic guidance for edge cases (poor lighting, bad spaces).",
+              "Repeat: Avoid 2D UI in immersive AR; build gesture flexibility from observed behaviors."
+            ]
+          }
+        ]
+      }
+    ]
   },
   {
     "id": "2ebbe508-b291-8033-9527-e683c4ecef7a",
@@ -91,7 +286,110 @@
     ],
     "association": "Org",
     "links": [],
-    "order": 3
+    "order": 3,
+    "body": [
+      {
+        "heading": "Overview",
+        "blocks": [
+          {
+            "type": "quote",
+            "text": "Discover Compare empowers users to understand price differences with dual-view visuals, dynamic feature highlights, and detailed performance metrics - streamlining variant comparisons, clarifying value, and enabling confident decisions with speed and precision. All from a single platform."
+          },
+          {
+            "type": "para",
+            "text": "Thus turning a markets text-only spec experience into a showroom-like visual comparison for mass-market car buyers and driving ~15% lead conversion from Compare sessions (vs ~5% industry benchmark)."
+          }
+        ]
+      },
+      {
+        "heading": "Situation",
+        "blocks": [
+          {
+            "type": "list",
+            "items": [
+              "Users: Mass-market buyers in India/Middle East comparing variants to understand \"what do I get for extra money?\"",
+              "Context: Discover suite (Landing → Configurator) lacked side-by-side visual comparison, missing the opportunity to build user confidence through showroom-like clarity with a compare tool; market offered textual tables.",
+              "Trigger: Major OEM needed full suite for new model launch (100k+ visitors expected during launch week, 30k+ per month for subsequent months).",
+              "Constraints: 45 days, small team, mobile+desktop+tablet, no-code toggle, no time slip."
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Tasks",
+        "blocks": [
+          {
+            "type": "list",
+            "items": [
+              "Goal: Ship Compare in 45 days driving 30% engagement lift + ~4x industry benchmark lead conversion (achieved 3x).",
+              "North Star: Lead conversion from Compare. Primary: adoption, funnel progression.",
+              "Owned: Research, PRD, flows, analytics. Co-owned UX with Product Design and shipping with Delivery.",
+              "Stakeholders: 3D leads, EM, manager, Delivery Head, CTO/COO, client teams.",
+              "Approach: Research→insights→features→design→build→QA→integration."
+            ]
+          },
+          {
+            "type": "image",
+            "src": "/case-studies/visual-compare-for-mass-market-buyers/1.png",
+            "caption": "User flow & key features overview.",
+            "width": 1247,
+            "height": 793
+          }
+        ]
+      },
+      {
+        "heading": "Actions",
+        "blocks": [
+          {
+            "type": "list",
+            "items": [
+              "Researched: Industry expert interviews + OEM/showroom insights + competitor audits confirmed visual gap.",
+              "Opportunity buckets: Visualization (mobile landscape), Knowledge (tables), Convenience (2-click switching), Leads.",
+              "Prioritized: Mobile+desktop [95%+ traffic], reused variant catalog UX, cut nice-to-haves (multi-state description tray).",
+              "Designed: Co-created Configurator→Compare→Lead flows and UX.",
+              "Coordinated: Aligned 3D (18 variant visuals), Engineering (module development), DevOps (anticipated scale), and client integration for launch day with Delivery.",
+              "Analytics: Designed events and dashboards to track adoption, engagement, and lead conversion."
+            ]
+          },
+          {
+            "type": "image",
+            "src": "/case-studies/visual-compare-for-mass-market-buyers/2.png",
+            "caption": "Lofi screen flow for positioning (Configurator→Compare)",
+            "width": 1247,
+            "height": 901
+          }
+        ]
+      },
+      {
+        "heading": "Results",
+        "blocks": [
+          {
+            "type": "list",
+            "items": [
+              "~40% adoption from configurator users.",
+              "30% engagement lift over baseline.",
+              "~15% lead conversion from compare.",
+              "1.4x higher lead likelihood for Compare users.",
+              "Unlocked OEM expansion into 10+ Middle East markets on the back of a high-impact go-live 🚀"
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Learning",
+        "blocks": [
+          {
+            "type": "list",
+            "items": [
+              "Constraints force impact/effort clarity",
+              "Prior research saves weeks",
+              "Reuse > reinvention under pressure",
+              "Orchestration = half the battle"
+            ]
+          }
+        ]
+      }
+    ]
   },
   {
     "id": "2e4be508-b291-81db-8ed2-e715bcf3fa77",
@@ -112,6 +410,118 @@
     ],
     "association": "Org",
     "links": [],
-    "order": 4
+    "order": 4,
+    "body": [
+      {
+        "heading": "Overview",
+        "blocks": [
+          {
+            "type": "para",
+            "text": "Accelerated time-to-market by 25%, increased capacity to support ~1.5x parallel go-lives with cross-team collaboration by mapping 3D/tech pipeline bottlenecks, external benchmarking, process redesign."
+          },
+          {
+            "type": "image",
+            "src": "/case-studies/25-faster-time-to-market/1.png",
+            "caption": "High-level handoff steps and optimization bucketing.",
+            "width": 1247,
+            "height": 445
+          }
+        ]
+      },
+      {
+        "heading": "Situation",
+        "blocks": [
+          {
+            "type": "list",
+            "items": [
+              "Hero: Sales team needed credible shorter go‑live promises to close deals faster without breaking delivery.",
+              "Bottleneck: 3D team capped at ~3–5 parallel go‑lives; 50+ day handoffs created fire‑drills during tight client timelines.",
+              "Pain: Previous optimization attempts failed; general belief that \"this is just how 3D works,\" causing skepticism about change.",
+              "Stakes: product entering scaling phase; 3D capacity risked blocking major new deals.",
+              "Constraints: No hires, no SLA changes, <$1K research budget, 3–4 week timeline before Q2 deals.",
+              "My hypothesis: Manual work + outdated tools could yield 30–40% handoff reduction with targeted process/tooling fixes."
+            ]
+          },
+          {
+            "type": "image",
+            "src": "/case-studies/25-faster-time-to-market/2.png",
+            "caption": "Pipeline map.",
+            "width": 1247,
+            "height": 444
+          }
+        ]
+      },
+      {
+        "heading": "Tasks",
+        "blocks": [
+          {
+            "type": "list",
+            "items": [
+              "SMART objective: Cut 3D→Tech handoff from 50+ to ~<30days by Q2 end..",
+              "North Star: Average handoff duration (contract signed → tech-ready).",
+              "Primary KPIs: Handoff days, parallel go-lives capacity (target: 2x).",
+              "Secondary KPIs: 3D efficiency (fewer iterations/manual effort).",
+              "Owned: Discovery (shadowing/interviews), benchmarking (expert surveys), gap analysis, recommendations + sequencing with 3D/Graphics leads.",
+              "Process and frameworks: JTBD → Discovery/gap analysis → Solution Clustering → Prioritization → Improvement loop.",
+              "Key players: Manager/3D lead/Solutions lead; EM/CTO (approval)."
+            ]
+          },
+          {
+            "type": "image",
+            "src": "/case-studies/25-faster-time-to-market/3.png",
+            "caption": "Mapping steps within Pipeline.",
+            "width": 1247,
+            "height": 1036
+          }
+        ]
+      },
+      {
+        "heading": "Actions",
+        "blocks": [
+          {
+            "type": "list",
+            "items": [
+              "Mapped 3D workflow: Shadowed artists, documented steps, tools, time per stage from intake to handoff.",
+              "Found hidden opportunities: Manual retopo, materials/textures, AO/light maps, file transfers that were normalized.",
+              "Benchmarked experts: Paid niche surveys + network revealed faster industry practices for retopo/maps.",
+              "Gap analysis: Identified 4 clusters - Retopo, maps, hardware, scripts - via internal vs external comparison.",
+              "Prioritized high-leverage: Chose retopo + maps + scripts for biggest time savings, lowest quality risk.",
+              "Tested retopo tools: Experimented, ran 3D team trials, selected best for our use case.",
+              "Fixed maps & scripts: Found faster AO/light map tools; defined Blender→internal pipeline scripts to cut iterations and manual redundant steps.",
+              "Drove adoption: Overcame \"we've tried everything\" skepticism with benchmarks + quick wins; iterated via 3D feedback."
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Results",
+        "blocks": [
+          {
+            "type": "list",
+            "items": [
+              "Time-to-market: 25-30% faster",
+              "Capacity: ~1.5x parallel go-lives without hiring/outsourcing.",
+              "Sales impact: Enabled shorter go-live promises, strengthening deal differentiation.",
+              "Risk reduced: Fewer fire-drills on tight client timelines; more predictable delivery."
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Learning",
+        "blocks": [
+          {
+            "type": "list",
+            "items": [
+              "Better questions beat surface interviews: Shadowing revealed \"normalized pain\" being called \"fine.\"",
+              "Evidence conquers skepticism: Benchmarks + quick experiments shifted \"we've tried everything\" mindset.",
+              "Gut + structure wins: Instinct + discovery framework overcame initial resistance.",
+              "Progress > perfection: 50+ → 35 days + 1.5x capacity proved scalable value despite not moonshot.",
+              "Loved proactive discovery: Expert conversations (internal/external) energized cross-team impact."
+            ]
+          }
+        ]
+      }
+    ]
   }
 ]
