@@ -54,5 +54,26 @@ import "../styles/desk-panels.css";
         // looking at the complete, prerendered portfolio either way, and an
         // error message would be the only thing here that could break it.
       });
+  } else if (matchMedia("(max-width: 1023px)").matches) {
+    // Beat 8: the pocket edition gets one dismissible chip — never a wall
+    // (ux-rules.md rule 8). Small-viewport only: a desktop that failed the
+    // gate for another reason (WebGL, reduced motion) is already on the right
+    // stage and the chip would just be noise.
+    const KEY = "desk-chip-dismissed";
+    if (!localStorage.getItem(KEY)) {
+      const chip = document.createElement("p");
+      chip.className = "stack-chip";
+      chip.innerHTML = `<span>Best on desktop — there's a whole desk over there</span>`;
+      const x = document.createElement("button");
+      x.type = "button";
+      x.setAttribute("aria-label", "Dismiss");
+      x.textContent = "✕";
+      x.addEventListener("click", () => {
+        localStorage.setItem(KEY, "1");
+        chip.remove();
+      });
+      chip.append(x);
+      document.body.append(chip);
+    }
   }
 </script>

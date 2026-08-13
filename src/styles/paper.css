@@ -23,6 +23,14 @@ body {
   /* Painted explicitly — a transparent body borrows the host's ground. */
   margin: 0;
   background-color: var(--bg);
+  /* Beat 8: on the stack stage the lamp survives as a warm corner. Harmless on
+   * the no-JS document too — it is the same world, flattened. */
+  background-image: radial-gradient(
+    52rem 36rem at 88% -6rem,
+    color-mix(in srgb, var(--highlighter) 16%, transparent),
+    transparent 70%
+  );
+  background-repeat: no-repeat;
   color: var(--text);
   font-family: var(--font-body);
   font-size: var(--t-body-size);
@@ -275,6 +283,43 @@ hr,
 .scroll-x {
   overflow-x: auto;
   max-width: 100%;
+}
+
+.stack-chip {
+  position: fixed;
+  bottom: var(--s-4);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9;
+
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  max-width: calc(100vw - var(--s-6));
+  padding: var(--s-2) var(--s-3) var(--s-2) var(--s-4);
+
+  background-color: var(--paper-sheet);
+  color: var(--text-muted);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-chip);
+  box-shadow: var(--e-lift);
+  font-family: var(--font-mono);
+  font-size: var(--t-label-size);
+  letter-spacing: 0.05em;
+}
+
+.stack-chip button {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.stack-chip button:hover {
+  color: var(--accent);
 }
 
 .visually-hidden:not(:focus):not(:active) {
