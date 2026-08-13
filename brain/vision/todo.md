@@ -84,17 +84,15 @@ requires it on the free plan; history was secret-scanned first).
       A malformed sync must **fail the build**, never publish a broken section.
 - [ ] `src/content/index.ts` — the proxy. **Nothing outside this folder may
       mention Notion.**
-- [ ] `scripts/sync-notion.mjs`:
-  - [ ] Query all six databases via the official API.
-  - [ ] Filter `Visibility === "Highlight"` on the four that have it.
-  - [ ] Normalise Notion shapes → the contract (multi-selects to `string[]`,
-        rich text to plain strings, comma-split the `Link`/`Links` text fields).
-  - [ ] Derive `id`, `slug`, `order`.
-  - [ ] **Download every Notion asset into `public/`** — their signed URLs expire
-        in about an hour, so hot-linking means every image breaks by lunchtime.
-  - [ ] Write `content/*.json` + `meta.json` with counts and warnings.
-  - [ ] Fail loudly on a missing required field. A silent partial sync that
-        publishes an empty portfolio is the worst possible failure here.
+- [x] `scripts/sync-notion.mjs` *(2026-08-13, PR #1)* — all six databases via
+      the official API (raw fetch, pinned version), Visibility select gate,
+      normalisation to the contract, `id`/`slug`/`order`, `content/*.json` +
+      `meta.json` with warnings, loud failure on empty sections and missing
+      required fields. 6/6 tests; first real sync: **60 records**.
+  - [ ] **Asset downloader still pending** — today the sync only *warns* if a
+        hosted (expiring) file appears; all current links are external URLs.
+        Build it with the Photo/Playlist fields, which is when hosted files
+        actually arrive.
 - [ ] `.github/workflows/sync-content.yml` — cron `*/30`, `workflow_dispatch`
       (so it can be run from the GitHub mobile app), and `repository_dispatch`.
 - [ ] Notion database automation → webhook → `repository_dispatch`, for instant
