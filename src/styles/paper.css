@@ -26,8 +26,10 @@ body {
   color: var(--text);
   font-family: var(--font-body);
   font-size: var(--t-body-size);
-  font-weight: 400;
-  line-height: 1.65;
+  font-weight: 300;
+  /* Lexend runs wider and taller-x than a serif: lighter weight, slightly
+   * tighter leading than the serif needed. */
+  line-height: 1.6;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 }
@@ -62,7 +64,7 @@ h2 {
 h3 {
   font-size: var(--t-subhead-size);
   font-family: var(--font-body);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 p {
@@ -121,9 +123,12 @@ a:hover {
   color: var(--accent);
 }
 
-/* Margin notes are italic serif — NOT a handwriting font. Handwriting fonts are
- * the fastest way to make a considered design look like a template. */
+/* Margin notes are italic SERIF (Fraunces) — Lexend's italic is a slant, and a
+ * written annotation needs a real italic. NOT a handwriting font either:
+ * handwriting fonts make a considered design look like a template. */
 .note {
+  font-family: var(--font-display);
+  font-weight: 400;
   font-style: italic;
   font-size: var(--t-small-size);
   color: var(--text-muted);
