@@ -49,12 +49,13 @@ html[data-stage="desk"] .masthead {
   z-index: 3;
   pointer-events: none;
   max-width: min(38ch, 42vw);
-  text-shadow: 0 1px 12px rgb(0 0 0 / 0.45);
-  color: var(--paper-page);
+  /* Ink on paper. The backdrop is card stock now, not a dark room, so the old
+   * white-on-dark treatment inverted into unreadable pale-on-pale. */
+  color: var(--ink);
 }
 
 html[data-stage="desk"] .masthead .label {
-  color: var(--paper-edge);
+  color: var(--ink-muted);
 }
 
 /* --- Sections become panels ---------------------------------------------- */

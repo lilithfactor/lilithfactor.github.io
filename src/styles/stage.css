@@ -34,10 +34,10 @@
    *
    * The name stays --stage-desk because it still names the desk surface. What
    * changed is what the desk is made of, not what it is. */
-  --stage-desk: #c69b6a;
+  --stage-desk: #e3d3b6;
   /* The same board seen from the side — the desk's own cut edge and the strip
    * of thickness under its top sheet. */
-  --stage-desk-deep: #a97b47;
+  --stage-desk-deep: #cdba98;
   --stage-paper: var(--paper-sheet);
   --stage-paper-aged: var(--paper-aged);
   --stage-paper-edge: var(--paper-edge);
@@ -48,7 +48,7 @@
   /* The sheet of card standing behind the whole model. Deep and desaturated so
    * it recedes: a diorama needs its backdrop to be the darkest thing in frame,
    * or the base sheet has no edge and the model has no depth. */
-  --stage-backdrop: #574433;
+  --stage-backdrop: #ede4d4;
 
   /* THE CUT EDGE — the single most important value in this file.
    *
@@ -58,28 +58,28 @@
    * the compressed core of the board rather than its printed skin. Every colour
    * on the desk is blended toward this one to make its edges, so the whole model
    * is cut from stock with the same core. */
-  --stage-cut: #6b4a2c;
+  --stage-cut: #b09b7b;
 
   /* Contact shadow. Warm and light — this is card resting on card in a lit
    * room, not an object in a void. A neutral or black contact shadow is the
    * fastest way to make a paper model look like grey plastic. */
-  --stage-shadow: #6a5136;
+  --stage-shadow: #a89577;
 
   /* The one cool card in the model. Everything else is warm, and a set of five
    * warm-brown book spines reads as five copies of the same book; one cold
    * spine fixes that for free. */
-  --stage-cool: #6f8b96;
+  --stage-cool: #c8d2d6;
 
   /* The lamp, roughly 2900K. It is now both a light and a painted glow — see
    * desk.ts — because a paper lamp that only emits light has nothing on the
    * desk to show for it. */
-  --stage-key-light: #ffe6bd;
+  --stage-key-light: #ffe9c4;
   /* The cool half of the ambient gradient — daylight from off left, at roughly
    * 7000K. The temperature gap against the lamp is what keeps flat card from
    * reading as flat colour. */
-  --stage-fill-light: #b6cde2;
+  --stage-fill-light: #dce6ec;
   /* The warm half: light bouncing back up off the kraft base sheet. */
-  --stage-ambient: #a08256;
+  --stage-ambient: #e8dcc6;
 }
 
 /* --- The canvas -----------------------------------------------------------

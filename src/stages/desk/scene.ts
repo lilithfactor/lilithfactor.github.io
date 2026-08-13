@@ -118,7 +118,11 @@ export function mountDesk(): DeskHandle | null {
   const scene = new Scene();
   // Darker than the backdrop card, so the backdrop reads as a sheet standing in
   // a room rather than as the room itself.
-  scene.background = blend(palette.backdrop, palette.shadow, 0.6);
+  // Exactly the backdrop, NOT a darkened blend. The room geometry does not
+  // reach the top of a wide viewport, and a darker clear colour turned that gap
+  // into a visible grey band across the top of the page. Matching the wall makes
+  // the seam impossible to see instead of merely less obvious.
+  scene.background = palette.backdrop.clone();
 
   const textures = createTextures(renderer.capabilities.getMaxAnisotropy());
   const materials = createMaterials(palette, textures);

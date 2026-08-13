@@ -41,10 +41,9 @@ const DATABASES = {
 const LINKS = [
   { label: "LinkedIn", url: "https://www.linkedin.com/in/pranav-upadhyay/" },
   { label: "GitHub", url: "https://github.com/lilithfactor" },
-  // Email is deliberately ABSENT until Pranav supplies the address. The Notion
-  // button uses an email automation action, which exposes no address via the
-  // API, and a guessed address on a portfolio is worse than no address: it
-  // silently loses the exact messages the site exists to attract.
+  // Supplied by Pranav 2026-08-13. Hand-maintained because the Notion button
+  // uses an email automation action, which exposes no address via the API.
+  { label: "Email", url: "mailto:pranav.upadhyay.p@gmail.com" },
   { label: "Instagram", url: "https://www.instagram.com/pra.naive/" },
   { label: "Goodreads", url: "https://www.goodreads.com/lilithfactor" },
   { label: "Chess.com", url: "https://www.chess.com/member/lilithfactor" },
