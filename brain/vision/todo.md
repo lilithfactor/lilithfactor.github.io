@@ -6,7 +6,9 @@ Build-scoped tasks. Ideas live in [vision.md](vision.md); the flow is in
 > *Rebuilt 2026-08-12.* Previously the Muretabi app's todo list — EAS builds,
 > LiveKit quotas, Play Console. None of it applied. Replaced wholesale.
 
-**Current phase: 1 — content pipeline.** Phase 0 shipped 2026-08-13: the paper
+**Current phase: 4 — polish.** Phases 1 and 2 shipped 2026-08-13.
+
+*(was: phase 1)* Phase 0 shipped 2026-08-13: the paper
 foundation is live at https://lilithfactor.github.io/ (repo made public — Pages
 requires it on the free plan; history was secret-scanned first).
 
@@ -104,8 +106,8 @@ requires it on the free plan; history was secret-scanned first).
 - [ ] `links.json` — add the Email link by hand (the Notion button uses an email
       action and exposes no URL).
 
-**Exit:** the site fully replaces the Notion page; an edit in Notion is live in
-under two minutes.
+**Exit: ✅ 2026-08-13** — all 60 records live, 8 sections, 5 case-study routes,
+sync on cron + phone-runnable dispatch.
 
 ## Phase 2 — The desk
 
@@ -147,8 +149,9 @@ art direction.
       `AudioBufferSourceNode` (genuinely gapless) — decoding only the active
       track, since a decoded 2-minute track is ~20MB of RAM.
 
-**Exit:** desktop gets the desk; mobile downloads none of it; the site is silent
-until asked.
+**Exit: ✅ 2026-08-13 (desk)** — verified: initial page ships a 2KB capability
+gate; the 517KB scene chunk is never referenced by index.html, so a phone does
+not fetch it. Record player NOT built — blocked on music licensing.
 
 ## Phase 3 — The figure
 

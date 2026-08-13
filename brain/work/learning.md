@@ -8,6 +8,26 @@ wouldn't change what a future session does, it doesn't go in. Newest first.
 
 ---
 
+## The token colour and the rendered colour are not the same colour
+
+*2026-08-13, Phase 2.*
+
+`--desk: #3B3229` is correct as a flat CSS ground and renders as **near-black**
+in a lit 3D scene: a renderer multiplies the base colour by its own light
+falloff, so an already-dark token lands two stops lower than it reads in a
+swatch. The first desk photographed as a black rectangle with the lights at
+sane intensities — the instinct is to keep raising the lights, which only
+washes out the paper.
+
+Same shape, opposite direction, for shadows: `--e-open` is tuned for
+paper-on-paper and is **invisible** against walnut, so the content column read
+as a hard-edged slab pasted over the scene rather than a sheet resting on it.
+
+**Rule:** a design token is a colour *in its intended context*. Crossing into a
+renderer — or onto a much darker ground — needs a stage-specific value derived
+from the token, not the token itself. `--stage-desk` is the lit walnut;
+`--desk` became `--stage-desk-deep`, its own shadow.
+
 ## Verify the verifier before believing it — a night of false alarms
 
 *2026-08-13, Phase 0 visual verification.*

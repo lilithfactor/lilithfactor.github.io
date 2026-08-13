@@ -28,7 +28,7 @@ const bookLine = (b: { name: string; author: string | null }) =>
   title="Pranav Upadhyay — Product Manager"
   description="Product Manager who turns messy, high-stakes journeys into simple, confident experiences."
 >
-  <main class="page stack">
+  <main id="main-content" tabindex="-1" class="page stack">
     <header class="stack">
       <p class="label">Product Manager</p>
       <h1 class="display">Pranav Upadhyay</h1>
@@ -64,7 +64,7 @@ const bookLine = (b: { name: string; author: string | null }) =>
                   <p>{d.summary}</p>
                   {d.url && (
                     <p class="link-row">
-                      <a href={d.url} target="_blank" rel="noopener">
+                      <a href={d.url} target="_blank" rel="noopener" aria-label={`Visit ${d.name}`}>
                         Visit
                       </a>
                     </p>
@@ -84,7 +84,7 @@ const bookLine = (b: { name: string; author: string | null }) =>
                   <p>{d.summary}</p>
                   {d.url && (
                     <p class="link-row">
-                      <a href={d.url} target="_blank" rel="noopener">
+                      <a href={d.url} target="_blank" rel="noopener" aria-label={`Visit ${d.name}`}>
                         Visit
                       </a>
                     </p>
@@ -106,7 +106,12 @@ const bookLine = (b: { name: string; author: string | null }) =>
               <p>{p.summary}</p>
               <p class="link-row">
                 {p.links.map((link) => (
-                  <a href={link.url} target="_blank" rel="noopener">
+                  <a
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener"
+                    aria-label={link.label === "Visit" ? `Visit ${p.name}` : undefined}
+                  >
                     {link.label}
                   </a>
                 ))}
@@ -170,7 +175,7 @@ const bookLine = (b: { name: string; author: string | null }) =>
     </Section>
 
     <Section id="connect" label="Connect" title="Connect">
-      <p class="link-row link-row--large">
+      <nav class="link-row link-row--large" aria-label="Connect">
         {
           links.map((l) => (
             <a href={l.url} target={l.url.startsWith("mailto:") ? undefined : "_blank"} rel="noopener">
@@ -178,7 +183,7 @@ const bookLine = (b: { name: string; author: string | null }) =>
             </a>
           ))
         }
-      </p>
+      </nav>
     </Section>
   </main>
 </Base>

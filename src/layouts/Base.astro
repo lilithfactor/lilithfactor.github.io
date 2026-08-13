@@ -48,6 +48,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     <meta property="og:url" content={canonical} />
   </head>
   <body>
+    <a href="#main-content" class="visually-hidden">Skip to content</a>
     <slot />
     <StageMount />
   </body>

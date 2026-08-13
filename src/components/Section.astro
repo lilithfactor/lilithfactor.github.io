@@ -10,7 +10,7 @@ const { id, label, title } = Astro.props;
 
 <section {id} data-artifact={id} class="section">
   <header>
-    <p class="label">{label}</p>
+    {label !== title && <p class="label">{label}</p>}
     <h2>{title}</h2>
   </header>
   <div class="stack">
