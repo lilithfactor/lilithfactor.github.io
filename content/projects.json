@@ -1,0 +1,102 @@
+[
+  {
+    "id": "3a2be508-b291-8010-93fc-daea1c14cd60",
+    "slug": "muretabi",
+    "name": "Muretabi",
+    "summary": "A real-time trip dashboard for groups traveling to one destination. Live group map, push-to-talk voice, traffic-aware ETAs, and an F1-style leaderboard, plus a share-a-live-link feature so someone not on the trip can follow along, no app or login required.",
+    "productType": "App",
+    "links": [
+      {
+        "url": "https://play.google.com/store/apps/details?id=com.muretabi.app",
+        "label": "Play Store"
+      },
+      {
+        "url": "https://muretabi.com/ ",
+        "label": "Visit"
+      }
+    ],
+    "kpis": [
+      "Retention",
+      "Growth",
+      "Engagement"
+    ],
+    "order": 0
+  },
+  {
+    "id": "371be508-b291-8002-9b38-c1b0744b2f15",
+    "slug": "local-rag-pipeline",
+    "name": "Local RAG Pipeline",
+    "summary": "Chat with your own PDFs and notes, fully local, private, zero API keys. Drop in documents, get grounded answers. Built on llama.cpp, FAISS, and sentence-transformers.",
+    "productType": "AI Productivity Suite",
+    "links": [
+      {
+        "url": "https://github.com/lilithfactor/rag-pipeline.git",
+        "label": "GitHub"
+      }
+    ],
+    "kpis": [],
+    "order": 1
+  },
+  {
+    "id": "325be508-b291-808a-a97f-c02a2306be00",
+    "slug": "applifai",
+    "name": "Applifai",
+    "summary": "A browser extension that simplifies filling any form by autofilling fields in just one click. Sync your profile to seamlessly complete applications across any site, eliminating repetitive data entry and saving hours of effort.",
+    "productType": "Extension",
+    "links": [
+      {
+        "url": "https://github.com/lilithfactor/applifai.git",
+        "label": "GitHub"
+      },
+      {
+        "url": "https://applifai.vercel.app/",
+        "label": "Visit"
+      }
+    ],
+    "kpis": [
+      "Efficiency",
+      "Usability"
+    ],
+    "order": 2
+  },
+  {
+    "id": "325be508-b291-808c-b1d7-c283107fa810",
+    "slug": "slimly",
+    "name": "Slimly",
+    "summary": "A URL shortener - No login, Lightning-fast, Shortcut driven. Comes with only what's needed.",
+    "productType": "Web",
+    "links": [
+      {
+        "url": "https://slimly.co.in/",
+        "label": "Visit"
+      },
+      {
+        "url": "https://github.com/lilithfactor/slimly.git",
+        "label": "GitHub"
+      }
+    ],
+    "kpis": [
+      "Efficiency",
+      "Usability"
+    ],
+    "order": 3
+  },
+  {
+    "id": "2f5be508-b291-800d-8509-c105dacbd144",
+    "slug": "answers-to-where-should-we-go",
+    "name": "Answers to “Where should we go?”",
+    "summary": "Collection of the best spots, each tagged with budget, vibe, activities, ideal use-case, rating, timing, reservations, and must-do tips; so you choose by context, not random reviews and to turn “Where should we go?” into an easy decision.",
+    "productType": "Cataloging",
+    "links": [
+      {
+        "url": "https://docs.google.com/spreadsheets/d/143uhWStSI0IbwOX87nKzfUHHSe8IfliZW64sqmZ9_Zs/edit?pli=1&gid=0#gid=0",
+        "label": "Sheet"
+      }
+    ],
+    "kpis": [
+      "Usability",
+      "Efficiency"
+    ],
+    "order": 4
+  }
+]

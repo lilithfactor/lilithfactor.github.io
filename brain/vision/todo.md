@@ -38,10 +38,9 @@ requires it on the free plan; history was secret-scanned first).
   instrumental because lyrics compete with reading. Options: your own · Free
   Music Archive / Uppbeat · AI-generated. Blocks the record player, nothing else.
 
-- [ ] **The About paragraph is broken in production right now.** It ends
-  `"…and trusted by brands like"` and stops mid-clause, on the first thing anyone
-  reads. Either name the brands or cut the clause — it is a two-minute Notion
-  edit and it is currently the worst thing on the live site.
+- [x] ~~The About paragraph ends mid-clause~~ *(2026-08-13: it never did — the
+  claim was a 400-char truncation artifact in the research dump. The paragraph
+  names General Motors, Nissan, Royal Enfield, VinFast. Nothing to do.)*
 
 ---
 

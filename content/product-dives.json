@@ -1,0 +1,137 @@
+[
+  {
+    "id": "32cbe508-b291-80ca-b704-d45179ba9227",
+    "slug": "when-reliable-beats-cheap-a-reliability-first-ranking-engine",
+    "name": "When reliable beats cheap: A Reliability first ranking engine",
+    "summary": "When cheapest isn't best, a product design for how a B2B travel platform should rank hotel options across reliability, content quality, and partner trust.",
+    "url": null,
+    "productType": [
+      "App"
+    ],
+    "category": [
+      "Design"
+    ],
+    "gtm": [
+      "B2B"
+    ],
+    "date": "2026-03-24",
+    "pricing": null,
+    "order": 0
+  },
+  {
+    "id": "324be508-b291-809e-b68a-e6abe644d390",
+    "slug": "re-designing-fermis-onboarding-flow",
+    "name": "Re-designing Fermi’s Onboarding Flow",
+    "summary": "Redesigned onboarding flow for Fermi’s AI STEM Tutor to eliminate friction points, prioritize mobile UX based on analytics and create instant value for high school students.",
+    "url": "https://fermi-onboarding.vercel.app/",
+    "productType": [
+      "Web"
+    ],
+    "category": [
+      "Design"
+    ],
+    "gtm": [
+      "B2C"
+    ],
+    "date": "2026-03-17",
+    "pricing": null,
+    "order": 1
+  },
+  {
+    "id": "324be508-b291-8016-9aa4-f7e5f82bec25",
+    "slug": "field-to-audit-carbon-verification-pipeline",
+    "name": "Field-to-Audit Carbon Verification Pipeline",
+    "summary": "Designed an end-to-end data pipeline solving critical chain-of-custody gaps in rural agricultural field sampling. Defined workflows for automated tracer anomaly quarantines, offline syncing, and paired-sample CDR computations to align field operations with strict scientific protocols.",
+    "url": null,
+    "productType": [
+      "App"
+    ],
+    "category": [
+      "Design"
+    ],
+    "gtm": [
+      "Internal"
+    ],
+    "date": "2026-03-15",
+    "pricing": null,
+    "order": 2
+  },
+  {
+    "id": "309be508-b291-80b6-9914-ce5836062acd",
+    "slug": "improve-online-product-pages-for-retailers",
+    "name": "Improve online product pages for retailers",
+    "summary": "AI-powered content optimizer that scores PDPs, benchmarks competitors, and generates guideline-compliant product content from CSV uploads for Retailers.",
+    "url": "https://ai-content-optimization.vercel.app/",
+    "productType": [
+      "Web",
+      "Content Creation"
+    ],
+    "category": [
+      "Design"
+    ],
+    "gtm": [
+      "B2B"
+    ],
+    "date": "2026-02-16",
+    "pricing": null,
+    "order": 3
+  },
+  {
+    "id": "2fcbe508-b291-80a6-bbc3-ce2b8c73de20",
+    "slug": "personal-wellness-app",
+    "name": "Personal Wellness App",
+    "summary": "Redesigned YourDOST’s Mental Wellness mobile experience around four core pillars, Home, Companion, Progress, and Check‑In, to support episodic mental health needs, ensure clear next steps, and preserve continuity when users return.",
+    "url": "https://yourdost.com/",
+    "productType": [
+      "App"
+    ],
+    "category": [
+      "Design"
+    ],
+    "gtm": [
+      "B2B"
+    ],
+    "date": "2026-02-03",
+    "pricing": null,
+    "order": 4
+  },
+  {
+    "id": "2e6be508-b291-80c6-a965-ce2ff6b250f6",
+    "slug": "goodreads",
+    "name": "Goodreads",
+    "summary": "Goodreads is your reading home base to track your books and discover what to read next through real-reader reviews and recommendations.",
+    "url": "https://www.goodreads.com/",
+    "productType": [
+      "Cataloging"
+    ],
+    "category": [
+      "Analysis"
+    ],
+    "gtm": [
+      "B2C"
+    ],
+    "date": "2026-01-12",
+    "pricing": "Free",
+    "order": 5
+  },
+  {
+    "id": "2e5be508-b291-80a2-a2bc-fbfa5ff87a52",
+    "slug": "merlin-ai",
+    "name": "Merlin AI",
+    "summary": "Merlin AI is an in-browser coworker that helps you write, summarize, search, and automate without switching tabs.",
+    "url": "https://www.getmerlin.in/",
+    "productType": [
+      "AI Productivity Suite"
+    ],
+    "category": [
+      "Landscaping",
+      "Analysis"
+    ],
+    "gtm": [
+      "B2C"
+    ],
+    "date": "2026-01-11",
+    "pricing": "https://www.getmerlin.in/pricing?plan=yearly%5D%28https%3A%2F%2Fwww.getmerlin.in%2Fpricing%3Fplan%3Dyearly",
+    "order": 6
+  }
+]

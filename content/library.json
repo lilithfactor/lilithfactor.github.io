@@ -1,0 +1,492 @@
+[
+  {
+    "id": "35bbe508-b291-8059-9219-f396d869a384",
+    "slug": "thinking-fast-and-slow",
+    "name": "Thinking fast and slow",
+    "author": null,
+    "domain": [],
+    "status": "enqueued",
+    "month": null,
+    "year": null,
+    "order": 0
+  },
+  {
+    "id": "35bbe508-b291-805f-bb87-c80546dff628",
+    "slug": "steal-like-an-artist",
+    "name": "Steal like an artist",
+    "author": null,
+    "domain": [],
+    "status": "enqueued",
+    "month": null,
+    "year": null,
+    "order": 1
+  },
+  {
+    "id": "35bbe508-b291-80cd-8190-d4ad86cc094c",
+    "slug": "hooked",
+    "name": "Hooked",
+    "author": null,
+    "domain": [],
+    "status": "enqueued",
+    "month": null,
+    "year": null,
+    "order": 2
+  },
+  {
+    "id": "35bbe508-b291-80a7-9922-f7ab63a30eb0",
+    "slug": "unreasonable-hospitality",
+    "name": "Unreasonable Hospitality",
+    "author": null,
+    "domain": [],
+    "status": "tbd",
+    "month": null,
+    "year": null,
+    "order": 3
+  },
+  {
+    "id": "326be508-b291-806f-bb55-d9c2ed5cf9bf",
+    "slug": "bhagavad-gita",
+    "name": "Bhagavad Gita",
+    "author": null,
+    "domain": [],
+    "status": "reading",
+    "month": "Mar",
+    "year": 2026,
+    "order": 4
+  },
+  {
+    "id": "30abe508-b291-808c-b131-fd69c620bed0",
+    "slug": "principles",
+    "name": "Principles",
+    "author": "Ray Dalio",
+    "domain": [
+      "Product & Business",
+      "Frameworks and Logic",
+      "Biography"
+    ],
+    "status": "enqueued",
+    "month": null,
+    "year": 2026,
+    "order": 5
+  },
+  {
+    "id": "2f6be508-b291-8036-9352-d7fe051a56c1",
+    "slug": "the-art-of-strategy",
+    "name": "The Art of Strategy",
+    "author": "Avinash Dixit",
+    "domain": [
+      "Psychology & Communication",
+      "Product & Business",
+      "Frameworks and Logic"
+    ],
+    "status": "enqueued",
+    "month": null,
+    "year": 2026,
+    "order": 6
+  },
+  {
+    "id": "2eebe508-b291-80b2-877a-d7fcabe2ac72",
+    "slug": "elon-musk-steve-jobs",
+    "name": "Elon Musk, Steve Jobs",
+    "author": "Walter Isaacson",
+    "domain": [
+      "Leadership & Philosophy",
+      "Product & Business",
+      "Biography"
+    ],
+    "status": "tbd",
+    "month": null,
+    "year": null,
+    "order": 7
+  },
+  {
+    "id": "2eebe508-b291-803e-b047-fd24b139c89a",
+    "slug": "how-economy-works",
+    "name": "How economy works",
+    "author": "George Adamides",
+    "domain": [
+      "Product & Business",
+      "Society",
+      "Finance"
+    ],
+    "status": "tbd",
+    "month": null,
+    "year": null,
+    "order": 8
+  },
+  {
+    "id": "2eebe508-b291-8049-b008-c150aa0b7cf9",
+    "slug": "the-minimalist-entrepreneur",
+    "name": "The minimalist Entrepreneur",
+    "author": "Sahil Lavingia",
+    "domain": [
+      "Product & Business",
+      "Leadership & Philosophy"
+    ],
+    "status": "tbd",
+    "month": null,
+    "year": null,
+    "order": 9
+  },
+  {
+    "id": "2eebe508-b291-801f-a565-e92e3f837edb",
+    "slug": "the-mom-test",
+    "name": "The Mom Test",
+    "author": "Rob Fitzpatrick",
+    "domain": [
+      "Leadership & Philosophy",
+      "Product & Business",
+      "Psychology & Communication",
+      "Frameworks and Logic"
+    ],
+    "status": "enqueued",
+    "month": "Jul",
+    "year": 2026,
+    "order": 10
+  },
+  {
+    "id": "2eebe508-b291-80ea-b54f-e0d05a5b7cd3",
+    "slug": "the-saas-playbook",
+    "name": "The SaaS Playbook",
+    "author": "Rob Walling",
+    "domain": [
+      "Leadership & Philosophy",
+      "Product & Business"
+    ],
+    "status": "tbd",
+    "month": null,
+    "year": null,
+    "order": 11
+  },
+  {
+    "id": "2eebe508-b291-8086-be46-c21bb68843c4",
+    "slug": "obviously-awesome",
+    "name": "Obviously Awesome",
+    "author": "April Dunford",
+    "domain": [
+      "Product & Business",
+      "Psychology & Communication"
+    ],
+    "status": "enqueued",
+    "month": "Feb",
+    "year": 2026,
+    "order": 12
+  },
+  {
+    "id": "2eabe508-b291-8090-aca7-ce4b783bbff5",
+    "slug": "the-design-of-everyday-things",
+    "name": "The design of Everyday Things",
+    "author": "Don Norman",
+    "domain": [
+      "Product & Business",
+      "Frameworks and Logic",
+      "Psychology & Communication"
+    ],
+    "status": "enqueued",
+    "month": null,
+    "year": 2026,
+    "order": 13
+  },
+  {
+    "id": "2eabe508-b291-80a8-932f-dc5884f25e96",
+    "slug": "the-black-swan",
+    "name": "The Black Swan",
+    "author": "Nassim N. Taleb",
+    "domain": [
+      "Frameworks and Logic",
+      "Product & Business",
+      "History",
+      "Society"
+    ],
+    "status": "enqueued",
+    "month": "Feb",
+    "year": 2026,
+    "order": 14
+  },
+  {
+    "id": "2eabe508-b291-8042-bece-ef4aa1f3f2a1",
+    "slug": "the-anxious-generation",
+    "name": "The Anxious Generation",
+    "author": "Jonathan Haidt",
+    "domain": [
+      "Psychology & Communication",
+      "Society"
+    ],
+    "status": "tbd",
+    "month": null,
+    "year": null,
+    "order": 15
+  },
+  {
+    "id": "2eabe508-b291-8042-9bd7-d6fd43034615",
+    "slug": "mans-search-for-meaning",
+    "name": "Mans Search for meaning",
+    "author": "Viktor Frankl",
+    "domain": [
+      "Leadership & Philosophy",
+      "Personal Development"
+    ],
+    "status": "tbd",
+    "month": null,
+    "year": null,
+    "order": 16
+  },
+  {
+    "id": "2e4be508-b291-812c-bb4b-d81edc670cff",
+    "slug": "men-are-from-mars-women-are-from-venus",
+    "name": "Men are from Mars, Women are from Venus",
+    "author": "John Gray",
+    "domain": [
+      "Psychology & Communication"
+    ],
+    "status": "done",
+    "month": "Nov",
+    "year": 2025,
+    "order": 17
+  },
+  {
+    "id": "2e4be508-b291-813e-9efc-d64fe0afc9b0",
+    "slug": "thank-you-for-arguing",
+    "name": "Thank you for Arguing",
+    "author": "Jay Heinrichs",
+    "domain": [
+      "Psychology & Communication"
+    ],
+    "status": "done",
+    "month": "Dec",
+    "year": 2025,
+    "order": 18
+  },
+  {
+    "id": "2e4be508-b291-81a3-bf4f-e2aa0cdde303",
+    "slug": "zero-to-one",
+    "name": "Zero to One",
+    "author": "Peter Thiel",
+    "domain": [
+      "Product & Business"
+    ],
+    "status": "done",
+    "month": null,
+    "year": 2025,
+    "order": 19
+  },
+  {
+    "id": "2e4be508-b291-81a4-8dfa-feed921126b5",
+    "slug": "the-almanack-of-naval-ravikant",
+    "name": "The Almanack of Naval Ravikant",
+    "author": "Eric Jorgenson",
+    "domain": [
+      "Product & Business",
+      "Leadership & Philosophy",
+      "Personal Development"
+    ],
+    "status": "tbd",
+    "month": null,
+    "year": null,
+    "order": 20
+  },
+  {
+    "id": "2e4be508-b291-81e7-ad06-c9d872cd6726",
+    "slug": "things-become-other-things",
+    "name": "Things become other things",
+    "author": "Craig Mod",
+    "domain": [
+      "Philosophy",
+      "Society"
+    ],
+    "status": "tbd",
+    "month": null,
+    "year": null,
+    "order": 21
+  },
+  {
+    "id": "2e4be508-b291-8100-bc96-eca62f32e8b3",
+    "slug": "ikigai",
+    "name": "Ikigai",
+    "author": "Héctor García & Francesc Miralles",
+    "domain": [
+      "Personal Development"
+    ],
+    "status": "done",
+    "month": null,
+    "year": 2025,
+    "order": 22
+  },
+  {
+    "id": "2e4be508-b291-813a-b18b-fe8709185c22",
+    "slug": "a-mathematicians-lament",
+    "name": "A Mathematicians Lament",
+    "author": "Paul Lockhart",
+    "domain": [
+      "Frameworks and Logic",
+      "History"
+    ],
+    "status": "done",
+    "month": "Feb",
+    "year": 2026,
+    "order": 23
+  },
+  {
+    "id": "2e4be508-b291-814c-90e3-fd185d409403",
+    "slug": "the-daily-stoic",
+    "name": "The Daily Stoic",
+    "author": "Ryan Holiday and Stephen Hanselman",
+    "domain": [
+      "Personal Development"
+    ],
+    "status": "done",
+    "month": "Jan",
+    "year": 2026,
+    "order": 24
+  },
+  {
+    "id": "2e4be508-b291-8152-9ba8-eac6cb5c4ed2",
+    "slug": "atomic-habits",
+    "name": "Atomic Habits",
+    "author": "James Clear",
+    "domain": [
+      "Personal Development"
+    ],
+    "status": "done",
+    "month": null,
+    "year": 2025,
+    "order": 25
+  },
+  {
+    "id": "2e4be508-b291-81a4-a39e-f95be398bcf1",
+    "slug": "the-change-book",
+    "name": "The Change Book",
+    "author": "Mikael Krogerus and Roman Tschäppeler",
+    "domain": [
+      "Society",
+      "History"
+    ],
+    "status": "done",
+    "month": "Sept",
+    "year": 2025,
+    "order": 26
+  },
+  {
+    "id": "2e4be508-b291-81ab-9403-cdf2d03fbc65",
+    "slug": "you2",
+    "name": "You²",
+    "author": "Price Pritchett",
+    "domain": [
+      "Personal Development"
+    ],
+    "status": "done",
+    "month": "Oct",
+    "year": 2025,
+    "order": 27
+  },
+  {
+    "id": "2e4be508-b291-81b1-8b15-fea6f6293d4c",
+    "slug": "the-5am-club",
+    "name": "The 5am Club",
+    "author": "Robin Sharma",
+    "domain": [
+      "Personal Development"
+    ],
+    "status": "done",
+    "month": "Nov",
+    "year": 2025,
+    "order": 28
+  },
+  {
+    "id": "2e4be508-b291-81d0-bd4f-e02829ac4833",
+    "slug": "skill-with-people",
+    "name": "Skill with People",
+    "author": "Les Giblin",
+    "domain": [
+      "Psychology & Communication"
+    ],
+    "status": "done",
+    "month": "Jan",
+    "year": 2026,
+    "order": 29
+  },
+  {
+    "id": "2e4be508-b291-8122-a6d8-de7a1e046fd6",
+    "slug": "jonathan-livingston-seagull",
+    "name": "Jonathan Livingston Seagull",
+    "author": "Richard Bach",
+    "domain": [
+      "Personal Development"
+    ],
+    "status": "done",
+    "month": null,
+    "year": 2025,
+    "order": 30
+  },
+  {
+    "id": "2e4be508-b291-8157-982e-febbff4981d2",
+    "slug": "as-a-man-thinketh",
+    "name": "As a Man Thinketh",
+    "author": "James Allen",
+    "domain": [
+      "Psychology & Communication",
+      "Philosophy",
+      "Personal Development"
+    ],
+    "status": "tbd",
+    "month": null,
+    "year": null,
+    "order": 31
+  },
+  {
+    "id": "2e4be508-b291-815d-9c29-d999877024a9",
+    "slug": "sapiens",
+    "name": "Sapiens",
+    "author": "Yuval Noah Harari",
+    "domain": [
+      "History",
+      "Philosophy"
+    ],
+    "status": "done",
+    "month": "Jan",
+    "year": 2026,
+    "order": 32
+  },
+  {
+    "id": "2e4be508-b291-81ab-8bac-ff687c560f51",
+    "slug": "the-metamorphosis",
+    "name": "The Metamorphosis",
+    "author": "Franz Kafka",
+    "domain": [
+      "History",
+      "Philosophy"
+    ],
+    "status": "done",
+    "month": "Jan",
+    "year": 2026,
+    "order": 33
+  },
+  {
+    "id": "2e4be508-b291-81c5-8089-ebc7e1bafa8f",
+    "slug": "when-everyone-knows-that-everyone-knows",
+    "name": "When everyone knows that everyone knows",
+    "author": "Steven Pinker",
+    "domain": [
+      "History",
+      "Frameworks and Logic",
+      "Society"
+    ],
+    "status": "done",
+    "month": "Feb",
+    "year": 2026,
+    "order": 34
+  },
+  {
+    "id": "2e4be508-b291-8119-af83-f3fe8d44ef1f",
+    "slug": "the-4-hour-work-week",
+    "name": "The 4-hour Work Week",
+    "author": "Timothy Ferriss",
+    "domain": [
+      "Product & Business"
+    ],
+    "status": "done",
+    "month": null,
+    "year": 2025,
+    "order": 35
+  }
+]

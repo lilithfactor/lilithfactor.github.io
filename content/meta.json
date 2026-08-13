@@ -1,0 +1,18 @@
+{
+  "syncedAt": "2026-08-13T03:36:13.345Z",
+  "counts": {
+    "caseStudies": 5,
+    "productDives": 7,
+    "projects": 5,
+    "recommendations": 2,
+    "library": 36,
+    "beyond": 5
+  },
+  "warnings": [
+    "library: \"Thinking fast and slow\" has no Author",
+    "library: \"Steal like an artist\" has no Author",
+    "library: \"Hooked\" has no Author",
+    "library: \"Unreasonable Hospitality\" has no Author",
+    "library: \"Bhagavad Gita\" has no Author"
+  ]
+}

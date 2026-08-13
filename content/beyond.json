@@ -1,0 +1,37 @@
+[
+  {
+    "id": "2e4be508-b291-8122-b23e-f33e5c7c616f",
+    "slug": "music",
+    "name": "Music",
+    "desc": "Pop | Acoustic | Indie",
+    "order": 0
+  },
+  {
+    "id": "2e4be508-b291-8165-b734-c5aa383c7f1f",
+    "slug": "films-and-series",
+    "name": "Films and Series",
+    "desc": "Thriller | Com | Documentaries",
+    "order": 1
+  },
+  {
+    "id": "2e4be508-b291-81ba-8c07-ce40ff032d32",
+    "slug": "speedcubing",
+    "name": "Speedcubing",
+    "desc": "3x3 | 4x4 | 5x5 | Gear | Pyraminx | Megaminx",
+    "order": 2
+  },
+  {
+    "id": "2e4be508-b291-81bb-8811-d202ba66611a",
+    "slug": "reading",
+    "name": "Reading",
+    "desc": "Communication | Business | Psychology",
+    "order": 3
+  },
+  {
+    "id": "2e4be508-b291-81c2-9b1d-ebb68c449752",
+    "slug": "chess",
+    "name": "Chess",
+    "desc": "Bullet | Blitz",
+    "order": 4
+  }
+]

@@ -30,8 +30,8 @@ guessing — every field and every count below is real.
 
 ## The publish switch
 
-Four of the six databases already carry a **`Visibility`** property, and every
-live row is set to `Highlight`.
+Three of the six databases carry a **`Visibility`** property (a **select**, per
+the live API schema), and every live row is set to `Highlight`.
 
 > **Rule: `Visibility` must equal `Highlight` for a row to appear on the site.**
 
@@ -39,10 +39,15 @@ That gives you drafts for free. Write a case study in Notion, leave `Visibility`
 blank, and it stays invisible until you flip it. Nothing else gates content, so
 this one field is the difference between "thinking about it" and "published".
 
-Two databases (**Library**, **Beyond the Routine**) have no `Visibility` field.
-They publish everything, which is correct for both — a bookshelf with hidden books
-is just a shorter bookshelf. If you ever want drafts there, add the property and
-the sync picks it up.
+Three databases (**Recommendations**, **Library**, **Beyond the Routine**) have
+no `Visibility` field. They publish everything, which is correct — a bookshelf
+with hidden books is just a shorter bookshelf. If you ever want drafts there,
+add the property and the sync picks it up.
+
+> *(Schema types below were corrected 2026-08-13 against the live API — the
+> original tables were inferred from the unofficial endpoint and got several
+> wrong. If a mapper breaks, trust `GET /v1/databases/{id}` over this table,
+> then fix the table.)*
 
 ## The databases
 
@@ -56,12 +61,12 @@ The spine of the portfolio. **5 rows live.**
 |---|---|---|---|
 | `Name` | title | `name` | Lead with the outcome. Yours already do — "25% Faster Time-to-market" beats "3D Pipeline Project". |
 | `Description` | rich text | `summary` | 1–2 sentences. Rendered on the folder tab. |
-| `Type` | select | `type` | New Feature · UX · Optimization · New Product |
+| `Type` | multi-select | `type[]` | New Feature · UX · Optimization · New Product |
 | `Role` | select | `role` | Product Manager |
 | `Domain` | multi-select | `domain[]` | B2B, SaaS, AR, XR |
 | `KPIs` | multi-select | `kpis[]` | Conversion, Engagement, Revenue, Efficiency, Time-to-market, Acquisition, Satisfaction, Usability |
 | `Association` | select | `association` | Org / Personal |
-| `Link` | rich text (URLs) | `links[]` | Comma-separated today; the sync splits them. |
+| `Link` | **files & media** (external URLs) | `links[]` | Notion files-property holding external links — not rich text. |
 | *(page body)* | blocks | `body[]` | **Phase 2.** See "The body problem" below. |
 
 Live rows: Visual Compare for Mass-Market Buyers · 60% Faster Onboarding, Halved
@@ -81,7 +86,7 @@ asked me to" evidence. **7 rows live.**
 | `Section Category` | multi-select | `category[]` | **Design · Analysis · Landscaping.** This splits the section into two tabs: things you *made* (Design) and things you *studied* (Analysis/Landscaping). Keep it accurate — it is doing real IA work. |
 | `GTM Model` | multi-select | `gtm[]` | B2C, B2B, Internal, SaaS |
 | `Date` | date | `date` | Sort key, newest first. |
-| `Pricing` | rich text | `pricing` | Sparse. Optional. |
+| `Pricing` | url | `pricing` | Sparse. Optional. |
 
 ### 3. Projects — `320be508-b291-80ab-ab61-ca40957a2ff2`
 Shipped things you built yourself. **5 rows live.**
@@ -90,8 +95,8 @@ Shipped things you built yourself. **5 rows live.**
 |---|---|---|---|
 | `Name` | title | `name` | |
 | `Description` | rich text | `summary` | |
-| `Product Type` | select | `productType` | App, Web, Extension, AI Productivity Suite, Cataloging |
-| `Links` | rich text (URLs) | `links[]` | Store + site + repo. Sync splits and labels by host (Play Store / GitHub / live). |
+| `Product Type` | multi-select | `productType` | App, Web, Extension… — sync takes the first value |
+| `Links` | **files & media** (external URLs) | `links[]` | Store + site + repo. Sync labels by host (Play Store / GitHub / Visit). |
 | `KPIs` | multi-select | `kpis[]` | |
 
 Live rows: Muretabi · Slimly · Applifai · Local RAG Pipeline · Answers to
@@ -104,7 +109,7 @@ Live rows: Muretabi · Slimly · Applifai · Local RAG Pipeline · Answers to
 |---|---|---|
 | `Name` | title | `name` |
 | `Role` | rich text | `role` |
-| `Org` | rich text | `org` |
+| `Org` | select | `org` |
 | `Testimony Content` | rich text | `quote` |
 
 Ashish Dasari (Engineering Manager, Metadome.ai) · Neeti Kejriwal (Founder, Shuru).
@@ -115,15 +120,15 @@ Ashish Dasari (Engineering Manager, Metadome.ai) · Neeti Kejriwal (Founder, Shu
 > [todo.md](../vision/todo.md).
 
 ### 5. Library — `2e4be508-b291-81b5-b7b4-d15d62af9a69`
-**37 rows.** The bookshelf.
+**36 rows.** The bookshelf. *(An earlier count said 37 — the extra was the database template row, which the official API correctly excludes.)*
 
 | Notion property | Type | → JSON | Notes |
 |---|---|---|---|
 | `Name` | title | `name` | |
-| `Author` | rich text | `author` | Missing on 3 rows (Thinking Fast and Slow, Steal Like an Artist, Hooked). |
+| `Author` | rich text | `author` | Missing on 5 rows — the sync warns on each in `meta.json`. |
 | `Domain` | multi-select | `domain[]` | Product & Business · Psychology & Communication · Frameworks and Logic · Leadership & Philosophy · Personal Development · History · Society · Biography · Philosophy · Finance |
-| `Status` | select | `status` | `done` · `reading` · `enqueued` · `tbd` |
-| `Month` / `Year` | select / number | `month`, `year` | Together = when read. |
+| `Status` | **status** | `status` | `done` · `reading` · `enqueued` · `tbd` |
+| `Month` / `Year` | select / select-of-strings | `month`, `year` | Together = when read. Sync parses Year to a number. |
 
 `Status` drives the shelf: `done` books stand upright, `reading` lies open on the
 desk, `enqueued` leans in a to-read pile, `tbd` is a faint outline. One glance
@@ -169,10 +174,11 @@ as `{ headline, paragraphs[] }`.
 Current copy opens: *"I'm a Product Manager who turns messy, high-stakes journeys
 into simple, confident experiences."* — that is a strong line and it stays.
 
-> **One live gap:** paragraph 2 ends `"…and trusted by brands like"` and then
-> stops. The brand logos were never added. The sync will surface this as a
-> warning, and it is a Phase 1 content task — a sentence that ends mid-clause on
-> the hero of a PM's portfolio is the most damaging small thing on the site.
+> *(Correction 2026-08-13: this doc originally claimed paragraph 2 ended
+> mid-clause at "trusted by brands like". It doesn't — the full text names
+> General Motors, Nissan, Royal Enfield, and VinFast. The claim was an artifact
+> of the research dump truncating text at 400 characters, which happened to cut
+> exactly there. Verified against the real sync output.)*
 
 ### Links ("Lets Connect 🚀")
 Seven Notion buttons, driven by automations. Six resolve to URLs; the seventh is
@@ -222,10 +228,10 @@ signed for about an hour. Hot-linking one produces a portfolio whose images all
 break by lunchtime. **The sync downloads every asset into `public/` and rewrites
 the path.** Non-negotiable.
 
-**2. `Link` / `Links` are rich text, not URL properties.** You have been putting
-several comma-separated URLs in one text field. The sync splits on commas and
-validates each. If you ever change these to a proper relation or a URL property,
-the sync must change with them — it is the one place the schema is loose.
+**2. `Link` / `Links` are files-&-media properties holding *external* URLs.**
+The sync reads the external links directly. If a *hosted* file (an upload) ever
+lands in one, the sync warns loudly: hosted-file URLs are signed and expire in
+about an hour, so they need the asset downloader before they can ship.
 
 **3. Row bodies are a second fetch.** Each database row is itself a Notion page
 with block children. The row *properties* come from one query; the *body* needs a
