@@ -269,3 +269,106 @@ html[data-stage="desk"] .desk-handle:focus-visible {
   background-color: var(--red-pen);
   color: var(--paper-page);
 }
+
+/* --- Sound ----------------------------------------------------------------
+ * The record-player control. Fixed rather than only the 3D turntable: a
+ * control a keyboard user cannot reach is not a control (ux-rules rule 13),
+ * and this one governs music AND effects together so the visitor makes one
+ * decision instead of two. It starts OFF and says so. */
+
+html[data-stage="desk"] .desk-sound {
+  position: fixed;
+  right: var(--s-5);
+  bottom: var(--s-5);
+  z-index: 5;
+
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-height: 2.75rem;
+  padding: var(--s-2) var(--s-4);
+
+  background-color: var(--paper-page);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-chip);
+  box-shadow: var(--e-lift);
+
+  font-family: var(--font-mono);
+  font-size: var(--t-label-size);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color var(--m-quick);
+}
+
+html[data-stage="desk"] .desk-sound:hover,
+html[data-stage="desk"] .desk-sound:focus-visible {
+  border-color: var(--red-pen);
+}
+
+html[data-stage="desk"] .desk-sound small {
+  display: block;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--ink-muted);
+}
+
+/* The disc: still when silent, turning while sound is on. This is the one
+ * infinite animation the design system permits, because it is a STATE
+ * INDICATOR — it tells you sound is currently leaving your speakers — and not
+ * decoration. It stops the moment playback does. */
+html[data-stage="desk"] .desk-sound__disc {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%, var(--paper-page) 0 18%, transparent 18%),
+    conic-gradient(from 0deg, var(--ink) 0 8%, var(--ink-muted) 8% 50%, var(--ink) 50% 58%, var(--ink-muted) 58%);
+  flex: none;
+}
+
+html[data-stage="desk"] .desk-sound[aria-pressed="true"] .desk-sound__disc {
+  animation: desk-spin 1.8s linear infinite;
+}
+
+html[data-stage="desk"] .desk-sound[aria-pressed="false"] + .desk-sound__next {
+  display: none;
+}
+
+html[data-stage="desk"] .desk-sound__next {
+  position: fixed;
+  right: var(--s-5);
+  bottom: calc(var(--s-5) + 3.5rem);
+  z-index: 5;
+
+  min-height: 2.75rem;
+  padding: var(--s-2) var(--s-4);
+  background-color: var(--paper-sheet);
+  color: var(--ink-muted);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-chip);
+  font-family: var(--font-mono);
+  font-size: var(--t-label-size);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+html[data-stage="desk"] .desk-sound__next:hover,
+html[data-stage="desk"] .desk-sound__next:focus-visible {
+  color: var(--red-pen);
+  border-color: var(--red-pen);
+}
+
+@keyframes desk-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-stage="desk"] .desk-sound__disc {
+    animation: none;
+  }
+}

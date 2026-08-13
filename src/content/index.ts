@@ -18,6 +18,7 @@ import libraryJson from "../../content/library.json";
 import beyondJson from "../../content/beyond.json";
 import linksJson from "../../content/links.json";
 import metaJson from "../../content/meta.json";
+import playlistJson from "../../content/playlist.json";
 
 const base = z.object({
   id: z.string(),
@@ -76,6 +77,16 @@ const About = z.object({
 
 const Link = z.object({ label: z.string(), url: z.string() });
 
+const TrackSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  mood: z.string(),
+  /** Extension-less stem: the runtime appends .opus, falling back to .m4a. */
+  src: z.string(),
+  credit: z.string(),
+  order: z.number(),
+});
+
 const Meta = z.object({
   syncedAt: z.string(),
   counts: z.record(z.string(), z.number()),
@@ -94,6 +105,7 @@ export const library = z.array(Book).parse(libraryJson).sort(byOrder);
 export const beyond = z.array(Interest).parse(beyondJson).sort(byOrder);
 export const links = z.array(Link).parse(linksJson);
 export const meta = Meta.parse(metaJson);
+export const playlist = z.array(TrackSchema).parse(playlistJson).sort(byOrder);
 
 export type CaseStudy = z.infer<typeof CaseStudy>;
 export type ProductDive = z.infer<typeof ProductDive>;

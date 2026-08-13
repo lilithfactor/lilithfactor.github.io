@@ -19,6 +19,8 @@
  * they are implemented here — that is the whole cost of the choice.
  */
 
+import { createAudio, type Track } from "./audio";
+
 const FOCUSABLE =
   'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
@@ -39,6 +41,41 @@ export function mountPanels(): Panels {
   const scrim = document.createElement("div");
   scrim.className = "desk-scrim";
   document.body.append(scrim);
+
+  /* --- Sound ---------------------------------------------------------------
+   * One control for music AND effects, starting off. It is a fixed paper tag
+   * rather than only the 3D turntable, because a control a keyboard user
+   * cannot reach is not a control. */
+  let tracks: Track[] = [];
+  try {
+    tracks = JSON.parse(document.getElementById("playlist")?.textContent ?? "[]");
+  } catch {
+    tracks = [];
+  }
+  const audio = createAudio(tracks);
+
+  const sound = document.createElement("button");
+  sound.type = "button";
+  sound.className = "desk-sound";
+  const paintSound = () => {
+    const t = audio.track;
+    sound.setAttribute("aria-pressed", String(audio.on));
+    sound.innerHTML = audio.on
+      ? `<span class="desk-sound__disc" aria-hidden="true"></span><span>${t?.name ?? "Playing"}</span><small>${t?.credit ?? ""}</small>`
+      : `<span class="desk-sound__disc" aria-hidden="true"></span><span>Play music</span>`;
+  };
+  sound.addEventListener("click", () => void audio.toggle().then(paintSound));
+  audio.subscribe(paintSound);
+  paintSound();
+  document.body.append(sound);
+
+  const nextTrack = document.createElement("button");
+  nextTrack.type = "button";
+  nextTrack.className = "desk-sound__next";
+  nextTrack.textContent = "Next";
+  nextTrack.setAttribute("aria-label", "Next track");
+  nextTrack.addEventListener("click", () => audio.next());
+  sound.after(nextTrack);
 
   const hint = document.createElement("p");
   hint.className = "desk-hint";
@@ -67,7 +104,10 @@ export function mountPanels(): Panels {
     btn.dataset.anchor = id;
     btn.textContent = heading;
     btn.setAttribute("aria-haspopup", "dialog");
-    btn.addEventListener("click", () => api.open(id));
+    btn.addEventListener("click", () => {
+      audio.play("tap");
+      api.open(id);
+    });
     handles.append(btn);
   }
   document.body.append(handles);
@@ -124,6 +164,7 @@ export function mountPanels(): Panels {
       lastFocused = document.activeElement as HTMLElement | null;
       openId = artifact;
 
+      audio.play("paper");
       panel.dataset.open = "";
       handles.dataset.dimmed = "";
       panel.removeAttribute("aria-hidden");
@@ -141,6 +182,7 @@ export function mountPanels(): Panels {
 
     close() {
       if (!openId) return;
+      audio.play("paper");
       const panel = sections.get(openId);
       if (panel) {
         delete panel.dataset.open;
@@ -159,6 +201,9 @@ export function mountPanels(): Panels {
       scrim.remove();
       hint.remove();
       handles.remove();
+      sound.remove();
+      nextTrack.remove();
+      audio.dispose();
       // Leave the document exactly as found: the sections must go back to
       // being readable content, not hidden panels.
       for (const section of sections.values()) {

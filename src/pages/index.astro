@@ -12,6 +12,7 @@ import {
   shelf,
   beyond,
   links,
+  playlist,
 } from "../content/index";
 
 const byNewest = (a: { date: string | null }, b: { date: string | null }) =>
@@ -188,5 +189,6 @@ const bookLine = (b: { name: string; author: string | null }) =>
         }
       </nav>
     </Section>
+    <script type="application/json" id="playlist" set:html={JSON.stringify(playlist)} is:inline></script>
   </main>
 </Base>
