@@ -1,0 +1,188 @@
+/* ============================================================================
+ * THE DESK STAGE — the CSS half of architecture.md Directive 2.
+ *
+ * The canvas renders the stage; the document renders the content. This file is
+ * the seam: it owns the canvas, it owns the palette the scene is painted from,
+ * and it owns what a section does with the four numbers the scene writes onto
+ * it each frame.
+ *
+ * Everything below the token block is scoped to html[data-stage="desk"], which
+ * the scene sets only after its first frame is in the buffer. Nothing here can
+ * affect a phone, a keyboard-only visitor on a small screen, a machine without
+ * WebGL2, or anyone with reduced motion turned on — none of them ever get the
+ * attribute. ========================================================================== */
+
+/* --- The stage palette ----------------------------------------------------
+ * Read at runtime by src/stages/desk/palette.ts. This is the reason there is
+ * not one hex literal anywhere in the 3D code: the desk is painted from the
+ * same stylesheet as the document, so the paper on the canvas and the paper in
+ * the page cannot drift apart in a later redesign.
+ *
+ * Most of these forward a token from tokens.css — var() is substituted at
+ * computed-value time, so getComputedStyle returns the resolved colour.
+ *
+ * The three light values are new, and they live here rather than in tokens.css
+ * because nothing in the document can use them: they are colours of light, not
+ * of ink or paper, and they mean nothing outside a renderer. */
+:root {
+  /* A LIT walnut, not the ink-token walnut. `--desk` (#3B3229) is the colour of
+   * desk in shadow — correct as a flat CSS ground, and near-black once a
+   * renderer multiplies it by its own falloff. The 3D surface is the same wood
+   * with a lamp on it, so it reads two stops up. Verified by render, not taste:
+   * at var(--desk) the whole scene photographed as black. */
+  --stage-desk: #6f5c46;
+  --stage-desk-deep: var(--desk);
+  --stage-paper: var(--paper-sheet);
+  --stage-paper-aged: var(--paper-aged);
+  --stage-paper-edge: var(--paper-edge);
+  --stage-kraft: var(--kraft);
+  --stage-ink: var(--ink);
+  --stage-accent: var(--red-pen);
+
+  /* The lamp, upper right — roughly 2900K. */
+  --stage-key-light: #ffe6bd;
+  /* The window, off left — roughly 7000K. The temperature gap between these
+   * two is what gives the paper a gradient across the desk, and it is doing
+   * more work than any material setting in the scene. */
+  --stage-fill-light: #b6cde2;
+  /* Bounce off a dark room. Warm, because the walnut is what it bounced off. */
+  --stage-ambient: #4a4038;
+}
+
+/* --- The canvas -----------------------------------------------------------
+ * Fixed and full-viewport, so it never participates in layout and never
+ * contributes to the page's scroll width. ux-rules.md rule 10.
+ *
+ * z-index 0 rather than -1: at -1 it would sit behind the body background and
+ * be invisible. It goes above the ground and below every piece of content, and
+ * the rule below lifts body's children over it. */
+.desk-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* The stage is scenery. Every click, selection and drag belongs to the
+   * document underneath — there is nothing here to hit. */
+  pointer-events: none;
+  opacity: 0;
+  /* The one slow moment: the desk arrives like a page turn. It fades in over
+   * content that is already readable, and never replaces it. */
+  transition: opacity var(--m-turn);
+}
+
+.desk-stage.is-ready {
+  opacity: 1;
+}
+
+html[data-stage="desk"] body > *:not(.desk-stage) {
+  position: relative;
+  z-index: 1;
+}
+
+/* --- The page becomes a sheet on the desk ---------------------------------
+ * The content column keeps its paper ground and gains a contact shadow, so
+ * what changes when the desk arrives is the margin around the page, not the
+ * page. Text contrast is exactly what it was with JavaScript off — the desk
+ * cannot make a single word harder to read, which is the only way a decorative
+ * layer is allowed to exist on a portfolio. */
+html[data-stage="desk"] main {
+  background-color: var(--bg);
+  /* NOT --e-open: the page shadows are tuned for paper-on-paper and vanish
+   * against walnut, which left the column reading as a hard-edged slab pasted
+   * over the scene. A sheet on a dark desk needs a darker, longer contact. */
+  box-shadow:
+    0 2px 6px rgb(0 0 0 / 0.34),
+    0 26px 60px -18px rgb(0 0 0 / 0.55);
+  padding-inline: var(--s-7);
+  margin-block: var(--s-8);
+}
+
+/* --- Anchored sections ----------------------------------------------------
+ * The scene writes these four properties onto [data-artifact] every frame:
+ *
+ *   --x, --y   the object's anchor, projected into viewport pixels
+ *   --scale    1 at the overview framing, larger as the camera moves in
+ *   --a        0 when the anchor is off-screen or behind the camera
+ *
+ * The section itself never moves. Only its marker reads them, and only through
+ * transform and opacity, so a frame of the projection loop can trigger a
+ * composite but never a layout. */
+html[data-stage="desk"] [data-artifact] {
+  --x: 50vw;
+  --y: 50vh;
+  --scale: 1;
+  --a: 0;
+}
+
+/* Where this section lives on the desk. It is silent until you ask: eight
+ * permanent markers would be a HUD, and the desk is a room, not a game. */
+html[data-stage="desk"] [data-artifact]::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--highlighter) 40%, transparent),
+    transparent 68%
+  );
+  opacity: 0;
+  pointer-events: none;
+  /* translate(-50%, -50%) last, so it centres in the already-scaled space. */
+  transform: translate3d(var(--x), var(--y), 0) scale(var(--scale)) translate(-50%, -50%);
+  transition: opacity var(--m-settle);
+  will-change: transform, opacity;
+}
+
+/* Hover and focus, because hover is never the only way to reach anything.
+ * ux-rules.md rule 7. --a folds in the off-screen case: an anchor the camera
+ * cannot see does not get a marker at the edge of the viewport. */
+html[data-stage="desk"] [data-artifact]:hover::after,
+html[data-stage="desk"] [data-artifact]:focus-within::after {
+  opacity: calc(var(--a) * 0.85);
+}
+
+/* Shows every marker at once. For checking the projection against the render
+ * without a screenshot diff: document.documentElement.dataset.stageDebug = "". */
+html[data-stage="desk"][data-stage-debug] [data-artifact]::after {
+  opacity: calc(var(--a) * 0.7);
+}
+
+/* --- Belt and braces ------------------------------------------------------
+ * The gate in choose.ts already prevents all three of these. They are here
+ * because a stage that is mounted and then becomes wrong — a window dragged
+ * narrow, a system motion setting changed mid-session, a print dialog — should
+ * fail into the document rather than out of it. */
+@media (prefers-reduced-motion: reduce) {
+  .desk-stage {
+    display: none;
+  }
+  html[data-stage="desk"] [data-artifact]::after {
+    display: none;
+  }
+}
+
+@media (max-width: 1023px) {
+  .desk-stage {
+    display: none;
+  }
+  html[data-stage="desk"] main {
+    box-shadow: none;
+    padding-inline: var(--s-5);
+    margin-block: 0;
+  }
+}
+
+@media print {
+  .desk-stage,
+  html[data-stage="desk"] [data-artifact]::after {
+    display: none;
+  }
+}

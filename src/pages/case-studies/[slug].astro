@@ -1,0 +1,63 @@
+---
+import Base from "../../layouts/Base.astro";
+import Chips from "../../components/Chips.astro";
+import { caseStudies } from "../../content/index";
+
+export function getStaticPaths() {
+  return caseStudies.map((cs) => ({
+    params: { slug: cs.slug },
+    props: { cs },
+  }));
+}
+
+const { cs } = Astro.props;
+---
+
+<Base
+  title={`${cs.name} — Pranav Upadhyay`}
+  description={cs.summary}
+>
+  <main class="page stack">
+    <a class="back-link" href="/#case-studies">← Back to desk</a>
+
+    <header class="stack">
+      <p class="label">Case study</p>
+      <h1 class="display">{cs.name}</h1>
+    </header>
+
+    <Chips items={cs.kpis} />
+
+    <div class="stack">
+      {cs.type.length > 0 && (
+        <div>
+          <p class="label">Type</p>
+          <Chips items={cs.type} />
+        </div>
+      )}
+      {cs.domain.length > 0 && (
+        <div>
+          <p class="label">Domain</p>
+          <Chips items={cs.domain} />
+        </div>
+      )}
+    </div>
+
+    <p class="lead">{cs.summary}</p>
+
+    {cs.links.length > 0 && (
+      <div>
+        <p class="label">Links</p>
+        <p class="link-row">
+          {cs.links.map((url) => (
+            <a href={url} target="_blank" rel="noopener">
+              {url}
+            </a>
+          ))}
+        </p>
+      </div>
+    )}
+
+    <hr class="rule" />
+    <a class="back-link" href="/#case-studies">← Back to desk</a>
+  </main>
+</Base>

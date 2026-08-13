@@ -1,0 +1,26 @@
+---
+interface Props {
+  items: string[];
+}
+const { items } = Astro.props;
+---
+
+{
+  items.length > 0 && (
+    <p class="chips">
+      {items.map((c) => (
+        <span class="chip">{c}</span>
+      ))}
+    </p>
+  )
+}
+
+<style>
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+    margin: var(--s-3) 0 0;
+    max-width: none;
+  }
+</style>

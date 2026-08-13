@@ -1,11 +1,27 @@
 ---
 import Base from "../layouts/Base.astro";
+import Section from "../components/Section.astro";
+import Chips from "../components/Chips.astro";
+import {
+  about,
+  caseStudies,
+  divesMade,
+  divesStudied,
+  projects,
+  recommendations,
+  shelf,
+  beyond,
+  links,
+} from "../content/index";
 
-// Phase 0 specimen. This page exists to prove the material before any content
-// is wired up — if the paper is wrong here, it is wrong everywhere.
-// Real content arrives in Phase 1 from content/*.json. See brain/vision/todo.md.
+const byNewest = (a: { date: string | null }, b: { date: string | null }) =>
+  (b.date ?? "").localeCompare(a.date ?? "");
 
-const kpis = ["Conversion", "Engagement", "Revenue", "Time-to-market"];
+const madeSorted = [...divesMade].sort(byNewest);
+const studiedSorted = [...divesStudied].sort(byNewest);
+
+const bookLine = (b: { name: string; author: string | null }) =>
+  b.author ? `${b.name} — ${b.author}` : b.name;
 ---
 
 <Base
@@ -13,76 +29,156 @@ const kpis = ["Conversion", "Engagement", "Revenue", "Time-to-market"];
   description="Product Manager who turns messy, high-stakes journeys into simple, confident experiences."
 >
   <main class="page stack">
-    <p class="label">Phase 0 · paper specimen</p>
+    <header class="stack">
+      <p class="label">Product Manager</p>
+      <h1 class="display">Pranav Upadhyay</h1>
+    </header>
 
-    {/* No &nbsp; between the names — an unbreakable pair set the page's minimum
-        width and overflowed a 390px phone. Let it wrap. */}
-    <h1 class="display">Pranav Upadhyay</h1>
+    <Section id="about" label="About" title="About">
+      <p class="lead">{about.headline}</p>
+      {about.paragraphs.map((para) => <p>{para}</p>)}
+    </Section>
 
-    <p style="max-width: var(--measure); font-size: var(--t-subhead-size);">
-      I'm a Product Manager who turns messy, high-stakes journeys into simple,
-      confident experiences.
-    </p>
+    <Section id="case-studies" label="Case studies" title="Case studies">
+      {
+        caseStudies.map((cs) => (
+          <a class="sheet sheet--interactive sheet--lift case-study-card" href={`/case-studies/${cs.slug}/`}>
+            <h3>{cs.name}</h3>
+            <p>{cs.summary}</p>
+            <Chips items={cs.kpis} />
+            <span class="label case-study-card__cta">Read case study →</span>
+          </a>
+        ))
+      }
+    </Section>
 
-    <hr class="rule" />
+    <Section id="product-dives" label="Product dives" title="Product dives">
+      <div class="stack">
+        <div>
+          <p class="label">Things I made</p>
+          <div class="card-grid">
+            {
+              madeSorted.map((d) => (
+                <article class="sheet sheet--card">
+                  <h3>{d.name}</h3>
+                  <p>{d.summary}</p>
+                  {d.url && (
+                    <p class="link-row">
+                      <a href={d.url} target="_blank" rel="noopener">
+                        Visit
+                      </a>
+                    </p>
+                  )}
+                </article>
+              ))
+            }
+          </div>
+        </div>
+        <div>
+          <p class="label">Things I studied</p>
+          <div class="card-grid">
+            {
+              studiedSorted.map((d) => (
+                <article class="sheet sheet--card">
+                  <h3>{d.name}</h3>
+                  <p>{d.summary}</p>
+                  {d.url && (
+                    <p class="link-row">
+                      <a href={d.url} target="_blank" rel="noopener">
+                        Visit
+                      </a>
+                    </p>
+                  )}
+                </article>
+              ))
+            }
+          </div>
+        </div>
+      </div>
+    </Section>
 
-    <!-- A sheet at rest -->
-    <article class="sheet">
-      <p class="label">Case study</p>
-      <h2 style="margin-top: var(--s-2);">Visual Compare for Mass-Market Buyers</h2>
-      <p style="margin-top: var(--s-3);">
-        Led the end-to-end design and launch of a visual Compare module within 45
-        days, defining research, PRD, flows, and analytics while coordinating
-        design, 3D, engineering, DevOps, and client teams.
+    <Section id="projects" label="Projects" title="Projects">
+      <div class="card-grid">
+        {
+          projects.map((p) => (
+            <article class="sheet">
+              <h3>{p.name}</h3>
+              <p>{p.summary}</p>
+              <p class="link-row">
+                {p.links.map((link) => (
+                  <a href={link.url} target="_blank" rel="noopener">
+                    {link.label}
+                  </a>
+                ))}
+              </p>
+            </article>
+          ))
+        }
+      </div>
+    </Section>
+
+    <Section id="recommendations" label="Recommendations" title="Recommendations">
+      <div class="card-grid">
+        {
+          recommendations.map((r) => (
+            <figure class="sheet sheet--aged">
+              <blockquote>{r.quote}</blockquote>
+              <figcaption class="note">
+                {r.name} · {r.role}
+                {r.org ? ` · ${r.org}` : ""}
+              </figcaption>
+            </figure>
+          ))
+        }
+      </div>
+    </Section>
+
+    <Section id="library" label="Library" title="Library">
+      <div class="stack">
+        <div>
+          <p class="label">Reading ({shelf.reading.length})</p>
+          <ul class="shelf-list">
+            {shelf.reading.map((b) => <li>{bookLine(b)}</li>)}
+          </ul>
+        </div>
+        <div>
+          <p class="label">Done ({shelf.done.length})</p>
+          <ul class="shelf-list shelf-list--dense">
+            {shelf.done.map((b) => <li>{bookLine(b)}</li>)}
+          </ul>
+        </div>
+        <div>
+          <p class="label">Queued ({shelf.queued.length})</p>
+          <ul class="shelf-list shelf-list--dense">
+            {shelf.queued.map((b) => <li>{bookLine(b)}</li>)}
+          </ul>
+        </div>
+      </div>
+    </Section>
+
+    <Section id="beyond" label="Beyond the routine" title="Beyond the routine">
+      <div class="card-grid">
+        {
+          beyond.map((i) => (
+            <article class="sheet sheet--card">
+              <h3>{i.name}</h3>
+              <p class="note">{i.desc}</p>
+            </article>
+          ))
+        }
+      </div>
+    </Section>
+
+    <Section id="connect" label="Connect" title="Connect">
+      <p class="link-row link-row--large">
+        {
+          links.map((l) => (
+            <a href={l.url} target={l.url.startsWith("mailto:") ? undefined : "_blank"} rel="noopener">
+              {l.label}
+            </a>
+          ))
+        }
       </p>
-      <p style="margin-bottom: 0;">
-        {kpis.map((k) => <span class="chip" style="margin-right: 0.35rem;">{k}</span>)}
-      </p>
-    </article>
-
-    <!-- Interactive: lifts on hover and on keyboard focus -->
-    <article class="sheet sheet--interactive sheet--lift" tabindex="0">
-      <p class="label">Outcome</p>
-      <p class="metric" style="margin: var(--s-2) 0;">60% faster</p>
-      <p style="margin-bottom: 0;">
-        Onboarding, with bounce halved — via funnel diagnostics, 3D visual cues and
-        in-AR onboarding.
-      </p>
-    </article>
-
-    <!-- Askew + aged + curled: the "used desk" treatment.
-         Only ever on --card. The rotation is illegible at full width. -->
-    <article class="sheet sheet--card sheet--aged sheet--askew sheet--curled">
-      <p class="label">Margin note</p>
-      <p class="note" style="margin-bottom: 0;">
-        Perfect alignment reads as a template. A 2–4° rotation does more for
-        believability than any shader — and the only curve paper gets is a curled
-        corner, which is a mask, not a radius.
-      </p>
-    </article>
-
-    <hr class="rule" />
-
-    <section>
-      <p class="label">Type specimen</p>
-      <p style="font-family: var(--font-display); font-size: var(--t-title-size); margin-top: var(--s-3);">
-        Fraunces — display, opsz 9–144
-      </p>
-      <p style="margin-bottom: var(--s-2);">
-        Lexend — body at 17px, the size a case study is actually read at.
-        Héctor García, Nassim Taleb, Franz Kafka. <a href="#top">A link looks like this.</a>
-      </p>
-      <p class="label">IBM Plex Mono — labels · tags · metrics · 0123456789</p>
-    </section>
-
-    <hr class="rule" />
-
-    <footer>
-      <p class="note" style="margin-bottom: 0;">
-        Warm off-white, never #fff · contact shadows that touch · corners ≤ 2px ·
-        grain at 3.5%. If these four are right, everything built on top reads as
-        paper.
-      </p>
-    </footer>
+    </Section>
   </main>
 </Base>

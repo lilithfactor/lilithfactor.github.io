@@ -1,0 +1,43 @@
+---
+/**
+ * StageMount — the one place the 3D desk can enter the page.
+ *
+ * It renders nothing. Its entire job is to run the capability gate and, only
+ * if the gate passes, to dynamically import the desk. That ordering is the
+ * point of the component: a phone must not download Three.js, and "must not"
+ * is a claim about the network tab, not about an `if` statement that runs
+ * after the bytes have already arrived.
+ *
+ * A static `import` of ./desk/scene here would put Three.js in the page's
+ * initial bundle on every device and then decline to run it, which is the
+ * regression this file exists to make impossible. The import below is
+ * dynamic, so Rollup emits it as its own chunk that nothing in the initial
+ * document references. Verified in brain/work/steps.md; the check is a build
+ * assertion, because this is exactly the kind of thing that silently regresses.
+ *
+ * The canvas is created by the scene rather than rendered here, so a device
+ * that does not get the desk gets no element for it either.
+ *
+ * architecture.md Directives 3 and 4 · ux-rules.md rule 12.
+ */
+import "../styles/stage.css";
+---
+
+<script>
+  // Static, and deliberately tiny: this is the only stage code that ships in
+  // the initial page bundle. It imports nothing from three.
+  import { canMountDesk } from "./choose";
+
+  // Astro emits this as a deferred module script, so it runs after the
+  // document is parsed and the content is already readable. Nothing below can
+  // block first paint. ux-rules.md rule 12, load order steps 3 and 4.
+  if (canMountDesk()) {
+    void import("./desk/scene")
+      .then((module) => module.mountDesk())
+      .catch(() => {
+        // No desk. From the visitor's point of view nothing failed: they are
+        // looking at the complete, prerendered portfolio either way, and an
+        // error message would be the only thing here that could break it.
+      });
+  }
+</script>

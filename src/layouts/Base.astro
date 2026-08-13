@@ -1,7 +1,9 @@
 ---
+import StageMount from "../stages/StageMount.astro";
 import "../styles/fonts.css";
 import "../styles/tokens.css";
 import "../styles/paper.css";
+import "../styles/sections.css";
 
 interface Props {
   title: string;
@@ -47,5 +49,6 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
   </head>
   <body>
     <slot />
+    <StageMount />
   </body>
 </html>
