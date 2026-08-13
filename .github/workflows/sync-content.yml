@@ -41,8 +41,13 @@ jobs:
       - name: Commit if content changed
         run: |
           set -euo pipefail
-          if git diff --quiet -- content/; then
-            echo "No content changes."
+          # -I ignores lines matching the regex: meta.json's syncedAt changes on
+          # EVERY run, which made every half-hour cron commit "changes" that were
+          # only a timestamp — polluting history and conflicting with any local
+          # rebase. Real content changes still commit (meta rides along).
+          if git diff --quiet -I '"syncedAt"' -- content/; then
+            echo "No content changes (timestamp-only)."
+            git checkout -- content/
             exit 0
           fi
           git config user.name  "github-actions[bot]"
