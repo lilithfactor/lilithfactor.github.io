@@ -1,0 +1,172 @@
+/* ============================================================================
+ * SECTION LAYER — content-page primitives on top of paper.css.
+ *
+ * Same rule as tokens.css: never a hex, a hardcoded px, or a duration outside
+ * var(--token). Widths (grid tracks, card measures) follow paper.css's own
+ * precedent (.sheet--card { max-width: 34rem }) and use rem, not px.
+ * ========================================================================== */
+
+/* --- Header / lead -------------------------------------------------------- */
+
+.lead {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: var(--t-heading-size);
+  line-height: 1.35;
+  color: var(--text);
+  max-width: var(--measure);
+  text-wrap: pretty;
+  overflow-wrap: break-word;
+}
+
+/* --- Cards / grids ---------------------------------------------------------
+ * One card-per-row on narrow screens, multi-column once there's room —
+ * `auto-fit` + a `minmax` floor rather than a fixed column count. */
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr));
+  gap: var(--s-5);
+  align-items: start;
+}
+
+.card-grid > * {
+  margin: 0;
+  min-width: 0;
+}
+
+/* --- Case study cards (the whole sheet is the link) ----------------------- */
+
+.case-study-card {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.case-study-card h3 {
+  overflow-wrap: break-word;
+}
+
+.case-study-card__cta {
+  display: inline-block;
+  margin-block-start: var(--s-4);
+  color: var(--link);
+}
+
+.case-study-card:hover .case-study-card__cta,
+.case-study-card:focus-visible .case-study-card__cta {
+  color: var(--accent);
+}
+
+/* --- Sheets used as plain content blocks (not links) ----------------------
+ * .sheet, .sheet--card etc. carry their own spacing; these just make sure a
+ * heading + paragraph + link inside reads cleanly. */
+
+.sheet h3 {
+  margin-block-end: var(--s-3);
+  overflow-wrap: break-word;
+}
+
+.sheet p {
+  overflow-wrap: break-word;
+}
+
+.sheet p:last-child {
+  margin-bottom: 0;
+}
+
+/* --- Link rows -------------------------------------------------------------
+ * A row of labelled anchors. Each anchor gets real padding so the tap target
+ * clears 44px even though the visible text is small. */
+
+.link-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-5);
+  margin: var(--s-4) 0 0;
+  max-width: none;
+}
+
+.link-row a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--s-8);
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  padding-block: var(--s-1);
+}
+
+.link-row--large a {
+  font-family: var(--font-mono);
+  font-size: var(--t-label-size);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+/* --- Recommendations -------------------------------------------------------- */
+
+figure.sheet {
+  margin: 0;
+}
+
+blockquote {
+  margin: 0;
+  max-width: var(--measure);
+  white-space: pre-line;
+  overflow-wrap: break-word;
+}
+
+figcaption {
+  margin-block-start: var(--s-4);
+}
+
+/* --- Library shelf ----------------------------------------------------------
+ * Dense, scannable list. Multi-column once the viewport allows it, single
+ * column (no horizontal scroll risk) below that. */
+
+.shelf-list {
+  list-style: none;
+  margin: var(--s-3) 0 0;
+  padding: 0;
+  max-width: none;
+}
+
+.shelf-list li {
+  padding-block: var(--s-1);
+  border-bottom: 1px solid var(--rule);
+  overflow-wrap: break-word;
+}
+
+.shelf-list--dense {
+  columns: 2;
+  column-gap: var(--s-6);
+}
+
+.shelf-list--dense li {
+  break-inside: avoid;
+}
+
+@media (max-width: 36rem) {
+  .shelf-list--dense {
+    columns: 1;
+  }
+}
+
+/* --- Case study detail page -------------------------------------------------- */
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--s-8);
+  font-family: var(--font-mono);
+  font-size: var(--t-label-size);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.back-link:hover,
+.back-link:focus-visible {
+  color: var(--accent);
+}

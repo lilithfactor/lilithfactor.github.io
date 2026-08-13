@@ -1,0 +1,54 @@
+name: Sync content
+
+# Notion is the dashboard; this is the wire. Three triggers:
+#   schedule  — the guarantee (every 30 min)
+#   dispatch  — the speed (runnable from the GitHub mobile app, or a Notion
+#               automation webhook via repository_dispatch)
+# Committing content/*.json to main triggers deploy.yml, so a Notion edit is
+# live in ~2 minutes without anyone opening a laptop.
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+  repository_dispatch:
+    types: [notion-changed]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-content
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      # No npm ci: the sync uses only node builtins (raw fetch), so installing
+      # the whole toolchain to run it would be pure latency.
+      - name: Sync from Notion
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+        run: node scripts/sync-notion.mjs
+
+      - name: Commit if content changed
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- content/; then
+            echo "No content changes."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add content/
+          # Subject is filtered out of release notes — see brain/work/releases.md.
+          git commit -m "Sync content from Notion"
+          git push
+          echo "Content updated; deploy.yml will publish it."

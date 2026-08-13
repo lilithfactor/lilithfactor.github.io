@@ -1,0 +1,32 @@
+---
+/** A titled section of the desk. The id is the deep-link + desk-artifact anchor. */
+interface Props {
+  id: string;
+  label: string;
+  title: string;
+}
+const { id, label, title } = Astro.props;
+---
+
+<section {id} data-artifact={id} class="section">
+  <header>
+    <p class="label">{label}</p>
+    <h2>{title}</h2>
+  </header>
+  <div class="stack">
+    <slot />
+  </div>
+</section>
+
+<style>
+  .section {
+    margin-block-start: var(--s-9);
+    scroll-margin-top: var(--s-7);
+  }
+  header {
+    margin-block-end: var(--s-5);
+  }
+  header h2 {
+    margin-top: var(--s-1);
+  }
+</style>
