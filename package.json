@@ -12,7 +12,7 @@
     "preview": "astro preview",
     "check": "astro check",
     "format": "prettier --write .",
-    "test": "node --test scripts/",
+    "test": "node --test",
     "notion:check": "node --env-file=.env scripts/check-notion-access.mjs",
     "notion:sync": "node --env-file=.env scripts/sync-notion.mjs"
   },

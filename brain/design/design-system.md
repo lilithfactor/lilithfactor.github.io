@@ -80,29 +80,39 @@ request, no FOUT, no privacy question).
 
 | Role | Family | Why |
 |---|---|---|
-| Display | **Fraunces** | Variable serif with `opsz` and `WONK` axes. Warm, slightly old-style, a little hand-cut at large sizes. Editorial without the fashion-magazine coldness of Playfair. |
-| Body | **Source Serif 4** | Screen-tuned serif that stays comfortable at 17px for a 300-word case study. Pairs with Fraunces without competing. |
+| Display | **Fraunces** | Variable serif with `opsz`. Warm, slightly old-style, a little hand-cut at large sizes. Also carries **margin notes** in true italic. |
+| Body / UI | **Lexend** | **Pranav's call, 2026-08-13** — his brand voice (it is the app's font too), designed for reading proficiency, excellent at small sizes. Body weight 300; UI elements 400–500. |
 | Label / metric | **IBM Plex Mono** | Reads as *typed* — a form, a stamp, a spec. Carries tags, dates, KPIs, and outcome numbers. |
 
-No UI sans-serif anywhere. The moment Inter appears, the desk becomes a website.
+*(History: the original system was all-serif — Source Serif 4 body — with an
+explicit "no UI sans" rule, on the argument that a geometric sans reads as app
+chrome rather than paper. An A/B specimen was built 2026-08-13; the owner chose
+Lexend. The rule is replaced by the two guardrails below, which are what keep
+the paper papery with a sans body:)*
+
+1. **Display and margin notes stay Fraunces.** The serif holds the editorial
+   register at the large sizes, and annotations get a *real* italic — Lexend's
+   italic is a slant, which reads as UI, not writing.
+2. **Labels stay mono.** Lexend never carries a label, tag, or metric — the
+   "typed on paper" layer is what anchors the sans body to the desk.
 
 ### Scale
 | Token | Size / line-height | Family & weight |
 |---|---|---|
-| `--t-display` | `clamp(2.75rem, 6vw, 4.5rem)` / 0.95 / `-0.02em` | Fraunces 700 |
+| `--t-display` | `clamp(2.125rem, 9vw, 4.5rem)` / 0.95 / `-0.02em` | Fraunces 700 — the 9vw floor is what survives 320px; a fixed floor overflowed |
 | `--t-title` | `clamp(1.75rem, 3.2vw, 2.5rem)` / 1.1 / `-0.01em` | Fraunces 600 |
 | `--t-heading` | `1.375rem` / 1.25 | Fraunces 600 |
-| `--t-subhead` | `1.125rem` / 1.4 | Source Serif 4 600 |
-| `--t-body` | `1.0625rem` / 1.65 | Source Serif 4 400 |
-| `--t-small` | `0.9375rem` / 1.5 | Source Serif 4 400 |
+| `--t-subhead` | `1.125rem` / 1.4 | Lexend 500 |
+| `--t-body` | `1.0625rem` / 1.6 | Lexend 300 |
+| `--t-small` | `0.9375rem` / 1.5 | Lexend 300 |
 | `--t-label` | `0.75rem` / 1 / `0.09em` / uppercase | IBM Plex Mono 500 |
 | `--t-metric` | `clamp(1.75rem, 3vw, 2.75rem)` / 1 | IBM Plex Mono 500, `tabular-nums` |
 
 **Measure: 62–68ch** on body text. A case study wider than that is unread.
 
-**Margin notes** — the annotations in a sheet's margin — are Source Serif 4
-*italic* at `--t-small` in `--ink-muted`. **Not a handwriting font.** Handwriting
-fonts are the fastest way to make a considered design look like a template.
+**Margin notes** — the annotations in a sheet's margin — are Fraunces *italic*
+at `--t-small` in `--ink-muted`. **Not a handwriting font.** Handwriting fonts
+are the fastest way to make a considered design look like a template.
 
 ## Space
 

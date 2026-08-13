@@ -1,0 +1,20 @@
+[
+  {
+    "id": "2f7be508-b291-80b8-99a2-e5823673e7cd",
+    "slug": "ashish-dasari",
+    "name": "Ashish Dasari",
+    "role": "Engineering Manager",
+    "org": "Metadome.ai",
+    "quote": "“I worked closely with Pranav at Metadome.ai, where he served as an Associate Product Manager. Pranav is the rare breed of PM who is as obsessed with system health and observability as the engineering team is. \n\nWhile many PMs focus solely on features, Pranav dedicated himself to the seemingly 'boring' but critical tasks of monitoring analytics and service health metrics. This diligence was vital in maintaining stability as we scaled. Beyond the operational side, he was the driving force behind the roadmap for 'Discover', one of our major revenue sources. His proactive competitor research and ability to translate data into actionable product improvements made him an invaluable partner to the engineering organization. I highly recommend Pranav to any team looking for a data-driven PM who truly understands the technical ecosystem.”",
+    "order": 0
+  },
+  {
+    "id": "2f7be508-b291-80ab-8a88-ca95f7cb1367",
+    "slug": "neeti-kejriwal",
+    "name": "Neeti Kejriwal",
+    "role": "Founder",
+    "org": "Shuru",
+    "quote": "“Pranav Upadhyay is a sincere and easy-going individual. His focus was to experiment with AI for creativity. He was able to manage the AI development alone while working with a team member to create the application. His contribution to the product was integral and we hope to work with him again sometime in the future!”",
+    "order": 1
+  }
+]

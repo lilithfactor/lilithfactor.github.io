@@ -46,9 +46,12 @@
   --link: var(--ink-blue);
   --accent: var(--red-pen);
 
-  /* --- Type --------------------------------------------------------------- */
+  /* --- Type --------------------------------------------------------------
+   * Lexend as body is Pranav's call (2026-08-13) — his brand voice, overriding
+   * the earlier all-serif rule. Guardrails that keep the paper papery:
+   * display and margin notes stay Fraunces (a real italic for annotations). */
   --font-display: "Fraunces", Georgia, serif;
-  --font-body: "Source Serif 4", Georgia, serif;
+  --font-body: "Lexend", -apple-system, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 
   /* 9vw floor, not a fixed 2.75rem: at 390px a fixed floor overflowed the
