@@ -3,215 +3,48 @@
 Build-scoped tasks. Ideas live in [vision.md](vision.md); the flow is in
 [workflow.md](../work/workflow.md).
 
-> *Rebuilt 2026-08-12.* Previously the Muretabi app's todo list — EAS builds,
-> LiveKit quotas, Play Console. None of it applied. Replaced wholesale.
-
-**Current phase: 4 — polish.** Phases 1 and 2 shipped 2026-08-13.
-
-*(was: phase 1)* Phase 0 shipped 2026-08-13: the paper
-foundation is live at https://lilithfactor.github.io/ (repo made public — Pages
-requires it on the free plan; history was secret-scanned first).
+**State, 2026-08-14: the live desk is shipped.** https://lilithfactor.github.io/
+is a paper-craft desk with printed outcomes, click-to-open panels, an
+adjustable lamp, sound, cursor parallax, and full STAR case-study pages.
+Everything below the line is what remains.
 
 ---
 
-## Needs your decision
+## Blocked on Pranav
 
-- [ ] **Custom domain or not.** `lilithfactor.github.io` works today and costs
-  nothing. `pranavupadhyay.com` (~₹1000/yr) is the cheapest credibility upgrade
-  available and it is what goes on a CV. **Recommend buying it now** — it only
-  gets more annoying to change after the link is shared. Blocks nothing; needed
-  before Phase 4.
+- [ ] **ZenMux key** — saved correctly (`sk-mg-…`, 73 chars) but the API
+  rejects every inference call with the same 403 a fake key gets. Most likely
+  unfunded; possibly video not enabled. Until a call succeeds, oil-motion
+  cannot generate a frame, which blocks the **walking figure** (and it also
+  needs a reference image of you — `video_job.py` is image→video).
+- [ ] **Recommendation photos + LinkedIn URLs** in the WareHouse database —
+  the highest-leverage content addition available.
+- [ ] **Custom domain decision** (`pranavupadhyay.com` vs staying on
+  `lilithfactor.github.io`).
+- [ ] **Notion webhook** for instant publish (cron is the 30-min guarantee):
+  a Notion automation POSTing `repository_dispatch` needs a GitHub PAT.
+- [ ] Write STAR bodies for the two sparse case studies (Configurator,
+  Brand-led agent) — the other three now render in full.
 
-- [x] ~~Notion integration token created~~ *(2026-08-12)* — connection
-  `lilithfactor.git…`, access-token auth. `NOTION_TOKEN` is in `.env` (gitignored)
-  and in Actions secrets. Verified: the token authenticates.
-- [x] ~~Share the page with the integration~~ *(2026-08-12)* — **all seven objects
-  reachable**, verified with `node --env-file=.env scripts/check-notion-access.mjs`.
-  The databases are authored in **Portfolio WareHouse**
-  (`2f2be508-b291-8043-b9a1-e17593459950`) and surfaced on the portfolio page via
-  synced blocks; sharing reaches both. *(The 404 that looked like a permissions
-  failure was the wrong id space — see [learning.md](../work/learning.md).)*
-- [x] ~~Reduce the integration's capabilities to read-only~~ *(2026-08-13)* —
-  trimmed by Pranav; verified the read-only token still reaches all seven objects.
+## Next build
 
-- [ ] **⏳ PENDING PRANAV — where does the music come from?** Must be owned or
-  licensed for public web use (CC0 / CC-BY with attribution rendered). Recommend
-  **3 instrumental ambient loops, 60–90s, ~1MB each at 64kbps Opus** —
-  instrumental because lyrics compete with reading. Options: your own · Free
-  Music Archive / Uppbeat · AI-generated. Blocks the record player, nothing else.
+- [ ] Desk explorables: drag-to-turn cube face, chess board with a real
+  position *(cut from the finished-desk push — the two stalled agents never
+  reached them)*.
+- [ ] Turntable object on the desk wired to the same audio as the corner
+  control (the control works everywhere; the 3D object is not yet clickable).
+- [ ] OG images per page, generated at build.
+- [ ] Cookieless analytics + the two tracking questions in vision.md.
+- [ ] Real-device pass: one mid-tier Android + one iPhone, cellular.
+- [ ] Lighthouse CI gate in deploy.yml.
 
-- [x] ~~The About paragraph ends mid-clause~~ *(2026-08-13: it never did — the
-  claim was a 400-char truncation artifact in the research dump. The paragraph
-  names General Motors, Nissan, Royal Enfield, VinFast. Nothing to do.)*
+## Done (this arc)
 
----
-
-## Phase 0 — Foundation
-
-- [x] 2019 site removed from tracking *(2026-08-13, commit `b79e3bd`)* —
-      archived locally in `dump/`, now gitignored. Delete `dump/` at launch.
-- [x] Scaffold *(2026-08-13)* — **Astro 7** + TS strict, Three.js pinned exact,
-      `.nvmrc` = 24.15.0, Prettier, no ESLint. Builds clean in ~150ms.
-- [x] Fonts *(2026-08-13)* — subset, self-hosted, 8 woff2 files, **135KB latin
-      initial load.** Fraunces keeps `opsz` (the reason to pick it); Source
-      Serif 4 drops it (70KB for a difference invisible at 17px). Measured, in
-      [fonts.css](../../src/styles/fonts.css) comments.
-- [x] `src/styles/tokens.css` *(2026-08-13)* — hand-written from
-      [design-system.md](../design/design-system.md), including the
-      reduced-motion block.
-- [x] Paper primitive *(2026-08-13)* — sheet + grain + contact shadow + dog-ear
-      + askew (card-width only) in [paper.css](../../src/styles/paper.css).
-      **Verified:** zero horizontal overflow at 320/390/768/1100 (element-level
-      probe), desktop screenshot reviewed. Two real bugs found and fixed: a 44px
-      display floor + `&nbsp;` name overflowed true-390px, and `clip-path`
-      swallowed its own dog-ear `::after`.
-- [x] `.github/workflows/deploy.yml` *(2026-08-13)* — build → `deploy-pages`,
-      concurrency-guarded.
-- [x] First deploy *(2026-08-13, Pranav's go)* — commits `b79e3bd` + `b7ef733`
-      pushed, repo flipped public (by Pranav; Pages needs it on the free plan,
-      history secret-scanned clean first), Pages created with
-      `build_type=workflow`, deploy green, **live site curl-verified**: 200,
-      correct title, paper page, no trace of the old site.
-      *Gotcha recorded: the workflow token cannot CREATE a Pages site
-      (`configure-pages` `enablement: true` → "Resource not accessible") — the
-      one-time `gh api -X POST …/pages -f build_type=workflow` needs user
-      credentials; the workflow keeps it configured thereafter.*
-
-**Exit: ✅ reached 2026-08-13** — a warm paper page live at `lilithfactor.github.io`.
-
-## Phase 1 — Content pipeline
-
-- [ ] `src/content.config.ts` — Astro collections + **Zod schemas** over
-      `content/*.json`, from [content-model.md](../content/content-model.md).
-      A malformed sync must **fail the build**, never publish a broken section.
-- [ ] `src/content/index.ts` — the proxy. **Nothing outside this folder may
-      mention Notion.**
-- [x] `scripts/sync-notion.mjs` *(2026-08-13, PR #1)* — all six databases via
-      the official API (raw fetch, pinned version), Visibility select gate,
-      normalisation to the contract, `id`/`slug`/`order`, `content/*.json` +
-      `meta.json` with warnings, loud failure on empty sections and missing
-      required fields. 6/6 tests; first real sync: **60 records**.
-  - [ ] **Asset downloader still pending** — today the sync only *warns* if a
-        hosted (expiring) file appears; all current links are external URLs.
-        Build it with the Photo/Playlist fields, which is when hosted files
-        actually arrive.
-- [ ] `.github/workflows/sync-content.yml` — cron `*/30`, `workflow_dispatch`
-      (so it can be run from the GitHub mobile app), and `repository_dispatch`.
-- [ ] Notion database automation → webhook → `repository_dispatch`, for instant
-      publish. *(Cron is the guarantee; the webhook is the speed.)*
-- [ ] Render all eight sections on the stack layout from the JSON.
-- [ ] Astro prerenders every page — verify the site reads with **JS disabled**.
-- [ ] Real routes: `/case-studies/<slug>/` etc. as prerendered HTML files, not
-      hash routes. Indexable, previewable, forwardable.
-- [ ] `links.json` — add the Email link by hand (the Notion button uses an email
-      action and exposes no URL).
-
-**Exit: ✅ 2026-08-13** — all 60 records live, 8 sections, 5 case-study routes,
-sync on cron + phone-runnable dispatch.
-
-## Phase 2 — The desk
-
-- [ ] `src/stage/choose.ts` — capability detection, not user-agent sniffing.
-- [ ] Three.js scene behind a dynamic `import()`. **Verify on a phone that the
-      chunk is never fetched** — this is the whole justification for choosing a
-      full 3D desk, so it gets checked, not assumed.
-- [ ] Desk, lamp (warm key), window (cool fill), contact shadows.
-- [ ] The eight artifacts, modelled and placed — deliberately imperfect: 2–4°
-      rotations, a cup ring, one uncapped pen.
-- [ ] Camera framings: overview + one per artifact, `--m-camera` easing.
-- [ ] **The anchor system** — project a 3D `Vector3` to screen space each frame,
-      write `--x/--y/--scale` to the matching DOM node. This is the mechanism
-      that keeps content as real text; get it right early.
-- [ ] Raycast targets padded to ≥44px.
-- [ ] Auto-degrade ladder: shadow maps → DPR 1.5 → DPR 1.0, stepped once, never
-      oscillating.
-- [ ] Draco-compress the geometry.
-
-### The record player
-Spans both stages, so it is built once and mounted twice. Rules in
-[ux-rules.md](../design/ux-rules.md#13-audio-is-opt-in-always) — they outrank the
-art direction.
-
-- [ ] `Playlist` database in Notion + sync support (downloads the audio files,
-      transcodes to Opus + AAC).
-- [ ] Turntable + three paper sleeves on the desk; compact player card on stack.
-- [ ] **Silent on load, and visibly so** — tonearm parked, record still.
-- [ ] **No audio fetched until the visitor presses play.** Check the Network tab,
-      don't assume.
-- [ ] Click a sleeve → arm lifts, record swaps, arm drops.
-- [ ] Record spins only while playing — the one permitted infinite animation,
-      because it is a state indicator rather than decoration.
-- [ ] Pause on `visibilitychange`; resume only on return, only if it was playing.
-- [ ] Persistent, keyboard-operable mute on **both** stages. Never 3D-only.
-- [ ] Start at ~30% volume. Remember the choice in `localStorage`.
-- [ ] Render attribution for any CC-licensed track.
-- [ ] `<audio loop>` first. If the loop seam is audible, move to a Web Audio
-      `AudioBufferSourceNode` (genuinely gapless) — decoding only the active
-      track, since a decoded 2-minute track is ~20MB of RAM.
-
-**Exit: ✅ 2026-08-13 (desk)** — verified: initial page ships a 2KB capability
-gate; the 517KB scene chunk is never referenced by index.html, so a phone does
-not fetch it. Record player NOT built — blocked on music licensing.
-
-## Phase 3 — The figure
-
-- [ ] Character design pass — ink sketch of Pranav, single-weight ballpoint line.
-- [ ] **Lock key frames first** (contact / passing / contact) and approve
-      proportions before generating any video. Skipping this is how the figure
-      quietly changes shape mid-stride.
-- [ ] Generate the seven clips; review every frame for extra limbs, flicker,
-      duplicates, and alpha eating the thin ink line.
-- [ ] Compress to real display size (~256px tall, 512px frames at 2×).
-      Budget ≤1.5MB desktop, ≤400KB mobile (`idle` + `point` only).
-- [ ] Billboard plane in the desk scene with a contact-shadow blob.
-- [ ] Distance-driven walk — one frame per fixed distance, mirrored sheet for the
-      opposite direction.
-- [ ] Path: straight line, one waypoint around obstacles. **No pathfinding
-      library.**
-- [ ] Interruptible mid-walk; redirect from current position, never restart or
-      teleport.
-- [ ] `open` syncs to the artifact opening on the hand-contact frame.
-- [ ] Idle hint after 15s → `point` at the nearest unopened artifact.
-
-**Exit:** clicking an artifact sends him walking; a second click skips him.
-
-## Phase 4 — Polish & launch
-
-- [ ] Case-study bodies in Notion using the four H2s: Problem · Insight ·
-      What I shipped · Outcome.
-- [ ] Body fetch in the sync (a `blocks.children.list` per row — ~56 extra calls,
-      fine on a 30-minute cron).
-- [ ] Recommendation photos + LinkedIn links.
-- [ ] OG images per section, generated at build.
-- [ ] Analytics, cookieless.
-- [ ] Full a11y pass — keyboard, reduced motion, JS-off, screen reader.
-- [ ] Perf pass against the [budget](../eng/architecture.md#performance-budget).
-- [ ] Real-device check: one mid-tier Android, one iPhone, on cellular.
-- [ ] Custom domain + redirect the Notion page here.
-
----
-
-## Debt
-
-Recorded deliberately, so "later" doesn't become "never".
-
-- **Icons.** Sixteen hand-drawn ink marks are the design intent. Lucide at
-  `stroke-width: 1.5` is the accepted stopgap — a geometric set beside a
-  hand-drawn figure looks like two projects merged. Revisit in Phase 4.
-- **`Link`/`Links` are rich-text fields** holding comma-separated URLs. The sync
-  splits and validates them. It works and it is the one loose spot in the schema;
-  proper URL properties or a relation would be cleaner if it ever misbehaves.
-- **Row bodies are a second API call per row.** Acceptable at 56 rows. If the
-  content grows past ~200 rows, the sync needs incremental fetching by
-  `last_edited_time`.
-
----
-
-## Done
-
-*(nothing yet — the build starts at Phase 0)*
-
-- [x] **Research + context rebuild** *(2026-08-12)* — live Notion page reverse-engineered
-      via its public API (6 databases, 56 rows, 6 social links, the About copy),
-      `brain/` rebuilt from the Muretabi copy into this project's docs, design
-      system and art direction defined, architecture and content contract written.
+- [x] Phases 0–4 as originally scoped — see git history from `b79e3bd`.
+- [x] Live desk pivot: paper-craft scene, panels, handles, no raycaster.
+- [x] STAR bodies synced recursively + images downloaded; outcome-first pages.
+- [x] Printed outcomes on the desk sheets; adjustable lamp driving real light;
+  night desk; cursor parallax; paper fibre/deckle skin.
+- [x] Soundscape (opt-in, one switch) + mobile chip + warm corner.
+- [x] Ops: read-only Notion token, timestamp-only sync commits killed,
+  workflows pinned, brain docs corrected (STAR, ids, schema types).
