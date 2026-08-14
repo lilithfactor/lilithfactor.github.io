@@ -82,7 +82,10 @@ export function createMaterials(p: Palette, t: StageTextures): Materials {
       color: p.shadow,
       map: t.contact,
       transparent: true,
-      opacity: 0.62,
+      // 0.62 was tuned against a kraft desk. On white paper the same quads read
+      // as a grey smear across the surface — nine of them overlap, and what
+      // looked like grounding became "a weird shadow".
+      opacity: 0.3,
       depthWrite: false,
       // A decal offset, not a Y offset. These quads lie flat on the base sheet,
       // and lifting them far enough to clear the depth buffer by position alone
@@ -106,7 +109,10 @@ export function createMaterials(p: Palette, t: StageTextures): Materials {
       transparent: true,
       blending: AdditiveBlending,
       depthWrite: false,
-      opacity: 0.52,
+      // Also retuned for white paper: additive light on an already-white sheet
+      // clips instantly, and at 0.52 the lamp's shade blew out into a flat
+      // white blob with only its outline left — a wireframe lamp.
+      opacity: 0.18,
     }),
   };
 }

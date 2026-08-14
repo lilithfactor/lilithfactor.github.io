@@ -155,6 +155,9 @@ function group(...parts: Object3D[]): Group {
  * object in place, which is the state lamp.glb and turntable.glb are in until
  * their licence is settled. */
 export const MODEL_SPECS = (p: Palette): readonly ModelSpec[] => [
+  // The lamp is re-scaled and split into its pivot group by desk.ts, so the
+  // size here is nominal — it only has to be sane if that split ever fails.
+  { name: "lamp", size: 0.46, tone: p.kraft },
   { name: "open-book", size: 0.34, tone: stock(p.paper, 2) },
   { name: "legal-pad", size: 0.19, tone: p.paperAged },
   { name: "pencil", size: 0.17, tone: p.accent },

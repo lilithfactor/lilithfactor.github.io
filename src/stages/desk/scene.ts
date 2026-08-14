@@ -130,7 +130,16 @@ export async function mountDesk(): Promise<DeskHandle | null> {
 
   const textures = createTextures(renderer.capabilities.getMaxAnisotropy());
   const materials = createMaterials(palette, textures);
-  const { room, lamp } = buildRoom(palette, materials);
+
+  // Downloaded geometry, repainted in the desk's own paper. Awaited before
+  // anything is built: the objects decide the contact shadows and the anchor
+  // positions below, the lamp is one of them, and rebuilding those mid-flight
+  // would move every section marker on the page. The document is complete and
+  // readable throughout, and a model that never arrives leaves its procedural
+  // version in place.
+  const models = await loadModels(MODEL_SPECS(palette), textures);
+
+  const { room, lamp } = buildRoom(palette, materials, models);
   scene.add(room);
 
   const lighting = buildLighting(palette);
@@ -141,12 +150,6 @@ export async function mountDesk(): Promise<DeskHandle | null> {
   const pressKit = press(palette, ARTIFACT_LABELS);
   // The rig owns the head angle and drives the key light from it.
   const lampRig = createLampRig(lamp, lighting.key);
-
-  // Downloaded geometry, repainted in the desk's own paper. Awaited rather than
-  // swapped in later: the objects decide the contact shadows and the anchor
-  // positions below, and rebuilding those mid-flight would move every section
-  // marker on the page. The document is complete and readable throughout.
-  const models = await loadModels(MODEL_SPECS(palette), textures);
 
   // The scene is one paper now, so the black line is what separates objects
   // from each other and from the desk. Applied per artifact below, and to the

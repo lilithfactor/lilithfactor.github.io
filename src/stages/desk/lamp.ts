@@ -15,7 +15,7 @@
  */
 
 import { Vector3, type Camera, type SpotLight } from "three";
-import { AIM, BULB, type LampParts } from "./desk";
+import type { LampParts } from "./desk";
 
 /** Head pitch limits, radians about the joint. Past these the folded shade
  * would intersect its own arm — sane limits, not physics. */
@@ -56,8 +56,8 @@ export function createLampRig(lamp: LampParts, key: SpotLight): LampRig {
 
     // The bulb and the aim point are head-local; the light lives in world
     // space. Recompute both from the pivoted transform.
-    key.position.copy(lamp.head.localToWorld(world.copy(BULB)));
-    key.target.position.copy(lamp.head.localToWorld(world.copy(AIM)));
+    key.position.copy(lamp.head.localToWorld(world.copy(lamp.bulb)));
+    key.target.position.copy(lamp.head.localToWorld(world.copy(lamp.aim)));
     key.target.updateMatrixWorld();
 
     // The painted pool slides to where the light actually lands: the ray

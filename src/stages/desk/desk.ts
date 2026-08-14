@@ -20,6 +20,7 @@
  * ========================================================================== */
 
 import {
+  Box3,
   BoxGeometry,
   CircleGeometry,
   Color,
@@ -32,10 +33,12 @@ import {
   SpotLight,
   Vector3,
   type BufferGeometry,
+  type Object3D,
 } from "three";
 import { bow, deckle, edgeOf, facet, paint } from "./cut";
 import type { Materials } from "./materials";
 import { blend, stock, type Palette } from "./palette";
+import type { ModelKit } from "./models";
 
 const DEG = Math.PI / 180;
 
@@ -74,6 +77,17 @@ export interface LampParts {
   readonly pool: Mesh;
   /** The lit inside of the shade. Goes dark with the lamp. */
   readonly glow: Mesh;
+  /**
+   * Where the bulb sits and what it points at, both in the HEAD's space so
+   * they turn with it.
+   *
+   * Carried on the parts rather than imported as constants, because the
+   * constants describe the procedural lamp and a downloaded one puts its shade
+   * somewhere else entirely — which showed up as the warm pool landing beside
+   * the lamp instead of under it.
+   */
+  readonly bulb: Vector3;
+  readonly aim: Vector3;
 }
 
 /** A painted box. `thin` names the axis its two large faces look along. */
@@ -106,7 +120,7 @@ function roll(
 }
 
 /** The base sheet, the backdrop it stands against, and the lamp. */
-export function buildRoom(p: Palette, m: Materials): { room: Group; lamp: LampParts } {
+export function buildRoom(p: Palette, m: Materials, models: ModelKit): { room: Group; lamp: LampParts } {
   const room = new Group();
   room.name = "room";
 
@@ -160,7 +174,7 @@ export function buildRoom(p: Palette, m: Materials): { room: Group; lamp: LampPa
   backdrop.position.set(0, 1.3, -1.25);
   room.add(backdrop);
 
-  const lamp = buildLamp(p, m);
+  const lamp = buildLamp(p, m, models);
   room.add(lamp.group, lamp.pool);
 
   // A paper coaster where a cup sat, because the desk should look used and this
@@ -181,56 +195,138 @@ export function buildRoom(p: Palette, m: Materials): { room: Group; lamp: LampPa
  * base, a strip folded twice for the arm, and a cone scored into eight facets
  * for the shade. Nothing on it is round — everything is folded, which is the
  * difference between a paper lamp and a lamp rendered in paper colours. */
-function buildLamp(p: Palette, m: Materials): LampParts {
+/** Total lamp height on the desk, in metres. */
+const LAMP_HEIGHT = 0.34;
+/**
+ * Where the model splits into "stays put" and "pivots", as a fraction of its
+ * height. Measured, not guessed: in the poly.pizza lamp the pole runs to 0.144
+ * and the lowest head part starts at 0.074 of a span from -1.349 to 0.601 —
+ * about 0.73 up. Anything from ~0.65 to ~0.78 lands in the same gap.
+ */
+const HEAD_SPLIT = 0.72;
+
+/**
+ * The lamp, built from public/models/lamp.glb when it is there.
+ *
+ * The rig is the constraint, not the look: lamp.ts turns ONE Object3D and
+ * expects the shade, the bulb and the beam's aim point to travel with it. A
+ * downloaded lamp arrives as a flat list of parts with no such group, so this
+ * builds one — parts above the knuckle are re-parented into `head` and moved
+ * into its space, everything below stays with the stand.
+ *
+ * Splitting by height works because a desk lamp is the one object whose parts
+ * genuinely stack vertically, and because the gap between the top of the pole
+ * and the bottom of the knuckle is wide enough that the exact number does not
+ * matter.
+ */
+function buildLamp(p: Palette, m: Materials, models: ModelKit): LampParts {
   const group = new Group();
   group.name = "lamp";
   group.position.copy(LAMP);
 
   const kraft = p.kraft;
+  const model = models.take("lamp");
 
-  // Base: a squat disc of stacked board, twelve-sided so it reads as cut.
-  const base = new Mesh(roll(0.1, 0.108, 0.026, 12, kraft, p.cut), m.card);
-  base.position.y = 0.013;
-  group.add(base);
-
-  // Lower arm: a folded strip, not a curve. It does not move — the whole point
-  // of an anglepoise is that the bottom half stays where you put the lamp.
-  const lower = new Mesh(sheet(0.03, 0.34, 0.014, stock(kraft, 1), p.cut, 2), m.card);
-  lower.position.set(0.01, 0.19, 0);
-  lower.rotation.z = -7 * DEG;
-  group.add(lower);
-
-  /* THE HEAD. Everything above the joint, in its own group.
-   *
-   * This is the whole reason the lamp can be aimed: rotating one Object3D
-   * carries the upper arm, the shade, the bulb, the beam's aim point and the
-   * glow inside the shade together, in the right relative positions, with no
-   * bookkeeping. Aiming a light by hand — moving a SpotLight's position and its
-   * target separately and hoping they stay consistent with a shade that is
-   * drawn somewhere else — is how a draggable lamp ends up shining out of its
-   * own arm. A pivot group makes that state unrepresentable. */
   const head = new Group();
   head.name = "lamp-head";
   head.position.copy(JOINT);
-  group.add(head);
 
-  const upper = new Mesh(sheet(0.027, 0.21, 0.013, kraft, p.cut, 2), m.card);
-  upper.position.set(-0.062, 0.065, -0.02);
-  upper.rotation.set(12 * DEG, 0, 38 * DEG);
-  head.add(upper);
+  if (model) {
+    // Normalise to the desk's scale, standing on y = 0.
+    const box = new Box3().setFromObject(model);
+    const size = box.getSize(new Vector3());
+    const scale = LAMP_HEIGHT / (size.y || 1);
+    model.scale.setScalar(scale);
+    model.updateMatrixWorld(true);
 
-  // Shade: a faceted cone, open at the bottom, seen from both sides so the lit
-  // inside is visible from the camera's high angle.
-  const shade = new Mesh(roll(0.05, 0.13, 0.125, 8, p.paperEdge, p.cut, true), m.card);
-  shade.position.set(BULB.x, BULB.y + 0.05, BULB.z);
-  shade.rotation.set(16 * DEG, 22 * DEG, -22 * DEG);
-  head.add(shade);
+    const seated = new Box3().setFromObject(model);
+    const centre = seated.getCenter(new Vector3());
+    model.position.set(-centre.x, -seated.min.y, -centre.z);
+    model.updateMatrixWorld(true);
 
-  // The lit inside of the shade. A disc of glow tucked just under its mouth —
-  // this is what makes the lamp look switched on from a viewing angle that can
-  // see up into it, and it costs one triangle fan.
-  const glow = new Mesh(new CircleGeometry(0.1, 16), m.glow);
-  glow.position.copy(BULB);
+    // Re-home the pivot on the real geometry rather than the procedural
+    // lamp's hand-placed JOINT, which described a different object.
+    const pivotY = LAMP_HEIGHT * HEAD_SPLIT;
+    head.position.set(0, pivotY, 0);
+
+    // Turned to face the desk. The model is authored with its arm reaching
+    // along +x; the lamp stands at the desk's right-hand end, so left is where
+    // the work is. Rotating the whole group keeps the head's pivot on axis and
+    // carries AIM round with it, so the beam follows without special-casing.
+    group.rotation.y = Math.PI;
+    group.add(model, head);
+    group.updateMatrixWorld(true);
+
+    // Split by each part's own centre height. Collected first, because moving
+    // a child while traversing its parent skips siblings.
+    const parts: Mesh[] = [];
+    model.traverse((o: Object3D) => {
+      if ((o as Mesh).isMesh) parts.push(o as Mesh);
+    });
+    const partBox = new Box3();
+    const partCentre = new Vector3();
+    for (const part of parts) {
+      partBox.setFromObject(part);
+      partBox.getCenter(partCentre);
+      // World y, which equals group-local y: the lamp group sits at y = 0.
+      if (partCentre.y < pivotY) continue;
+      // attach(), NOT add(). The parts hang two scaled parents deep — the
+      // loader normalises the gltf scene, then this function scales it again —
+      // and add() keeps only the local transform, so a re-parented shade
+      // snapped back to its authored size and arrived four times too big.
+      // attach() preserves the world transform, which is the whole point.
+      head.attach(part);
+    }
+  } else {
+    // Base: a squat disc of stacked board, twelve-sided so it reads as cut.
+    const base = new Mesh(roll(0.1, 0.108, 0.026, 12, kraft, p.cut), m.card);
+    base.position.y = 0.013;
+    group.add(base);
+
+    // Lower arm: a folded strip, not a curve. It does not move — the whole
+    // point of an anglepoise is that the bottom half stays where you put it.
+    const lower = new Mesh(sheet(0.03, 0.34, 0.014, stock(kraft, 1), p.cut, 2), m.card);
+    lower.position.set(0.01, 0.19, 0);
+    lower.rotation.z = -7 * DEG;
+    group.add(lower);
+  }
+
+  /* THE HEAD is the whole reason the lamp can be aimed: rotating one Object3D
+   * carries the shade, the bulb, the beam's aim point and the glow inside the
+   * shade together, in the right relative positions, with no bookkeeping.
+   * Aiming a light by hand — moving a SpotLight's position and its target
+   * separately and hoping they stay consistent with a shade drawn somewhere
+   * else — is how a draggable lamp ends up shining out of its own arm. A pivot
+   * group makes that state unrepresentable, whichever lamp fills it. */
+  if (!model) {
+    group.add(head);
+
+    const upper = new Mesh(sheet(0.027, 0.21, 0.013, kraft, p.cut, 2), m.card);
+    upper.position.set(-0.062, 0.065, -0.02);
+    upper.rotation.set(12 * DEG, 0, 38 * DEG);
+    head.add(upper);
+
+    // Shade: a faceted cone, open at the bottom, seen from both sides so the
+    // lit inside is visible from the camera's high angle.
+    const shade = new Mesh(roll(0.05, 0.13, 0.125, 8, p.paperEdge, p.cut, true), m.card);
+    shade.position.set(BULB.x, BULB.y + 0.05, BULB.z);
+    shade.rotation.set(16 * DEG, 22 * DEG, -22 * DEG);
+    head.add(shade);
+  }
+
+  /* The lit inside of the shade, tucked just under its mouth. This is what
+   * makes the lamp look switched on from an angle that can see up into it.
+   *
+   * Sized and placed off the head's actual extent rather than the procedural
+   * BULB constant, because that constant described the folded cone and the
+   * loaded shade is a different object at a different height. */
+  const headBox = new Box3().setFromObject(head);
+  const bulb = headBox.isEmpty() ? BULB.clone() : headBox.getCenter(new Vector3());
+  const glowRadius = headBox.isEmpty()
+    ? 0.1
+    : Math.max(0.05, Math.min(headBox.max.x - headBox.min.x, 0.16) * 0.42);
+  const glow = new Mesh(new CircleGeometry(glowRadius, 16), m.glow);
+  glow.position.copy(model ? bulb : BULB);
   glow.rotation.x = -90 * DEG;
   glow.renderOrder = 1;
   head.add(glow);
@@ -249,7 +345,13 @@ function buildLamp(p: Palette, m: Materials): LampParts {
   pool.position.y = 0.0016;
   pool.renderOrder = 2;
 
-  return { group, head, pool, glow };
+  // For the model, the beam starts at the shade and goes straight down with a
+  // slight lean, which lands the pool under the lamp on any lamp geometry. The
+  // procedural lamp keeps its hand-tuned pair.
+  const lampBulb = model ? bulb.clone() : BULB.clone();
+  const lampAim = model ? bulb.clone().add(new Vector3(0.12, -1, 0.22)) : AIM.clone();
+
+  return { group, head, pool, glow, bulb: lampBulb, aim: lampAim };
 }
 
 export function buildLighting(p: Palette): Lighting {

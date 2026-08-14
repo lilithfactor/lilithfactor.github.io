@@ -20,6 +20,7 @@ colours and the palette tokens are ours; the geometry is theirs.
 | `envelope.glb` | [Manila Envelope](https://poly.pizza/m/0nJFg_ANfxf) | Jarlan Perez | CC-BY 3.0 |
 | `folder.glb` | [File Folder](https://poly.pizza/m/fDhOEadpKWA) | Ryan Dewalt | CC-BY 3.0 |
 | `knights.glb` | [low poly chess knights](https://poly.pizza/m/373iD4phSZh) | Thomas Saint Pierre (s1pierro) | CC-BY 3.0 |
+| `lamp.glb` | [Desk Lamp](https://poly.pizza/m/0iZSZezOQxC) | Alex Safayan | CC-BY 3.0 |
 | `legal-pad.glb` | [Notebook](https://poly.pizza/m/9Ptsg_xZt6B) | jeremy | CC-BY 3.0 |
 | `letter.glb` | [Posted Letter](https://poly.pizza/m/4RKKC0BC4gb) | Jarlan Perez | CC-BY 3.0 |
 | `magnifier.glb` | [Magnifying Glass](https://poly.pizza/m/c8HQVCBMIMR) | Gabriel Valdivia | CC-BY 3.0 |

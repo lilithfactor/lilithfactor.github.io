@@ -40,12 +40,19 @@ const MODELS = {
     tris: 312,
     parts: 1,
   },
-  // No lamp: the desk's lamp is procedural on purpose. It is folded card by
-  // construction — a disc base, a strip folded twice, a cone scored into eight
-  // facets — which is exactly the look, and its head is already a pivot group
-  // driving a real SpotLight. The best downloaded lamp (poly.pizza/m/0iZSZezOQxC,
-  // 856t, the only articulated one of ~25 surveyed) would be a downgrade here
-  // and a rig rewrite besides.
+  lamp: {
+    resource: "8fefc37b-c3c7-4743-9a7c-d33dcc445602",
+    page: "0iZSZezOQxC",
+    title: "Desk Lamp",
+    creator: "Alex Safayan",
+    licence: "CC-BY 3.0",
+    tris: 856,
+    parts: 10,
+    // The only articulated lamp of ~25 surveyed: base, pole, knuckle and shade
+    // as separate nodes. desk.ts splits them by height into the pivot group the
+    // lamp rig turns — a fused mesh could not be rigged at all.
+    note: "separable head — required by the lamp rig",
+  },
   rubiks: {
     resource: "e43be19c-d07d-4f3f-9f4f-29701a92feff",
     page: "fOzaoeVGlG9",
