@@ -2,6 +2,10 @@
 import Base from "../layouts/Base.astro";
 import Section from "../components/Section.astro";
 import Chips from "../components/Chips.astro";
+// The desk mounts here and only here: it is this page's presentation of the
+// sections below. In the layout it leaked onto every page — a case-study
+// article with a 3D scene painting behind its text (Base.astro has the note).
+import StageMount from "../stages/StageMount.astro";
 import {
   about,
   caseStudies,
@@ -191,4 +195,5 @@ const bookLine = (b: { name: string; author: string | null }) =>
     </Section>
     <script type="application/json" id="playlist" set:html={JSON.stringify(playlist)} is:inline></script>
   </main>
+  <StageMount />
 </Base>

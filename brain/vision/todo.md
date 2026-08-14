@@ -48,3 +48,5 @@ Everything below the line is what remains.
 - [x] Soundscape (opt-in, one switch) + mobile chip + warm corner.
 - [x] Ops: read-only Notion token, timestamp-only sync commits killed,
   workflows pinned, brain docs corrected (STAR, ids, schema types).
+- [x] Desk leaking onto case-study pages fixed (StageMount was in the shared
+  layout; now homepage-only — article pages ship zero JS). See learning.md.

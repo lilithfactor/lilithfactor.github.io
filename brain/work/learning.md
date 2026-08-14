@@ -4,6 +4,29 @@ Things learned the hard way, written down while they still hurt. Newest first.
 
 ---
 
+## A mount in the shared layout runs on pages it was never designed for
+
+*2026-08-14, defect found by Pranav clicking through to a case study.*
+
+`<StageMount />` lived in `Base.astro`, so the desk's capability gate ran on
+every route. On `/case-studies/<slug>` it passed — desktop, WebGL, fine
+pointer prove nothing about *which page* you are on — and the 3D desk mounted
+behind the article at `z-index: -1`, with the "click anything on the desk"
+hint and sound control floating over prose. The article text fought a scene
+it had no relationship to.
+
+The gate checked **capability** but never **applicability**. Every check we
+had passed, because every check ran against the homepage; the checklist's
+"open one" keyboard gate opens a *panel*, not a page navigation.
+
+Fix is structural, not conditional: StageMount moved into `index.astro`,
+because the desk is that page's presentation of its own sections — on any
+other page there is nothing for it to present. Side effect: article pages and
+the 404 now ship **zero JavaScript**. A `pathname === "/"` guard would have
+fixed the symptom and kept shipping the gate script and stage CSS everywhere.
+
+---
+
 ## Lighthouse scores the desk swap as CLS 1.0; real browsers score 0.02
 
 *2026-08-14, running the ship checklist.*

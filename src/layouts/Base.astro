@@ -1,5 +1,4 @@
 ---
-import StageMount from "../stages/StageMount.astro";
 import "../styles/fonts.css";
 import "../styles/tokens.css";
 import "../styles/paper.css";
@@ -49,7 +48,10 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
   </head>
   <body>
     <a href="#main-content" class="visually-hidden">Skip to content</a>
+    {/* No StageMount here. The desk is the homepage's presentation of the
+        eight sections; on any other page there is nothing for it to present,
+        and mounting it anyway paints the scene behind the article text
+        (shipped bug, 2026-08-14). index.astro mounts it. */}
     <slot />
-    <StageMount />
   </body>
 </html>

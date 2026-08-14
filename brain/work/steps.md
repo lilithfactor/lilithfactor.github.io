@@ -43,6 +43,10 @@ npm run preview           # then actually look at it
 - [ ] **No horizontal scrollbar** at 320 / 768 / 1024 / 1440px.
 - [ ] **Cmd-F finds a word from a case-study body.** This is the one-second proof
       that content is still real text.
+- [ ] **Open a case-study page on a desktop viewport.** It is an article: no
+      canvas, no desk hint, no floating controls. The desk once leaked onto
+      these pages because its mount lived in the shared layout — the capability
+      gate checks *capability*, not *which page you are on* (learning.md).
 - [ ] **Lighthouse** — Performance ≥ 90, Accessibility 100, SEO 100.
 
 **If the PR touched the desk (Phase 2+), one more, and it is the important one:**
