@@ -251,3 +251,12 @@ html[data-stage="desk"] .desk-lamp-grip:focus-visible {
   outline: 2px solid var(--red-pen);
   outline-offset: 2px;
 }
+
+/* The first beat of the desk swap: the document fades to nothing BEFORE the
+ * stage attribute reflows it into panels. Opacity moves no layout, so the
+ * transformation happens while nothing is visible — the reader never watches
+ * their place on the page teleport. scene.ts owns the timing. */
+html.stage-swapping main {
+  opacity: 0;
+  transition: opacity 240ms ease-out;
+}

@@ -82,11 +82,15 @@ upload proves the upload worked, not that the page exists.
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' -L https://lilithfactor.github.io/
-curl -s https://lilithfactor.github.io/content/meta.json | head -c 300
+curl -s https://lilithfactor.github.io/meta.json | head -c 300
 ```
 
-`meta.json` carries `syncedAt` and the row counts — it is the fastest proof that
-the deployed site has the content you think it has.
+`/meta.json` carries `syncedAt`, the row counts and the sync warnings — the
+fastest proof that the deployed site has the content you think it has. It is a
+build-time endpoint (`src/pages/meta.json.ts`) emitting through the content
+proxy; `content/*.json` itself never ships. *(This step originally pointed at
+`/content/meta.json`, which 404s — a verification URL that never existed. Found
+by actually running this checklist, which is the argument for running it.)*
 
 Then open it. Actually open it.
 

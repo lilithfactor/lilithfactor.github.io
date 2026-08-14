@@ -1,10 +1,33 @@
-# Learnings
+# Engineering learnings — this project's gotchas
 
-**The bar for this doc:** an entry earns its place only if *not* knowing it would
-cost real time or a wrong decision later. No trivia, no diary, no "TIL". If it
-wouldn't change what a future session does, it doesn't go in. Newest first.
+Things learned the hard way, written down while they still hurt. Newest first.
 
-*(This absorbed `eng/context.md` on 2026-08-13 — one learnings doc, not two.)*
+---
+
+## Lighthouse scores the desk swap as CLS 1.0; real browsers score 0.02
+
+*2026-08-14, running the ship checklist.*
+
+The document→desk transformation (main goes position:fixed, sections become
+panels) is reported utterly differently by two measurements of the same build:
+
+- **Layout Shift API in real Chrome:** total CLS ≈ 0.019.
+- **Lighthouse desktop (headless, swiftshader):** one shift, score 1.0, on
+  `<main>` — identical across three different hiding strategies (opacity fade,
+  transitionend-gated flip, three-frame visibility:hidden swap). When three
+  different mechanisms produce byte-identical scores, the tool is not
+  measuring the mechanism.
+
+Two compounding causes: Lighthouse's trace processing scores the geometry
+change of main's fixed-position adoption regardless of paint state, and
+`--virtual-time-budget` in the probe harness races wall-clock timers against
+real-paint transitions — the 700ms fallback fired mid-fade under virtual time,
+which made one probe report the bug it was checking for. (Second entry for the
+measurement-chain rule: audit the harness before believing the number.)
+
+Ruling: the swap stays the simple opacity+transitionend version. TBT and LCP
+findings from the same Lighthouse run WERE real (640ms → 0ms via idle-deferred
+mount) — the tool is wrong about one number, not useless.
 
 ---
 

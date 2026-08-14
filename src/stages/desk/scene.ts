@@ -406,11 +406,36 @@ export function mountDesk(): DeskHandle | null {
 
     if (!ready) {
       ready = true;
-      // Only now does the page become the desk stage: the first frame is
-      // already in the buffer, so the reveal is a fade and never a flash of
-      // empty canvas across content someone is reading.
-      document.documentElement.dataset.stage = "desk";
-      canvas.classList.add("is-ready");
+      // The swap happens in two beats, and the order is CLS, not vanity:
+      // fade the document to nothing first (opacity moves no layout), and only
+      // flip the stage attribute — which reflows the entire page into panels —
+      // while nothing is visible. Shifts of invisible elements score zero,
+      // and more importantly, nobody watches their reading position teleport.
+      document.documentElement.classList.add("stage-swapping");
+      // Flip on transitionend, not a timer: a timer races the fade on slow
+      // frames (throttled CPU, software GL) and reflows the page while it is
+      // still half-visible — which is a full-viewport layout shift. The
+      // transition's own end event is correct on any device speed; the timer
+      // is only the fallback for a browser that never fires it.
+      const main = document.querySelector("main");
+      let swapped = false;
+      const flip = () => {
+        if (swapped) return;
+        swapped = true;
+        requestAnimationFrame(() => {
+          document.documentElement.dataset.stage = "desk";
+          canvas.classList.add("is-ready");
+          document.documentElement.classList.remove("stage-swapping");
+        });
+      };
+      // NOTE on measurement: Lighthouse desktop reports this swap as CLS ~1.0
+      // no matter how main is hidden (opacity, visibility, three-frame). The
+      // real-browser Layout Shift API reports ~0.02 for the same build. The
+      // synthetic trace scores the fixed-position adoption of <main> as a
+      // full-viewport shift regardless of paint state; do not contort the swap
+      // to please it. Verified 2026-08-14 — see brain/work/learning.md.
+      main?.addEventListener("transitionend", flip, { once: true });
+      setTimeout(flip, 700);
     }
 
     degrade(governor.sample(dt));
