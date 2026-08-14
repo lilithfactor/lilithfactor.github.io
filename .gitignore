@@ -23,3 +23,11 @@ dump/
 
 # Source audio (multi-MB mp3s). Transcoded opus/m4a in public/audio/ is what ships.
 bgm/
+
+# Hi-fi model sources: 54MB of input, never shipped. See scripts/prepare-models.mjs
+models-src/
+
+# Built from models-src by prepare-models.mjs. Held back until their licence is
+# known — publishing an unknown-licence asset is still distributing it.
+public/models/lamp.glb
+public/models/turntable.glb

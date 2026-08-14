@@ -21,8 +21,11 @@
     "three": "0.185.1"
   },
   "devDependencies": {
+    "@gltf-transform/core": "^4.4.2",
+    "@gltf-transform/functions": "^4.4.2",
     "@notionhq/client": "^5.24.0",
     "@types/three": "^0.185.0",
+    "meshoptimizer": "^1.2.0",
     "prettier": "^3.4.2",
     "prettier-plugin-astro": "^0.14.1",
     "typescript": "^5.7.2"

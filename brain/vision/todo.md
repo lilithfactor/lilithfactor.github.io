@@ -10,6 +10,32 @@ Everything below the line is what remains.
 
 ---
 
+## The rule: every object means something
+
+*Set 2026-08-14.* Every 3D object on the desk is clickable and carries
+significance. Nothing is set dressing — an object that opens nothing is a
+texture pretending to be a control. Models chosen and fetched; see
+[models.md](../design/models.md) for the object → section mapping.
+
+- [ ] **Where did `lamp-hifi.glb` and `record-player-hifi.glb` come from?**
+  Both are now the desk's two hero models (see [models.md](../design/models.md)),
+  and neither has a recorded source, author or licence. CC-BY needs a credit;
+  a non-commercial or no-derivatives licence would rule them out entirely.
+  Until this is filled into `public/models/ATTRIBUTION.md`, the models must not
+  ship. Drop-in replacements are named in `scripts/fetch-models.mjs`.
+
+Content still needed before the two new objects can be wired:
+
+- [ ] **Rubik's cube → speedcubing scores.** What should the panel show — PBs by
+  event, an average, a competition history? Cleanest home is a new WareHouse
+  database so it syncs like everything else.
+- [ ] **Turntable → Spotify.** Which URL: a profile, a specific playlist, or the
+  same playlist that already scores the desk? It is also the music control, so
+  clicking it should probably do both.
+- [ ] **Legal pad, pencil, post-its, mug** — placed but meaningless, which the
+  rule forbids. Either give each one a job (a now/next note, a
+  currently-reading aside) or leave them off the desk.
+
 ## Blocked on Pranav
 
 - [ ] **ZenMux key** — saved correctly (`sk-mg-…`, 73 chars) but the API
@@ -28,6 +54,13 @@ Everything below the line is what remains.
 
 ## Next build
 
+- [ ] **Wire the models into the scene.** 19 models sit in `public/models/`
+  fetched, salvaged and verified — and *nothing renders them yet*. The desk is
+  still entirely procedural. Needs: a loader that strips incoming materials and
+  applies the paper Lambert + cut colours, bounding-box normalisation (authored
+  scale is meaningless across sources — surveyed models ranged 0.005 to 48 units
+  for similar real-world objects), placement against `PLACEMENTS`, and
+  re-pointing `lamp.ts` at the new `head` node.
 - [ ] Desk explorables: drag-to-turn cube face, chess board with a real
   position *(cut from the finished-desk push — the two stalled agents never
   reached them)*.
