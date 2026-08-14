@@ -96,14 +96,22 @@ export interface Placement {
  */
 export const PLACEMENTS: Readonly<Record<ArtifactId, Placement>> = {
   about: {
-    position: [-0.3, 0, 0.12],
+    position: [-0.3, 0, 0.22],
     yaw: -2.5,
     anchor: [0, 0.06, 0],
   },
   "case-studies": {
-    position: [0.44, 0, 0.02],
+    // Slightly more central and 80mm nearer the camera than it was, which both
+    // improves the four printed sheets' legibility and opens real separation
+    // from `recommendations` — the two used to sit at x-ratios of 0.149 and
+    // 0.151 in camera space, i.e. on the same sightline, which is what made the
+    // middle-right read as a pile.
+    position: [0.4, 0, 0.1],
     yaw: 3.5,
-    anchor: [0, 0.08, 0],
+    // Lifted well clear of the sheets. The tag used to sit at 80mm, which put
+    // it flat on top of the printed outcomes and covered the one number
+    // ("1.4x") the whole object exists to show.
+    anchor: [0, 0.26, 0.02],
   },
   "product-dives": {
     // Standing on the desk at the back edge, leaning toward the wall. The
@@ -119,7 +127,10 @@ export const PLACEMENTS: Readonly<Record<ArtifactId, Placement>> = {
     anchor: [0, 0.13, 0],
   },
   recommendations: {
-    position: [0.24, 0, 0.44],
+    // Moved across the desk, out of case-studies' sightline and into the one
+    // genuinely empty quadrant: front-left, nearest the camera. Letters set
+    // aside within reach.
+    position: [-0.9, 0, 0.32],
     yaw: -3,
     anchor: [0, 0.05, 0],
   },
@@ -132,16 +143,48 @@ export const PLACEMENTS: Readonly<Record<ArtifactId, Placement>> = {
     anchor: [0, 0.14, 0.02],
   },
   beyond: {
-    position: [0.92, 0, -0.34],
+    // Pushed right and back into its own corner. Real desks segregate the
+    // hobby things from the working surface, and the extra angular gap from
+    // case-studies is what stops the right-hand side reading as one heap.
+    // Further back than sideways. In world space this never touched the
+    // dossier; from a near-overhead camera the two still merged, and depth
+    // separates on screen where width had run out of desk to use.
+    position: [1.02, 0, -0.62],
     yaw: -3.5,
     anchor: [0, 0.11, 0.05],
   },
   connect: {
-    position: [-0.6, 0, 0.42],
-    yaw: 2.5,
+    // Front-centre, well forward of the dossier: the card is the one object
+    // being handed toward you. Pulled to z 0.46 because at 0.30 its footprint
+    // reached under the case-study sheets and the two silhouettes merged into
+    // one shape from this camera.
+    position: [0.06, 0, 0.46],
+    yaw: 2,
     anchor: [0, 0.05, 0],
   },
 };
+
+/* WHY THESE NUMBERS CHANGED (2026-08-14).
+ *
+ * The desk read as cluttered right and empty left. Projecting every anchor into
+ * camera space found the cause and it was not "too many objects": case-studies
+ * and recommendations sat at x-ratios 0.149 and 0.151 — the same sightline,
+ * separated only by 0.4m of depth that a near-overhead camera collapses.
+ *
+ * The fix arranges the eight into the three zones a real working desk has, and
+ * the y-ratios fall out into them rather than being forced:
+ *
+ *   front / primary   about, connect, recommendations — handled things, nearest
+ *                     the camera, placed as a scalene triangle rather than a row
+ *   mid / secondary   case-studies, projects, beyond — out but self-contained,
+ *                     spread across the full width
+ *   back / reference  product-dives, library — standing, elevated, literally
+ *                     the reference-material zone
+ *
+ * Same-tier objects now hold =0.4 combined ratio separation; cross-tier pairs
+ * are resolved by height instead of width, which is the stronger cue at this
+ * angle. Deliberate empty desk is left in the band in front of case-studies so
+ * nothing crowds the printed sheets. */
 
 /**
  * Where the camera sits when nothing in particular is being looked at.

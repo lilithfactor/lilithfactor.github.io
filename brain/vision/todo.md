@@ -8,6 +8,9 @@ is a paper-craft desk with printed outcomes, click-to-open panels, an
 adjustable lamp, sound, cursor parallax, and full STAR case-study pages.
 Everything below the line is what remains.
 
+# Idea Dump
+- should be able to change weather, this would change the sound and also what can be seen outside the window.
+
 ---
 
 ## The rule: every object means something

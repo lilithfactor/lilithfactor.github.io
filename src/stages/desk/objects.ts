@@ -21,12 +21,21 @@
  * Still under 6k triangles, which is a rounding error against the 250k budget.
  * ========================================================================== */
 
-import { BoxGeometry, CylinderGeometry, Group, Mesh, type Color, type Texture } from "three";
+import {
+  BoxGeometry,
+  CylinderGeometry,
+  Group,
+  Mesh,
+  type Color,
+  type Object3D,
+  type Texture,
+} from "three";
 import { bow, edgeOf, facet, paint } from "./cut";
 import type { ArtifactId } from "./layout";
 import { printed, type Materials } from "./materials";
 import { stock, type Palette } from "./palette";
 import type { Press } from "./print";
+import type { ModelKit, ModelSpec } from "./models";
 
 const DEG = Math.PI / 180;
 
@@ -40,10 +49,12 @@ interface Transform {
   roll?: number;
 }
 
-function place(mesh: Mesh, t: Transform): Mesh {
-  mesh.position.set(t.x ?? 0, t.y ?? 0, t.z ?? 0);
-  mesh.rotation.set((t.pitch ?? 0) * DEG, (t.yaw ?? 0) * DEG, (t.roll ?? 0) * DEG);
-  return mesh;
+// Generic over Object3D rather than Mesh, so a loaded model places exactly the
+// way a folded card does.
+function place<T extends Object3D>(o: T, t: Transform): T {
+  o.position.set(t.x ?? 0, t.y ?? 0, t.z ?? 0);
+  o.rotation.set((t.pitch ?? 0) * DEG, (t.yaw ?? 0) * DEG, (t.roll ?? 0) * DEG);
+  return o;
 }
 
 /**
@@ -130,23 +141,70 @@ function printedSheet(
   return place(new Mesh(cardGeometry(colour, cut, w, h, d), printed(map)), t);
 }
 
-function group(...meshes: Mesh[]): Group {
+function group(...parts: Object3D[]): Group {
   const g = new Group();
-  g.add(...meshes);
+  g.add(...parts);
   return g;
 }
 
+/* --- What the desk asks for from public/models/ -----------------------------
+ * Sizes are the object's largest dimension in metres, chosen against the desk
+ * rather than against each other: a mug is 85mm because a mug is 85mm.
+ *
+ * Every entry is optional at runtime. A missing file leaves the procedural
+ * object in place, which is the state lamp.glb and turntable.glb are in until
+ * their licence is settled. */
+export const MODEL_SPECS = (p: Palette): readonly ModelSpec[] => [
+  { name: "open-book", size: 0.34, tone: stock(p.paper, 2) },
+  { name: "legal-pad", size: 0.19, tone: p.paperAged },
+  { name: "pencil", size: 0.17, tone: p.accent },
+  { name: "corkboard", size: 0.66, tone: p.kraft },
+  { name: "magnifier", size: 0.19, tone: p.cool },
+  { name: "crate", size: 0.3, tone: p.kraft },
+  { name: "envelope", size: 0.19, tone: p.paperAged },
+  { name: "letter", size: 0.16, tone: stock(p.paper, 3) },
+  { name: "books", size: 0.32, tone: p.cool },
+  { name: "book-stack", size: 0.19, tone: p.accent },
+  { name: "rubiks", size: 0.075, tone: p.accent },
+];
+// Not the chess knights, though they are fetched and credited. At 62mm on a
+// paper board they are ~30 screen pixels of a 200-triangle faceted mesh, and
+// the ink outline round every facet collapses into a solid black blob — the one
+// thing on a white desk that reads as a bug. The printed position IS the chess
+// entry (art-direction.md); a diagram is also the more paper answer.
+// Deliberately NOT loaded: folder, clipboard, mug, postit. They are fetched and
+// ready, but nothing places them yet — the desk's rule is that every object
+// opens something, and downloading four objects to decorate with would break
+// it and cost bytes at the same time. See brain/vision/todo.md.
+
 /* --- About: an open notebook, always open — this is the landing state ------ */
-function notebook(p: Palette, m: Materials): Group {
-  return group(
+function notebook(p: Palette, m: Materials, _press: Press, models: ModelKit): Group {
+  const book = models.take("open-book");
+  const pad = models.take("legal-pad");
+  const pen = models.take("pencil");
+
+  const g = group(
     card(m, p.paperAged, p.cut, 0.045, 0.03, 0.32, { y: 0.015 }),
     // The two open pages are not the same white. They never are: one has been
     // face-up on a desk for a week and the other has been shut inside a book.
-    card(m, stock(p.paper, 1), p.cut, 0.24, 0.012, 0.32, { x: -0.13, y: 0.026, roll: 2.2 }),
-    card(m, stock(p.paper, 4), p.cut, 0.24, 0.012, 0.32, { x: 0.13, y: 0.026, roll: -2.2 }),
-    // One pen, uncapped, lying where it was put down rather than in a tray.
-    tube(m, p.accent, p.cut, 0.007, 0.15, { x: 0.19, y: 0.007, z: 0.19, roll: 90, yaw: -22 }, 8),
+    // A loaded open book supersedes them — it has real page curl, which two
+    // flat cards cannot fake — but the spine card stays either way.
+    ...(book
+      ? [place(book, { x: 0.02, y: 0.026, yaw: -3 })]
+      : [
+          card(m, stock(p.paper, 1), p.cut, 0.24, 0.012, 0.32, { x: -0.13, y: 0.026, roll: 2.2 }),
+          card(m, stock(p.paper, 4), p.cut, 0.24, 0.012, 0.32, { x: 0.13, y: 0.026, roll: -2.2 }),
+        ]),
   );
+
+  // One pen, uncapped, lying where it was put down rather than in a tray.
+  g.add(
+    pen
+      ? place(pen, { x: 0.2, y: 0.004, z: 0.2, yaw: -22, roll: 90 })
+      : tube(m, p.accent, p.cut, 0.007, 0.15, { x: 0.19, y: 0.007, z: 0.19, roll: 90, yaw: -22 }, 8),
+  );
+  if (pad) g.add(place(pad, { x: -0.26, y: 0.002, z: 0.16, yaw: 11 }));
+  return g;
 }
 
 /* --- Case studies: four printouts, spread out and read ---------------------
@@ -207,11 +265,17 @@ function dossier(p: Palette, m: Materials, press: Press): Group {
 }
 
 /* --- Product dives: a pinned board of index cards, and a magnifier -------- */
-function pinBoard(p: Palette, m: Materials): Group {
+function pinBoard(p: Palette, m: Materials, _press: Press, models: ModelKit): Group {
+  const board = models.take("corkboard");
+  const glass = models.take("magnifier");
+
   // 0.42 tall, centred on the origin, so the group's y in layout.ts (0.21)
-  // is exactly what puts its bottom edge on the desk.
+  // is exactly what puts its bottom edge on the desk. The loaded board is
+  // re-seated to sit on y = 0, so it is lowered by half that to match.
   const g = group(
-    card(m, p.kraft, p.cut, 0.7, 0.42, 0.03, { pitch: -6 }),
+    board
+      ? place(board, { y: -0.21, pitch: -6 })
+      : card(m, p.kraft, p.cut, 0.7, 0.42, 0.03, { pitch: -6 }),
     // Three cards off three different pads. Same size, not the same white.
     card(m, stock(p.paper, 1), p.cut, 0.13, 0.09, 0.006, { x: -0.19, y: 0.09, z: 0.021, roll: 3 }),
     card(m, stock(p.paper, 3), p.cut, 0.13, 0.09, 0.006, { x: -0.02, y: 0.1, z: 0.021, roll: -2 }),
@@ -222,35 +286,62 @@ function pinBoard(p: Palette, m: Materials): Group {
       roll: 2.5,
     }),
   );
-  // Magnifier: an open-ended tube is a ring, and a ring is a lens rim.
-  g.add(tube(m, p.cool, p.cut, 0.048, 0.014, { x: 0.21, y: -0.01, z: 0.055, pitch: 90 }, 16, true));
-  g.add(tube(m, p.ink, p.cut, 0.008, 0.09, { x: 0.21, y: -0.09, z: 0.055, roll: 8 }, 8));
+  // Magnifier: a real one when we have it, otherwise an open-ended tube, which
+  // is a ring, which is a lens rim.
+  if (glass) {
+    g.add(place(glass, { x: 0.24, y: -0.06, z: 0.06, pitch: 74, roll: 14 }));
+  } else {
+    g.add(tube(m, p.cool, p.cut, 0.048, 0.014, { x: 0.21, y: -0.01, z: 0.055, pitch: 90 }, 16, true));
+    g.add(tube(m, p.ink, p.cut, 0.008, 0.09, { x: 0.21, y: -0.09, z: 0.055, roll: 8 }, 8));
+  }
   return g;
 }
 
 /* --- Projects: a crate of shipped things, lid open, blueprints inside ----- */
-function crate(p: Palette, m: Materials): Group {
+function crate(p: Palette, m: Materials, _press: Press, models: ModelKit): Group {
+  const box = models.take("crate");
+  // The rolled drawings stay procedural either way: they are what says the box
+  // is full of shipped work rather than empty, and a loaded box is just a box.
   return group(
-    card(m, p.kraft, p.cut, 0.3, 0.16, 0.24, { y: 0.08 }),
-    card(m, p.kraft, p.cut, 0.32, 0.018, 0.26, { y: 0.215, z: -0.115, pitch: -58 }),
+    ...(box
+      ? [place(box, { yaw: -4 })]
+      : [
+          card(m, p.kraft, p.cut, 0.3, 0.16, 0.24, { y: 0.08 }),
+          card(m, p.kraft, p.cut, 0.32, 0.018, 0.26, { y: 0.215, z: -0.115, pitch: -58 }),
+        ]),
     tube(m, p.paper, p.cut, 0.025, 0.27, { x: -0.01, y: 0.19, z: 0.01, roll: 90, yaw: -6 }, 10),
     tube(m, p.paperAged, p.cut, 0.022, 0.24, { x: 0.02, y: 0.186, z: 0.07, roll: 90, yaw: 5 }, 10),
   );
 }
 
 /* --- Recommendations: two opened letters with their envelopes ------------- */
-function letters(p: Palette, m: Materials): Group {
+function letters(p: Palette, m: Materials, _press: Press, models: ModelKit): Group {
+  const envelope = models.take("envelope");
+  const letter = models.take("letter");
+  // Two letters from two people, so two envelopes and two writing papers. Only
+  // one of each is a model — the second stays cut card, because two copies of
+  // the same mesh side by side is the thing that reads as an asset pack.
   return group(
-    // Two letters from two people, so two envelopes and two writing papers.
-    card(m, p.paperAged, p.cut, 0.165, 0.008, 0.1, { x: -0.1, y: 0.004, z: 0.03, yaw: -9 }),
-    card(m, stock(p.paper, 2), p.cut, 0.14, 0.007, 0.19, { x: -0.075, y: 0.011, z: -0.06, yaw: -5 }),
+    envelope
+      ? place(envelope, { x: -0.1, y: 0.002, z: 0.03, yaw: -9 })
+      : card(m, p.paperAged, p.cut, 0.165, 0.008, 0.1, { x: -0.1, y: 0.004, z: 0.03, yaw: -9 }),
+    letter
+      ? place(letter, { x: -0.075, y: 0.009, z: -0.07, yaw: -5 })
+      : card(m, stock(p.paper, 2), p.cut, 0.14, 0.007, 0.19, {
+          x: -0.075,
+          y: 0.011,
+          z: -0.06,
+          yaw: -5,
+        }),
     card(m, stock(p.paperAged, 4), p.cut, 0.165, 0.008, 0.1, { x: 0.11, y: 0.004, z: 0.06, yaw: 8 }),
     card(m, stock(p.paper, 5), p.cut, 0.14, 0.007, 0.19, { x: 0.095, y: 0.011, z: -0.03, yaw: 4 }),
   );
 }
 
 /* --- Library: a shelf behind the desk, visibly read ----------------------- */
-function shelf(p: Palette, m: Materials): Group {
+function shelf(p: Palette, m: Materials, _press: Press, models: ModelKit): Group {
+  const row = models.take("books");
+  const stack = models.take("book-stack");
   const g = group(
     card(m, p.deskDeep, p.cut, 0.86, 0.03, 0.2, {}),
     // The carcass. It runs down to the floor and is almost entirely hidden by
@@ -263,27 +354,38 @@ function shelf(p: Palette, m: Materials): Group {
   // prop shelf. Two are cut from the one cool card in the model, which is what
   // stops a row of warm rectangles reading as five copies of the same book.
   // The sixth leans into the gap the read one left.
-  const spines: ReadonlyArray<readonly [number, number, number, Color]> = [
-    [-0.36, 0.046, 0.22, p.cool],
-    [-0.305, 0.04, 0.19, p.kraft],
-    [-0.255, 0.054, 0.235, p.accent],
-    [-0.195, 0.042, 0.2, p.paperAged],
-    [-0.14, 0.048, 0.185, p.cool],
-  ];
-  for (const [x, w, h, colour] of spines) {
-    g.add(card(m, colour, p.cut, w, h, 0.15, { x, y: 0.015 + h / 2 }));
+  if (row) {
+    // A leaning row of real books, which is a shape five extruded rectangles
+    // cannot make: the lean is the whole read of a shelf someone uses.
+    g.add(place(row, { x: -0.24, y: 0.015, yaw: 2 }));
+  } else {
+    const spines: ReadonlyArray<readonly [number, number, number, Color]> = [
+      [-0.36, 0.046, 0.22, p.cool],
+      [-0.305, 0.04, 0.19, p.kraft],
+      [-0.255, 0.054, 0.235, p.accent],
+      [-0.195, 0.042, 0.2, p.paperAged],
+      [-0.14, 0.048, 0.185, p.cool],
+    ];
+    for (const [x, w, h, colour] of spines) {
+      g.add(card(m, colour, p.cut, w, h, 0.15, { x, y: 0.015 + h / 2 }));
+    }
+    g.add(card(m, p.paperEdge, p.cut, 0.05, 0.2, 0.15, { x: -0.085, y: 0.115, roll: -9 }));
   }
-  g.add(card(m, p.paperEdge, p.cut, 0.05, 0.2, 0.15, { x: -0.085, y: 0.115, roll: -9 }));
 
-  // The one currently being read, laid flat on the shelf.
-  g.add(card(m, p.paperAged, p.cut, 0.15, 0.032, 0.11, { x: 0.28, y: 0.031, yaw: 4 }));
+  // The ones currently being read, laid flat on the shelf.
+  g.add(
+    stack
+      ? place(stack, { x: 0.28, y: 0.015, yaw: 4 })
+      : card(m, p.paperAged, p.cut, 0.15, 0.032, 0.11, { x: 0.28, y: 0.031, yaw: 4 }),
+  );
   return g;
 }
 
 /* --- Beyond the routine: the props are the content ------------------------
  * The cube IS the speedcubing entry, the board IS the chess entry, the
  * turntable IS the music entry. Nothing here is set dressing. */
-function props(p: Palette, m: Materials, press: Press): Group {
+function props(p: Palette, m: Materials, press: Press, models: ModelKit): Group {
+  const cube = models.take("rubiks");
   const g = group(
     card(m, p.ink, p.cut, 0.26, 0.042, 0.26, { y: 0.021 }),
     tube(m, p.ink, p.cut, 0.095, 0.01, { x: -0.02, y: 0.047, z: -0.01 }, 20),
@@ -292,9 +394,19 @@ function props(p: Palette, m: Materials, press: Press): Group {
     tube(m, p.accent, p.cut, 0.03, 0.012, { x: -0.02, y: 0.053, z: -0.01 }, 12),
     // Tonearm parked on its rest. Silence has to be visible. ux-rules.md 13.
     tube(m, p.kraft, p.cut, 0.006, 0.11, { x: 0.085, y: 0.054, z: -0.05, roll: 90, yaw: 34 }, 6),
-    card(m, p.accent, p.cut, 0.075, 0.075, 0.075, { x: -0.2, y: 0.038, z: 0.2, yaw: 22, roll: 7 }),
+    // The cube IS the speedcubing entry, so it is a real cube when we have one.
+    cube
+      ? place(cube, { x: -0.2, y: 0.001, z: 0.2, yaw: 22, roll: 7 })
+      : card(m, p.accent, p.cut, 0.075, 0.075, 0.075, {
+          x: -0.2,
+          y: 0.038,
+          z: 0.2,
+          yaw: 22,
+          roll: 7,
+        }),
     card(m, p.ink, p.cut, 0.2, 0.004, 0.045, { x: -0.16, y: 0.002, z: 0.4, yaw: 28 }),
   );
+
 
   // The board, set to a real game. It was a blank tan square, which made the
   // one object art-direction.md is most explicit about ("the chess board IS the
@@ -323,7 +435,7 @@ function connectCard(p: Palette, m: Materials): Group {
   );
 }
 
-type Builder = (p: Palette, m: Materials, press: Press) => Group;
+type Builder = (p: Palette, m: Materials, press: Press, models: ModelKit) => Group;
 
 const BUILDERS: Readonly<Record<ArtifactId, Builder>> = {
   about: notebook,
@@ -341,8 +453,9 @@ export function buildArtifact(
   p: Palette,
   materials: Materials,
   press: Press,
+  models: ModelKit,
 ): Group {
-  const g = BUILDERS[id](p, materials, press);
+  const g = BUILDERS[id](p, materials, press, models);
   g.name = id;
   return g;
 }

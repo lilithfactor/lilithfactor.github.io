@@ -31,11 +31,21 @@ const UA = { "User-Agent": "lilithfactor.github.io asset fetch" };
  * if an upload changes underneath us, the fetch fails loudly rather than
  * quietly putting a different object on the desk. */
 const MODELS = {
-  // NOTE: no lamp and no turntable here. Both come from the hi-fi downloads in
-  // models-src/ via scripts/prepare-models.mjs, which beat every poly.pizza
-  // candidate once stripped of textures and simplified. The runners-up, if
-  // those sources are ever lost: lamp poly.pizza/m/0iZSZezOQxC (856t, the only
-  // articulated one of ~25 surveyed), turntable poly.pizza/m/fmkVqWxEWO3.
+  turntable: {
+    resource: "a98ad5db-b39c-4534-902f-855ec814dd27",
+    page: "fmkVqWxEWO3",
+    title: "Turntable / Record Player",
+    creator: "Vince Pale Jr",
+    licence: "CC-BY 3.0",
+    tris: 312,
+    parts: 1,
+  },
+  // No lamp: the desk's lamp is procedural on purpose. It is folded card by
+  // construction — a disc base, a strip folded twice, a cone scored into eight
+  // facets — which is exactly the look, and its head is already a pivot group
+  // driving a real SpotLight. The best downloaded lamp (poly.pizza/m/0iZSZezOQxC,
+  // 856t, the only articulated one of ~25 surveyed) would be a downgrade here
+  // and a rig rewrite besides.
   rubiks: {
     resource: "e43be19c-d07d-4f3f-9f4f-29701a92feff",
     page: "fOzaoeVGlG9",
@@ -290,19 +300,8 @@ colours and the palette tokens are ours; the geometry is theirs.
 |---|---|---|---|
 ${credit}
 
-## Not from poly.pizza — provenance needed
-
-\`lamp.glb\` and \`turntable.glb\` are built by \`scripts/prepare-models.mjs\`
-from the hi-fi downloads in \`models-src/\`, which arrived without a recorded
-source. **Both need their origin URL, author and licence filled in here before
-the site ships them.** If either turns out to be non-commercial or
-no-derivatives, the poly.pizza runners-up named in \`fetch-models.mjs\` are
-drop-in replacements.
-
-| File | Model | Author | Licence |
-|---|---|---|---|
-| \`lamp.glb\` | ? | ? | **UNKNOWN** |
-| \`turntable.glb\` | ? | ? | **UNKNOWN** |
+Every model above carries its licence, which is why the desk sources from
+poly.pizza rather than from asset sites that ship geometry with no provenance.
 
 CC-BY 3.0 requires attribution and permits commercial use and modification:
 <https://creativecommons.org/licenses/by/3.0/>. CC0 1.0 waives all rights and

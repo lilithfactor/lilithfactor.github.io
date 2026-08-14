@@ -29,20 +29,10 @@ colours and the palette tokens are ours; the geometry is theirs.
 | `pinboard.glb` | [Bulletin board](https://poly.pizza/m/2CvK24vFhUK) | Poly by Google | CC-BY 3.0 |
 | `postit.glb` | [A stack of post-it](https://poly.pizza/m/3r6uTb4Tn0j) | Zack Huang | CC-BY 3.0 |
 | `rubiks.glb` | [Rubik's cube](https://poly.pizza/m/fOzaoeVGlG9) | Poly by Google | CC-BY 3.0 |
+| `turntable.glb` | [Turntable / Record Player](https://poly.pizza/m/fmkVqWxEWO3) | Vince Pale Jr | CC-BY 3.0 |
 
-## Not from poly.pizza — provenance needed
-
-`lamp.glb` and `turntable.glb` are built by `scripts/prepare-models.mjs`
-from the hi-fi downloads in `models-src/`, which arrived without a recorded
-source. **Both need their origin URL, author and licence filled in here before
-the site ships them.** If either turns out to be non-commercial or
-no-derivatives, the poly.pizza runners-up named in `fetch-models.mjs` are
-drop-in replacements.
-
-| File | Model | Author | Licence |
-|---|---|---|---|
-| `lamp.glb` | ? | ? | **UNKNOWN** |
-| `turntable.glb` | ? | ? | **UNKNOWN** |
+Every model above carries its licence, which is why the desk sources from
+poly.pizza rather than from asset sites that ship geometry with no provenance.
 
 CC-BY 3.0 requires attribution and permits commercial use and modification:
 <https://creativecommons.org/licenses/by/3.0/>. CC0 1.0 waives all rights and

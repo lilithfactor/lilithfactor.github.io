@@ -375,3 +375,60 @@ html[data-stage="desk"] .desk-sound__next:focus-visible {
     animation: none;
   }
 }
+
+/* --- Getting back out ------------------------------------------------------
+ * Three doors at the foot of every panel: the desk, and the section on either
+ * side. Before this, an open panel covered the handle it came from and the only
+ * way onward was close → hunt for another tag → click, which is a dead end with
+ * a close button on it. */
+html[data-stage="desk"] .panel-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  align-items: center;
+  margin-top: var(--s-6);
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--rule);
+}
+
+html[data-stage="desk"] .panel-nav button {
+  min-height: 2.75rem;
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-chip);
+  background-color: transparent;
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: var(--t-label-size);
+  letter-spacing: var(--t-label-tracking);
+  cursor: pointer;
+  transition:
+    color var(--m-quick),
+    border-color var(--m-quick),
+    background-color var(--m-quick);
+}
+
+/* Back to the desk is the primary way out, so it reads as ink on paper while
+ * the two sideways steps stay quiet. */
+html[data-stage="desk"] .panel-nav__desk {
+  margin-right: auto;
+  color: var(--ink);
+  background-color: var(--paper-sheet);
+}
+
+html[data-stage="desk"] .panel-nav button:hover,
+html[data-stage="desk"] .panel-nav button:focus-visible {
+  color: var(--ink);
+  border-color: var(--ink);
+  background-color: var(--paper-sheet);
+}
+
+/* The lamp grip is the desk's control and it is positioned over the lamp every
+ * frame, wherever the lamp happens to be on screen. With a panel open, the
+ * canvas is behind the panel and the grip was left floating over the text as an
+ * unexplained circle. Same for the hint. */
+html[data-panel] .desk-lamp-grip,
+html[data-panel] .desk-hint {
+  opacity: 0;
+  pointer-events: none;
+}

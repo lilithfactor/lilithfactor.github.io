@@ -23,6 +23,8 @@ const SOURCES = {
   accent: "--stage-accent",
   backdrop: "--stage-backdrop",
   cut: "--stage-cut",
+  /** The drawn edge. Every object is outlined in it — see outline.ts. */
+  line: "--stage-line",
   shadow: "--stage-shadow",
   cool: "--stage-cool",
   keyLight: "--stage-key-light",

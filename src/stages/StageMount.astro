@@ -45,13 +45,15 @@ import "../styles/desk-panels.css";
         : (fn: () => void) => setTimeout(fn, 350);
     whenIdle(() => {
     void Promise.all([import("./desk/scene"), import("./panels")])
-      .then(([scene, panelsModule]) => {
+      .then(async ([scene, panelsModule]) => {
         // ORDER MATTERS. mountDesk() binds anchors once, by querying the DOM
         // for [data-anchor] nodes; handles created after it are never bound and
         // sit unpositioned at opacity 0. So panels mount FIRST — their handles
         // must already exist when the desk looks for them.
         const panels = panelsModule.mountPanels();
-        const desk = scene.mountDesk();
+        // Async now: the desk loads its models before it builds, because the
+        // objects determine the anchor positions the panels' handles track.
+        const desk = await scene.mountDesk();
         // ...but if the desk never arrives, the panels have to undo themselves:
         // they mark sections aria-hidden, which would silently hide the whole
         // portfolio from assistive tech on a page with no desk to open them.

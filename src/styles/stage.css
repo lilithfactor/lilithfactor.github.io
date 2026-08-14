@@ -25,65 +25,80 @@
  * because nothing in the document can use them: they are colours of light, not
  * of ink or paper, and they mean nothing outside a renderer. */
 :root {
-  /* THE DESK IS NOT WOOD. It used to be a lit walnut (#7D5F3D) because the
-   * stage used to be a photograph of a room. It is now a cut-paper diorama: a
-   * handmade model of a desk, and a model desk is made of the same card as
-   * everything standing on it. So this token is a warm mid-weight kraft board —
-   * a shade darker and more saturated than --kraft, which the objects use, so
-   * that a kraft crate sitting on it still has an edge.
+  /* ONE PAPER. EVERY OBJECT.
    *
-   * The name stays --stage-desk because it still names the desk surface. What
-   * changed is what the desk is made of, not what it is. */
-  --stage-desk: #e3d3b6;
-  /* The same board seen from the side — the desk's own cut edge and the strip
-   * of thickness under its top sheet. */
-  --stage-desk-deep: #cdba98;
-  --stage-paper: var(--paper-sheet);
-  --stage-paper-aged: var(--paper-aged);
-  --stage-paper-edge: var(--paper-edge);
-  --stage-kraft: var(--kraft);
-  --stage-ink: var(--ink);
-  --stage-accent: var(--red-pen);
-
-  /* The sheet of card standing behind the whole model. Deep and desaturated so
-   * it recedes: a diorama needs its backdrop to be the darkest thing in frame,
-   * or the base sheet has no edge and the model has no depth. */
-  --stage-backdrop: #ede4d4;
-
-  /* THE CUT EDGE — the single most important value in this file.
+   * The scene used to be cut from six different stocks — kraft desk, aged
+   * paper, ink-dark plinths, a red accent, one cool spine — so that objects
+   * separated from each other by colour. They do not any more. The whole world
+   * is a single off-white sheet, and what separates one object from the next is
+   * the black line drawn around it (see --stage-line) plus the shading.
    *
-   * What makes paper-craft read as paper-craft is not lighting and not texture.
-   * It is that every surface shows its own thickness: a sheet of card seen
-   * side-on is a darker, denser line than its face, because you are looking at
-   * the compressed core of the board rather than its printed skin. Every colour
-   * on the desk is blended toward this one to make its edges, so the whole model
-   * is cut from stock with the same core. */
-  --stage-cut: #b09b7b;
+   * That is a real trade and worth naming: colour was doing work, and an ink
+   * outline now has to do all of it. It is also the entire look — a world
+   * folded out of one ream of paper and drawn on. Every token below points at
+   * the same value on purpose. Do not "fix" the duplication by reintroducing a
+   * second tone; the sameness IS the art direction.
+   *
+   * The names stay, because they still say which surface they colour, and
+   * because the day one of them needs to differ again this is where it happens. */
+  --stage-sheet: #faf8f3;
 
-  /* Contact shadow. Warm and light — this is card resting on card in a lit
-   * room, not an object in a void. A neutral or black contact shadow is the
-   * fastest way to make a paper model look like grey plastic. */
-  --stage-shadow: #a89577;
+  --stage-desk: var(--stage-sheet);
+  --stage-desk-deep: var(--stage-sheet);
+  --stage-paper: var(--stage-sheet);
+  --stage-paper-aged: var(--stage-sheet);
+  --stage-paper-edge: var(--stage-sheet);
+  --stage-kraft: var(--stage-sheet);
+  --stage-ink: var(--stage-sheet);
+  --stage-accent: var(--stage-sheet);
+  --stage-cool: var(--stage-sheet);
 
-  /* The one cool card in the model. Everything else is warm, and a set of five
-   * warm-brown book spines reads as five copies of the same book; one cold
-   * spine fixes that for free. */
-  --stage-cool: #c8d2d6;
+  /* The sheet standing behind the model. Also the same paper: with outlines
+   * doing the separating, a darker backdrop would be the one thing in frame
+   * announcing that the world is not, in fact, all one material. */
+  --stage-backdrop: var(--stage-sheet);
+
+  /* THE LINE. What the cut edge used to be.
+   *
+   * Paper-craft used to read as paper-craft here because every surface showed a
+   * darker core at its edge. That was a colour trick, and colour is gone, so
+   * the edge is now literally drawn: every object gets black edge geometry
+   * (outline.ts). This is that ink. Not pure #000 — a hair off, because a true
+   * black line on warm white is the one thing in the frame that would look
+   * printed by a machine rather than drawn on paper. */
+  --stage-line: #12100c;
+
+  /* Still used for the *shaded* thickness of a sheet, now barely darker than
+   * the stock rather than a different colour: the line carries the edge, and
+   * this only keeps a folded face from vanishing into the one beside it. */
+  --stage-cut: #ece8df;
+
+  /* Contact shadow. Grey and light — this is card resting on card in a lit
+   * room, not an object in a void. Desaturated along with everything else: a
+   * warm brown shadow under white paper puts colour back into a scene whose
+   * whole premise is that there is none. */
+  --stage-shadow: #b6b1a6;
+
   /* The night desk — the scene when the lamp is clicked off. Not an inversion:
-   * the same card under cool moonless room light, dim but still paper. */
-  --stage-night: #b9b2a4;
-  --stage-night-ambient: #8f8b82;
+   * the same paper under cool moonless room light, dim but still paper. */
+  --stage-night: #c2beb4;
+  --stage-night-ambient: #97948c;
 
   /* The lamp, roughly 2900K. It is now both a light and a painted glow — see
    * desk.ts — because a paper lamp that only emits light has nothing on the
    * desk to show for it. */
-  --stage-key-light: #ffe9c4;
+  /* Much closer to white than it was (#ffe9c4). With every object now white
+   * paper, a strongly tinted key put the colour straight back that the palette
+   * had just taken out — the paper went cream and the premise died. Enough
+   * warmth left to separate the lit side from the shaded side, and no more. */
+  --stage-key-light: #fff4e4;
   /* The cool half of the ambient gradient — daylight from off left, at roughly
    * 7000K. The temperature gap against the lamp is what keeps flat card from
    * reading as flat colour. */
-  --stage-fill-light: #dce6ec;
-  /* The warm half: light bouncing back up off the kraft base sheet. */
-  --stage-ambient: #e8dcc6;
+  --stage-fill-light: #e9eff3;
+  /* The warm half: light bouncing back up off the base sheet. Nearly neutral
+   * now, for the same reason as the key. */
+  --stage-ambient: #f1eee7;
 }
 
 /* --- The canvas -----------------------------------------------------------

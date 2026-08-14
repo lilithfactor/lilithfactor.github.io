@@ -33,7 +33,9 @@ import { createLampRig } from "./lamp";
 import { press } from "./print";
 import { ARTIFACT_IDS, ARTIFACT_LABELS, PLACEMENTS, type ArtifactId } from "./layout";
 import { createMaterials } from "./materials";
-import { buildArtifact } from "./objects";
+import { loadModels } from "./models";
+import { buildArtifact, MODEL_SPECS } from "./objects";
+import { createOutlines } from "./outline";
 import { blend, readPalette } from "./palette";
 import { createGovernor, type Degradation } from "./quality";
 import { createTextures } from "./texture";
@@ -66,7 +68,7 @@ interface Footprint {
   readonly halfZ: number;
 }
 
-export function mountDesk(): DeskHandle | null {
+export async function mountDesk(): Promise<DeskHandle | null> {
   // Colours come from the stylesheet, never from a literal in here. If the
   // stage stylesheet did not load, the honest outcome is no desk — not a desk
   // in whatever grey Three.js defaults to.
@@ -140,6 +142,21 @@ export function mountDesk(): DeskHandle | null {
   // The rig owns the head angle and drives the key light from it.
   const lampRig = createLampRig(lamp, lighting.key);
 
+  // Downloaded geometry, repainted in the desk's own paper. Awaited rather than
+  // swapped in later: the objects decide the contact shadows and the anchor
+  // positions below, and rebuilding those mid-flight would move every section
+  // marker on the page. The document is complete and readable throughout.
+  const models = await loadModels(MODEL_SPECS(palette), textures);
+
+  // The scene is one paper now, so the black line is what separates objects
+  // from each other and from the desk. Applied per artifact below, and to the
+  // room here — the lamp's painted glow and pool are light, not paper, and are
+  // marked so no line is drawn round them.
+  const outlines = createOutlines(palette.line);
+  lamp.pool.userData.noOutline = true;
+  lamp.glow.userData.noOutline = true;
+  outlines.apply(room);
+
   // --- Objects and their anchors ------------------------------------------
   const anchors = new Map<ArtifactId, Vector3>();
   const pieces: Piece[] = [];
@@ -150,7 +167,10 @@ export function mountDesk(): DeskHandle | null {
 
   for (const id of ARTIFACT_IDS) {
     const placement = PLACEMENTS[id];
-    const object = buildArtifact(id, palette, materials, pressKit);
+    const object = buildArtifact(id, palette, materials, pressKit, models);
+    // Before placing: the line mesh is baked in the object's own space, so it
+    // travels with every later move, lift and rotation for free.
+    outlines.apply(object);
     object.position.set(...placement.position);
     object.rotation.y = placement.yaw * DEG;
     scene.add(object);
@@ -320,8 +340,11 @@ export function mountDesk(): DeskHandle | null {
     // allocations behind JS handles. Deduped, because three materials are
     // shared across fifty-odd meshes.
     const seen = new Set<object>();
-    scene.traverse((o) => {
-      if (!isMesh(o)) return;
+    scene.traverse((node) => {
+      // Meshes AND the baked outline LineSegments: both hold a geometry and a
+      // material, and a check for isMesh alone silently leaked every line.
+      const o = node as Mesh;
+      if (!o.geometry || !o.material) return;
       if (!seen.has(o.geometry)) {
         seen.add(o.geometry);
         o.geometry.dispose();
@@ -422,11 +445,21 @@ export function mountDesk(): DeskHandle | null {
       const flip = () => {
         if (swapped) return;
         swapped = true;
-        requestAnimationFrame(() => {
-          document.documentElement.dataset.stage = "desk";
-          canvas.classList.add("is-ready");
-          document.documentElement.classList.remove("stage-swapping");
-        });
+        // NOT inside requestAnimationFrame. It used to be, to batch the change
+        // with a paint, and that made the swap depend on a frame that might
+        // never come: this scene stops its own rAF loop whenever the page is
+        // hidden, so a tab opened in the background (cmd-click, "open in new
+        // tab" — ordinary things) could stop the loop between the fade and the
+        // frame. The flip was then lost permanently, because `ready` was
+        // already true and the swap block never runs twice: the visitor came
+        // back to a faded document with handles floating over it.
+        //
+        // A timer fires whether or not frames do, so the swap now completes on
+        // its own regardless. Found while chasing an "intermittent" headless
+        // screenshot that turned out to be reproducing this exactly.
+        document.documentElement.dataset.stage = "desk";
+        canvas.classList.add("is-ready");
+        document.documentElement.classList.remove("stage-swapping");
       };
       // NOTE on measurement: Lighthouse desktop reports this swap as CLS ~1.0
       // no matter how main is hidden (opacity, visibility, three-frame). The

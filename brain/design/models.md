@@ -8,6 +8,17 @@
 > of. Downloaded geometry, re-materialled by us, keeps the paper look and buys a
 > silhouette that reads instantly.
 
+> *Updated 2026-08-14.* The scene is now **one paper and one ink**: every object
+> is the same off-white (`--stage-sheet`) and separated by a drawn black edge
+> (`--stage-line`, see `outline.ts`), not by colour. Downloaded models are
+> repainted into that single tone like everything else — which makes silhouette
+> the only thing a model contributes, and raises the bar for taking one.
+>
+> One casualty worth recording: the chess knights are fetched and credited but
+> **not placed**. At 62mm they are about 30 screen pixels of a 200-triangle
+> faceted mesh, and an ink line around every facet collapses into a solid black
+> blob. Small + faceted + outlined does not work; the printed diagram does.
+
 **The split, which is the whole idea:** *they* supply geometry, *we* supply
 material. Every model is stripped of its incoming materials on load and given
 the paper Lambert, the cut-edge vertex colours and the palette tokens. That is

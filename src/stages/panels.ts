@@ -112,6 +112,19 @@ export function mountPanels(): Panels {
   }
   document.body.append(handles);
 
+  /* --- Getting back out ----------------------------------------------------
+   * An open panel used to offer exactly one way out: the ✕, or Escape if you
+   * knew. If the panel covered the handle you came from — which it does, they
+   * are centred — the only route onward was to close, find another tag on the
+   * desk, and click it. That is a dead end wearing a close button.
+   *
+   * So every panel ends with the same three doors: back to the desk, and the
+   * section either side of this one. Ordered by the document, which is the
+   * order the desk is laid out in and the order a reader tabs through. */
+  const order = [...sections.keys()];
+  const labelOf = (id: string) =>
+    sections.get(id)?.querySelector("h2")?.textContent?.trim() ?? id.replace(/-/g, " ");
+
   for (const [id, section] of sections) {
     section.setAttribute("aria-hidden", "true");
 
@@ -122,6 +135,40 @@ export function mountPanels(): Panels {
     close.textContent = "✕";
     close.addEventListener("click", () => api.close());
     section.prepend(close);
+
+    const i = order.indexOf(id);
+    // Wraps, so there is no dead end at either end of the desk.
+    const prev = order[(i - 1 + order.length) % order.length]!;
+    const next = order[(i + 1) % order.length]!;
+
+    const nav = document.createElement("nav");
+    nav.className = "panel-nav";
+    nav.setAttribute("aria-label", "Desk");
+
+    const button = (className: string, text: string, onClick: () => void) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = className;
+      b.textContent = text;
+      b.addEventListener("click", onClick);
+      return b;
+    };
+
+    nav.append(
+      button("panel-nav__desk", "← Back to the desk", () => api.close()),
+      button("panel-nav__step", `← ${labelOf(prev)}`, () => api.open(prev)),
+      button("panel-nav__step", `${labelOf(next)} →`, () => api.open(next)),
+    );
+    section.append(nav);
+  }
+
+  /** Puts a panel away. Shared by close() and by switching between panels. */
+  function hide(id: string): void {
+    const panel = sections.get(id);
+    if (!panel) return;
+    delete panel.dataset.open;
+    panel.setAttribute("aria-hidden", "true");
+    panel.scrollTop = 0;
   }
 
   function onKeydown(e: KeyboardEvent) {
@@ -129,6 +176,16 @@ export function mountPanels(): Panels {
     if (e.key === "Escape") {
       e.preventDefault();
       api.close();
+      return;
+    }
+    // Left/right walk the desk without closing. Not Tab's job — Tab moves
+    // through the open panel's own links, which is what a reader expects.
+    if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+      const i = order.indexOf(openId);
+      if (i < 0) return;
+      const step = e.key === "ArrowRight" ? 1 : -1;
+      e.preventDefault();
+      api.open(order[(i + step + order.length) % order.length]!);
       return;
     }
     if (e.key !== "Tab") return;
@@ -159,9 +216,12 @@ export function mountPanels(): Panels {
     open(artifact) {
       const panel = sections.get(artifact);
       if (!panel || openId === artifact) return;
-      if (openId) api.close();
 
-      lastFocused = document.activeElement as HTMLElement | null;
+      // Switching, not opening: put the previous panel away without restoring
+      // focus to the desk or adding a second history entry for one move.
+      const switching = openId !== null;
+      if (openId) hide(openId);
+      else lastFocused = document.activeElement as HTMLElement | null;
       openId = artifact;
 
       audio.play("paper");
@@ -170,28 +230,33 @@ export function mountPanels(): Panels {
       panel.removeAttribute("aria-hidden");
       scrim.dataset.visible = "";
       hint.hidden = true;
+      // The one flag every fixed overlay keys off. The lamp grip in particular
+      // is a body-level button positioned over the lamp each frame, so with a
+      // panel over the canvas it was left hovering on top of the text as an
+      // unexplained circle. It is the desk's control; it belongs to the desk.
+      document.documentElement.dataset.panel = artifact;
 
       // Move focus to the panel itself, not its first link: a screen-reader
       // user should hear what opened before they hear where they can go.
       panel.tabIndex = -1;
       panel.focus({ preventScroll: true });
 
-      // Deep-linkable without a navigation: back closes the panel.
-      history.pushState({ artifact }, "", `#${artifact}`);
+      // Deep-linkable without a navigation: back closes the panel. Replacing
+      // rather than pushing when stepping sideways, so Back means "leave the
+      // desk panels" and not "undo one of the six sections I skimmed".
+      const url = `#${artifact}`;
+      if (switching) history.replaceState({ artifact }, "", url);
+      else history.pushState({ artifact }, "", url);
     },
 
     close() {
       if (!openId) return;
       audio.play("paper");
-      const panel = sections.get(openId);
-      if (panel) {
-        delete panel.dataset.open;
-        panel.setAttribute("aria-hidden", "true");
-        panel.scrollTop = 0;
-      }
+      hide(openId);
       openId = null;
       delete scrim.dataset.visible;
       delete handles.dataset.dimmed;
+      delete document.documentElement.dataset.panel;
       lastFocused?.focus?.({ preventScroll: true });
       if (location.hash) history.pushState(null, "", location.pathname);
     },
@@ -206,10 +271,12 @@ export function mountPanels(): Panels {
       audio.dispose();
       // Leave the document exactly as found: the sections must go back to
       // being readable content, not hidden panels.
+      delete document.documentElement.dataset.panel;
       for (const section of sections.values()) {
         section.removeAttribute("aria-hidden");
         delete section.dataset.open;
         section.querySelector(".panel-close")?.remove();
+        section.querySelector(".panel-nav")?.remove();
       }
     },
   };

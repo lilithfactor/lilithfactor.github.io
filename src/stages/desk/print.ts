@@ -200,9 +200,11 @@ function paintChess(
   ctx.fillStyle = "rgb(255,255,255)";
   ctx.fillRect(0, 0, size, size);
 
-  // The dark squares. A printed board is not black and white — it is the paper
-  // and one ink, at whatever tint the press could hold.
-  ctx.fillStyle = faint;
+  // The dark squares, at `muted` rather than `faint`. A chess board has to be
+  // legible as a chess board from the resting camera, across the desk, at about
+  // 90 pixels square — and a tint that polite disappeared into the paper. This
+  // is still one ink on one paper; it is just actually printed.
+  ctx.fillStyle = muted;
   for (let r = 0; r < 8; r++) {
     for (let f = 0; f < 8; f++) {
       if ((r + f) % 2 === 1) ctx.fillRect(f * cell, r * cell, cell, cell);
@@ -276,10 +278,24 @@ export interface Press {
  * fallback. A blank sheet is the one outcome this file exists to prevent.
  */
 export function press(p: Palette, outcomes: readonly Outcome[]): Press {
-  const ink = css(overprint(p.ink, p.paper));
-  const muted = css(overprint(blend(p.ink, p.paper, 0.46), p.paper));
-  const faint = css(overprint(blend(p.ink, p.paper, 0.8), p.paper));
-  const accent = css(overprint(p.accent, p.paper));
+  /* INK, NOT CARD.
+   *
+   * These four used to derive from p.ink and p.accent, which were dark card
+   * tones back when the model was cut from six different stocks. Every stock is
+   * now the same white paper (stage.css), so those tokens ARE the paper — and
+   * deriving the printing from them printed white on white. It took out the
+   * four outcome numbers and the chess position in one go, which is to say it
+   * took out everything the desk says before you click it.
+   *
+   * Printing is the one thing on this desk that was never card: it is ink laid
+   * on card. So it comes from --stage-line, the same black the outlines are
+   * drawn in — one ink, on one paper, for the whole world. */
+  const ink = css(overprint(p.line, p.paper));
+  const muted = css(overprint(blend(p.line, p.paper, 0.42), p.paper));
+  const faint = css(overprint(blend(p.line, p.paper, 0.78), p.paper));
+  // The red pen is gone with the rest of the colour; an accent is now simply a
+  // heavier stroke of the same ink.
+  const accent = css(overprint(blend(p.line, p.paper, 0.18), p.paper));
 
   const repaint: Array<() => void> = [];
   const sheets: CanvasTexture[] = [];

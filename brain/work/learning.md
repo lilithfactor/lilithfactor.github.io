@@ -4,6 +4,57 @@ Things learned the hard way, written down while they still hurt. Newest first.
 
 ---
 
+## A page opened in a background tab never finished becoming the desk
+
+*2026-08-14.*
+
+The document→desk swap ran inside a `requestAnimationFrame`, and the scene
+stops its own rAF loop whenever the page is hidden — correctly, since a hidden
+tab must not hold a GPU at 60fps. Those two facts combine badly: cmd-click the
+site, or open it in a new background tab, and the loop could stop between the
+fade-out and the frame that flips `data-stage`. The flip was then lost
+**permanently**, because the swap block is guarded by a `ready` flag that never
+resets. Coming back to the tab showed a faded document with handles floating
+over it and no way out.
+
+The fix is that the flip no longer waits for a frame: a timer fires whether or
+not frames do. Batching an attribute change with a paint was never worth making
+the swap depend on a frame that might not come.
+
+**How it was found matters more than the fix.** It surfaced as an "intermittent"
+headless screenshot — the same grey half-swapped page, roughly one run in three.
+The temptation was to write it off as a harness artifact, and *most* of that
+day's screenshot trouble genuinely was one. It was worth the extra hour to ask
+which failures the harness was inventing and which it was reproducing.
+
+## Three harness lies in one afternoon, and one truth
+
+*2026-08-14, wiring the models.*
+
+Every one of these looked exactly like an application bug:
+
+1. **A single-threaded `TCPServer`** deadlocked on a dozen parallel `.glb`
+   fetches with keep-alive. `loadModels` never settled, `mountDesk` never
+   returned, and `panels.dispose()` — the thing that un-hides the document when
+   there is no desk — never ran. `ThreadingHTTPServer` fixes it. *But the
+   failure it produced was real*: a hung fetch really could strand the page with
+   every section `aria-hidden`, so `loadModels` now has a deadline.
+2. **`requestIdleCallback` does not fire under `--virtual-time-budget`**, even
+   with its timeout. The desk simply never started. Shim it to `setTimeout` so
+   the real code path runs promptly.
+3. **`--disable-renderer-backgrounding` made things worse.** It sounds like the
+   right flag for a scene that pauses on `visibilitychange`; combined with
+   virtual time it stops virtual time advancing, so the loop never runs at all.
+   A consistent failure that looks more trustworthy than the flaky one it
+   replaced.
+
+The rule that keeps paying: when a measurement disagrees with the code, verify
+the instrument before changing the code. The decisive move each time was a
+probe that called `mountDesk()` directly and reported `MOUNTED-OK` — proving the
+scene was healthy and the harness was not.
+
+---
+
 ## A mount in the shared layout runs on pages it was never designed for
 
 *2026-08-14, defect found by Pranav clicking through to a case study.*
