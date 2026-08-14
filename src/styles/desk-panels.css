@@ -159,7 +159,10 @@ html[data-stage="desk"] .panel-close:focus-visible {
 html[data-stage="desk"] .desk-scrim {
   position: fixed;
   inset: 0;
-  z-index: 3;
+  /* BELOW main (z2): the panel lives inside main's stacking context, so a
+   * scrim above main would dim the very sheet the visitor is reading. Above
+   * the canvas (z-1) is all it needs — the handles dim themselves. */
+  z-index: 1;
   background: radial-gradient(
     ellipse at 62% 38%,
     rgb(0 0 0 / 0.28),

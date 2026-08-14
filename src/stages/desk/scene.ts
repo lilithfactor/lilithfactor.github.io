@@ -29,7 +29,9 @@ import { DESK_MIN_WIDTH } from "../choose";
 import { bindAnchors, clearAnchors, projectAnchors, type Binding } from "./anchors";
 import { createCameraRig } from "./camera";
 import { buildLighting, buildRoom, DESK_SIZE, LAMP } from "./desk";
-import { ARTIFACT_IDS, PLACEMENTS, type ArtifactId } from "./layout";
+import { createLampRig } from "./lamp";
+import { press } from "./print";
+import { ARTIFACT_IDS, ARTIFACT_LABELS, PLACEMENTS, type ArtifactId } from "./layout";
 import { createMaterials } from "./materials";
 import { buildArtifact } from "./objects";
 import { blend, readPalette } from "./palette";
@@ -126,10 +128,17 @@ export function mountDesk(): DeskHandle | null {
 
   const textures = createTextures(renderer.capabilities.getMaxAnisotropy());
   const materials = createMaterials(palette, textures);
-  scene.add(buildRoom(palette, materials));
+  const { room, lamp } = buildRoom(palette, materials);
+  scene.add(room);
 
   const lighting = buildLighting(palette);
   scene.add(lighting.key, lighting.key.target, lighting.fill, lighting.ambient);
+
+  // The printed sheets: real outcome numbers, typeset onto the top papers so
+  // the desk reads as a portfolio at rest, before any click.
+  const pressKit = press(palette, ARTIFACT_LABELS);
+  // The rig owns the head angle and drives the key light from it.
+  const lampRig = createLampRig(lamp, lighting.key);
 
   // --- Objects and their anchors ------------------------------------------
   const anchors = new Map<ArtifactId, Vector3>();
@@ -141,7 +150,7 @@ export function mountDesk(): DeskHandle | null {
 
   for (const id of ARTIFACT_IDS) {
     const placement = PLACEMENTS[id];
-    const object = buildArtifact(id, palette, materials);
+    const object = buildArtifact(id, palette, materials, pressKit);
     object.position.set(...placement.position);
     object.rotation.y = placement.yaw * DEG;
     scene.add(object);
@@ -267,6 +276,10 @@ export function mountDesk(): DeskHandle | null {
     if (id && sectionOf(e.relatedTarget) !== id) setRaised(id, false);
   };
 
+  const onPointerMove = (e: PointerEvent) => {
+    rig.parallax((e.clientX / size.width) * 2 - 1, (e.clientY / size.height) * 2 - 1);
+  };
+
   const onResize = () => {
     size.width = window.innerWidth;
     size.height = window.innerHeight;
@@ -288,6 +301,7 @@ export function mountDesk(): DeskHandle | null {
     destroyed = true;
     stopLoop();
 
+    document.removeEventListener("pointermove", onPointerMove);
     document.removeEventListener("pointerover", onPointerOver);
     document.removeEventListener("pointerout", onPointerOut);
     document.removeEventListener("focusin", onFocusIn);
@@ -297,6 +311,8 @@ export function mountDesk(): DeskHandle | null {
     canvas.removeEventListener("webglcontextlost", onContextLost);
     viewport.removeEventListener("change", onViewportChange);
 
+    lampRig.dispose();
+    pressKit.dispose();
     clearAnchors(bindings);
     delete document.documentElement.dataset.stage;
 
@@ -386,6 +402,7 @@ export function mountDesk(): DeskHandle | null {
     rig.update(elapsed, dt);
     renderer.render(scene, rig.camera);
     projectAnchors(bindings, rig.camera, size.width, size.height, rig.reference);
+    lampRig.update(rig.camera, size.width, size.height);
 
     if (!ready) {
       ready = true;
@@ -405,6 +422,7 @@ export function mountDesk(): DeskHandle | null {
     frame = requestAnimationFrame(tick);
   }
 
+  document.addEventListener("pointermove", onPointerMove, { passive: true });
   document.addEventListener("pointerover", onPointerOver);
   document.addEventListener("pointerout", onPointerOut);
   document.addEventListener("focusin", onFocusIn);

@@ -24,6 +24,53 @@ export const ARTIFACT_IDS = [
 
 export type ArtifactId = (typeof ARTIFACT_IDS)[number];
 
+/* --- What is printed on the paper ------------------------------------------
+ * WHY THIS IS A HARDCODED TABLE AND NOT AN IMPORT.
+ *
+ * These four numbers are real, and they live in content/case-studies.json,
+ * which is the one place content is allowed to come from. This module does not
+ * read it, and cannot:
+ *
+ *   1. architecture.md Directive 1 — src/content/ is the only door to content.
+ *      Nothing else may read content/*.json, and reaching around the proxy from
+ *      inside the 3D scene would be the exact leak the directive exists to stop.
+ *   2. Even going through the proxy is wrong here. The proxy is a build-time
+ *      module; importing it from this file would pull the entire content
+ *      collection — five case studies with their full bodies, thirty-seven
+ *      library entries — into the deferred 3D chunk, to print eleven glyphs.
+ *
+ * The correct shape for "the scene needs four short strings from content" is a
+ * table like this one, kept honest by citation. Every entry names the slug it
+ * mirrors and the sentence it came from, so a future editor can check it in one
+ * grep, and so nobody is ever tempted to make a number up — which is the only
+ * real risk a hardcoded table carries.
+ *
+ * If a number here ever disagrees with content/case-studies.json, the JSON is
+ * right and this table is stale. Fix it here; do not soften it there. */
+export interface Outcome {
+  /** The section it sits above. Small, quiet, sets the register. */
+  readonly kicker: string;
+  /** The number itself. The one thing that must be readable at rest. */
+  readonly metric: string;
+  /** What the number is of. */
+  readonly label: string;
+}
+
+export const ARTIFACT_LABELS: readonly Outcome[] = [
+  // content/case-studies.json — slug "60-faster-onboarding-halved-bounce",
+  // name "60% Faster Onboarding, Halved Bounce": "slashed scan time 60% (<15s)".
+  { kicker: "ONBOARDING", metric: "60%", label: "FASTER" },
+  // slug "visual-compare-for-mass-market-buyers":
+  // "1.4x higher lead likelihood for Compare users".
+  { kicker: "COMPARE", metric: "1.4x", label: "LEAD LIFT" },
+  // slug "25-faster-time-to-market", name "25% Faster Time-to-market":
+  // "Accelerated time-to-market by 25%".
+  { kicker: "DELIVERY", metric: "25%", label: "FASTER TTM" },
+  // slug "visual-compare-for-mass-market-buyers":
+  // "~40% adoption from configurator users".
+  { kicker: "ADOPTION", metric: "40%", label: "OF USERS" },
+];
+
 export interface Placement {
   /** Where the object's group sits, in desk space. */
   readonly position: readonly [number, number, number];

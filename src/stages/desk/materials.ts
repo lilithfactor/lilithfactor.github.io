@@ -31,7 +31,13 @@
  * flat *shading*, not banded shading.
  * ========================================================================== */
 
-import { AdditiveBlending, DoubleSide, MeshBasicMaterial, MeshLambertMaterial } from "three";
+import {
+  AdditiveBlending,
+  DoubleSide,
+  MeshBasicMaterial,
+  MeshLambertMaterial,
+  type Texture,
+} from "three";
 import type { Palette } from "./palette";
 import type { StageTextures } from "./texture";
 
@@ -39,6 +45,24 @@ export interface Materials {
   readonly card: MeshLambertMaterial;
   readonly contact: MeshBasicMaterial;
   readonly glow: MeshBasicMaterial;
+}
+
+/**
+ * A sheet with its own print on it.
+ *
+ * The fourth material, and the only one there is more than one of — a printed
+ * sheet needs its own `map`, and a map is per-material. Four outcome sheets and
+ * a chess board is five extra shader-identical materials, which cost five
+ * uniform uploads and no extra program: they are the same Lambert as every
+ * other card, differing only in which texture is bound.
+ *
+ * Crucially still `vertexColors: true`. The print texture carries multipliers,
+ * not colour (see print.ts), so the sheet's stock tone and its darker cut edges
+ * keep coming from the vertex attribute exactly as they do for blank card. A
+ * printed sheet is a sheet that has been printed on, not a different object.
+ */
+export function printed(map: Texture): MeshLambertMaterial {
+  return new MeshLambertMaterial({ vertexColors: true, map, side: DoubleSide });
 }
 
 export function createMaterials(p: Palette, t: StageTextures): Materials {

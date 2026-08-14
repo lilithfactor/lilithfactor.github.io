@@ -52,34 +52,80 @@ function pad(size: number): CanvasRenderingContext2D | null {
 }
 
 /**
- * The tooth of the card. Near-white throughout: it multiplies whatever colour
+ * THE TOOTH OF THE CARD. Near-white throughout: it multiplies whatever colour
  * the vertex already carries, so one canvas serves every sheet in the model
  * regardless of what shade it was cut from.
  *
- * ±4 levels out of 255. That is deliberately almost nothing — the point of
- * paper-craft is flat card, and a visible paper texture would be re-introducing
- * exactly the surfacing this direction threw out. It exists so that a 2.7-metre
- * base sheet is not one mathematically uniform fill, and for no other reason.
+ * This used to be ±4 levels of uniform white noise, and the honest read on it
+ * was that it did nothing. Two reasons, and they are worth separating because
+ * only one of them is about strength:
+ *
+ *   1. It was too weak to survive mipmapping. A per-texel random field averages
+ *      to its own mean the moment the texture is minified, which on a desk seen
+ *      from a metre away is always. It was not subtle; it was absent.
+ *   2. Paper fibre is not white noise. It is a low-frequency cloud (where the
+ *      pulp settled unevenly) with directional fibres lying in it (where the
+ *      sheet was couched). Noise with no structure at any scale above one texel
+ *      reads as video grain, not as material.
+ *
+ * So it is now drawn in three passes at three scales, and the two coarse ones
+ * are what actually survive to the screen. Peak-to-peak stays inside 6% of
+ * white, which design-system.md gives as the point where grain starts costing
+ * text contrast — and this map now lies under printed text (see print.ts), so
+ * that ceiling is a real constraint here rather than an inherited one.
  */
 function fibre(anisotropy: number): CanvasTexture | null {
-  const S = 128;
+  const S = 256;
   const ctx = pad(S);
   if (!ctx) return null;
   const rand = seeded(0xfa7e11);
-  ctx.fillStyle = grey(253);
+  ctx.fillStyle = grey(255);
   ctx.fillRect(0, 0, S, S);
-  const image = ctx.getImageData(0, 0, S, S);
-  const d = image.data;
-  for (let i = 0; i < S * S; i++) {
-    const n = (rand() - 0.5) * 8;
-    for (let c = 0; c < 3; c++) d[i * 4 + c] = Math.min(255, Math.max(0, d[i * 4 + c]! + n));
+
+  // 1 — the cloud. Where the pulp lay thicker. Big soft blobs, drawn with a
+  // radial gradient so they tile without a seam at this size and cost nothing.
+  for (let i = 0; i < 26; i++) {
+    const x = rand() * S;
+    const y = rand() * S;
+    const r = 26 + rand() * 62;
+    const dark = rand() > 0.5;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, grey(dark ? 236 : 255, 0.5));
+    g.addColorStop(1, grey(dark ? 236 : 255, 0));
+    ctx.fillStyle = g;
+    ctx.fillRect(x - r, y - r, r * 2, r * 2);
   }
-  ctx.putImageData(image, 0, 0);
+
+  // 2 — the fibres. Short strokes lying mostly one way, because a couched sheet
+  // has a grain direction and that is half of why paper looks like paper.
+  ctx.lineCap = "round";
+  for (let i = 0; i < 900; i++) {
+    const x = rand() * S;
+    const y = rand() * S;
+    const len = 3 + rand() * 13;
+    const angle = (rand() - 0.5) * 0.7;
+    ctx.strokeStyle = grey(rand() > 0.45 ? 240 : 255, 0.42);
+    ctx.lineWidth = rand() > 0.8 ? 1.4 : 0.7;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + Math.cos(angle) * len, y + Math.sin(angle) * len);
+    ctx.stroke();
+  }
+
+  // 3 — the speck. Flecks of unbleached pulp. Rare and small, and the only
+  // thing here dark enough to notice individually.
+  for (let i = 0; i < 90; i++) {
+    ctx.fillStyle = grey(228, 0.5);
+    ctx.fillRect(rand() * S, rand() * S, 1 + Math.round(rand()), 1);
+  }
 
   const texture = new CanvasTexture(ctx.canvas);
   texture.colorSpace = SRGBColorSpace;
   texture.wrapS = RepeatWrapping;
   texture.wrapT = RepeatWrapping;
+  // One tile per ~45cm of base sheet. Chosen so a texel lands near one screen
+  // pixel at the resting camera: any denser and the mip chain eats it, any
+  // coarser and the cloud stops being tooth and starts being staining.
   texture.repeat.set(6, 6);
   texture.anisotropy = anisotropy;
   return texture;

@@ -28,6 +28,10 @@ const SOURCES = {
   keyLight: "--stage-key-light",
   fillLight: "--stage-fill-light",
   ambient: "--stage-ambient",
+  // The lamp switched off. Not an inversion of the day desk — a second time of
+  // day, which is what design-system.md says a dark mode of this site has to be.
+  night: "--stage-night",
+  nightAmbient: "--stage-night-ambient",
 } as const;
 
 export type PaletteKey = keyof typeof SOURCES;
@@ -81,4 +85,49 @@ export function css(color: Color, alpha = 1): string {
   const { r, g, b } = color.clone().convertLinearToSRGB();
   const c = (v: number) => Math.round(Math.min(Math.max(v, 0), 1) * 255);
   return `rgba(${c(r)},${c(g)},${c(b)},${alpha})`;
+}
+
+/**
+ * INK AS A MULTIPLIER — how you print on a sheet that is already painted.
+ *
+ * Every card in this model gets its colour from a vertex attribute (cut.ts) and
+ * its tooth from a `map` that MULTIPLIES that attribute. A printed sheet has to
+ * join that system rather than replace it, or it loses its cut edges and its
+ * stock tone the moment it gains a word on it.
+ *
+ * So the print texture is not a picture of a sheet — it is a field of
+ * multipliers, white where the paper shows through and `ink / paper` where the
+ * ink lands. Multiply that by the vertex colour and the sheet comes out exactly
+ * the ink colour the token named, on exactly the card it was cut from.
+ *
+ * The division is done in the renderer's linear working space, which is where
+ * the shader's multiply happens, and `css()` re-encodes the result to sRGB for
+ * the canvas. Still zero hex literals: this is arithmetic on two tokens.
+ */
+export function overprint(ink: Color, paper: Color): Color {
+  const a = ink.clone();
+  const b = paper;
+  // A guard, not a fudge: a token pair where the paper is darker than the ink
+  // would ask for a multiplier above 1, which no texture can carry. Clamping
+  // means such a pair prints as "no darker than the paper", never as garbage.
+  a.r = Math.min(a.r / Math.max(b.r, 1e-4), 1);
+  a.g = Math.min(a.g / Math.max(b.g, 1e-4), 1);
+  a.b = Math.min(a.b / Math.max(b.b, 1e-4), 1);
+  return a;
+}
+
+/**
+ * The same card, from a different batch.
+ *
+ * Real paper-craft is built from whatever was in the drawer, and two sheets of
+ * "the same" stock are never quite the same shade. `n` is an index, not a seed —
+ * the variation is a deterministic fan around the token so a given piece is the
+ * same colour on every load, and so the whole set still reads as one material.
+ *
+ * Kept under 4% of lightness. Past that it stops being stock variation and
+ * starts being a second colour, which is a decision the palette should make.
+ */
+export function stock(colour: Color, n: number): Color {
+  const spread = [0, 0.028, -0.021, 0.014, -0.033, 0.021];
+  return colour.clone().offsetHSL(0, 0, spread[n % spread.length] ?? 0);
 }

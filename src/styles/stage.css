@@ -69,6 +69,10 @@
    * warm-brown book spines reads as five copies of the same book; one cold
    * spine fixes that for free. */
   --stage-cool: #c8d2d6;
+  /* The night desk — the scene when the lamp is clicked off. Not an inversion:
+   * the same card under cool moonless room light, dim but still paper. */
+  --stage-night: #b9b2a4;
+  --stage-night-ambient: #8f8b82;
 
   /* The lamp, roughly 2900K. It is now both a light and a painted glow — see
    * desk.ts — because a paper lamp that only emits light has nothing on the
@@ -88,11 +92,16 @@
  *
  * z-index 0 rather than -1: at -1 it would sit behind the body background and
  * be invisible. It goes above the ground and below every piece of content, and
- * the rule below lifts body's children over it. */
+ * it sits at z-index -1: BEHIND body's children by default, so no blanket
+ * rule has to lift them. (The previous approach — `body > * { position:
+ * relative; z-index: 1 }` — out-specified every fixed overlay on the page and
+ * silently turned the hint, the sound control and the panels into
+ * flow-positioned elements. Lifting the world is always worse than lowering
+ * the floor.) */
 .desk-stage {
   position: fixed;
   inset: 0;
-  z-index: 0;
+  z-index: -1;
   display: block;
   width: 100%;
   height: 100%;
@@ -107,11 +116,6 @@
 
 .desk-stage.is-ready {
   opacity: 1;
-}
-
-html[data-stage="desk"] body > *:not(.desk-stage) {
-  position: relative;
-  z-index: 1;
 }
 
 /* --- The page becomes a sheet on the desk ---------------------------------
@@ -218,4 +222,32 @@ html[data-stage="desk"][data-stage-debug] [data-artifact]::after {
   html[data-stage="desk"] [data-artifact]::after {
     display: none;
   }
+}
+
+/* --- The lamp grip --------------------------------------------------------
+ * Pinned over the shade by the rig each frame. Nearly invisible until hovered:
+ * the lamp should read as an object first and a control second — but it IS a
+ * real button, so keyboard users find it in the tab order with a visible ring. */
+html[data-stage="desk"] .desk-lamp-grip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  width: 3.25rem;
+  height: 3.25rem;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: grab;
+  touch-action: none;
+}
+
+html[data-stage="desk"] .desk-lamp-grip:active {
+  cursor: grabbing;
+}
+
+html[data-stage="desk"] .desk-lamp-grip:hover,
+html[data-stage="desk"] .desk-lamp-grip:focus-visible {
+  outline: 2px solid var(--red-pen);
+  outline-offset: 2px;
 }

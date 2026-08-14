@@ -40,6 +40,8 @@ export interface CameraRig {
   frame(id: ArtifactId | null): void;
   update(elapsed: number, dt: number): void;
   resize(width: number, height: number): void;
+  /** Cursor position, each axis −1…1. The rig damps it; callers just report. */
+  parallax(nx: number, ny: number): void;
 }
 
 export function createCameraRig(
@@ -58,6 +60,19 @@ export function createCameraRig(
   const position = overviewPosition.clone();
   const lookAt = overviewTarget.clone();
   const scratch = new Vector3();
+
+  /* Cursor parallax. Raw cursor is the target; what the camera uses is a
+   * damped follower, so the scene leans after the hand rather than being
+   * dragged by it. Amplitudes sit just above the idle drift — felt, and
+   * comfortably below the point where the desk starts to feel like it is
+   * being steered. User-driven motion only: it stops when the hand stops. */
+  const PARALLAX_YAW = 2.1 * (Math.PI / 180);
+  const PARALLAX_PITCH = 1.2 * (Math.PI / 180);
+  const PARALLAX_TAU = 0.24;
+  let cursorX = 0;
+  let cursorY = 0;
+  let easeX = 0;
+  let easeY = 0;
 
   camera.position.copy(position);
   camera.lookAt(lookAt);
@@ -90,13 +105,21 @@ export function createCameraRig(
       // the subject still and moves the observer, which is what a held camera
       // actually does.
       scratch.copy(position).sub(lookAt);
-      const yaw = Math.sin(elapsed * 0.31) * DRIFT_YAW;
-      const pitch = Math.sin(elapsed * 0.21 + 1.3) * DRIFT_PITCH;
+      const pk = 1 - Math.exp(-dt / PARALLAX_TAU);
+      easeX += (cursorX - easeX) * pk;
+      easeY += (cursorY - easeY) * pk;
+      const yaw = Math.sin(elapsed * 0.31) * DRIFT_YAW - easeX * PARALLAX_YAW;
+      const pitch = Math.sin(elapsed * 0.21 + 1.3) * DRIFT_PITCH + easeY * PARALLAX_PITCH;
       scratch.applyAxisAngle(UP, yaw);
       scratch.y += Math.tan(pitch) * scratch.length();
 
       camera.position.copy(lookAt).add(scratch);
       camera.lookAt(lookAt);
+    },
+
+    parallax(nx, ny) {
+      cursorX = Math.max(-1, Math.min(1, nx));
+      cursorY = Math.max(-1, Math.min(1, ny));
     },
 
     resize(w, h) {
