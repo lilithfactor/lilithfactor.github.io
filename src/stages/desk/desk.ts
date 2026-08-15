@@ -675,6 +675,11 @@ function buildLamp(p: Palette, m: Materials, models: ModelKit): LampParts {
   const kraft = p.kraft;
   const model = models.take("lamp");
 
+  /* The shade, found rather than assumed — see the bulb block below for why
+   * this is a variable and not a bounding box taken at the end. */
+  let shadeCentre: Vector3 | null = null;
+  let shadeSize = new Vector3();
+
   const head = new Group();
   head.name = "lamp-head";
   head.position.copy(JOINT);
@@ -766,6 +771,28 @@ function buildLamp(p: Palette, m: Materials, models: ModelKit): LampParts {
     group.add(head);
     group.updateMatrixWorld(true);
 
+    /* WHICH PART IS THE SHADE.
+     *
+     * By volume, because a lampshade is far and away the bulkiest thing above
+     * the knuckle: the arm is a thin rod and the joints are small lumps, and no
+     * plausible desk lamp inverts that. Cheaper and more robust than "furthest
+     * from the hinge", which an arm with a counterweight would break.
+     *
+     * Measured BEFORE the parts are re-parented, so each box is still the box
+     * of one part rather than of the assembly. */
+    const partExtent = new Box3();
+    const partSize = new Vector3();
+    let biggest = -1;
+    for (const part of headParts) {
+      partExtent.setFromObject(part);
+      partExtent.getSize(partSize);
+      const volume = partSize.x * partSize.y * partSize.z;
+      if (volume <= biggest) continue;
+      biggest = volume;
+      shadeCentre = partExtent.getCenter(new Vector3());
+      shadeSize = partSize.clone();
+    }
+
     for (const part of headParts) {
       // attach(), NOT add(). The parts hang two scaled parents deep — the
       // loader normalises the gltf scene, then this function scales it again —
@@ -814,16 +841,30 @@ function buildLamp(p: Palette, m: Materials, models: ModelKit): LampParts {
   /* The lit inside of the shade, tucked just under its mouth. This is what
    * makes the lamp look switched on from an angle that can see up into it.
    *
-   * Sized and placed off the head's actual extent rather than the procedural
-   * BULB constant, because that constant described the folded cone and the
-   * loaded shade is a different object at a different height. */
-  const headBox = new Box3().setFromObject(head);
-  const bulb = headBox.isEmpty() ? BULB.clone() : headBox.getCenter(new Vector3());
-  const glowRadius = headBox.isEmpty()
-    ? 0.1
-    : Math.max(0.05, Math.min(headBox.max.x - headBox.min.x, 0.16) * 0.42);
+   * IN THE SHADE, and this is the third time this exact mistake has been made
+   * in this file. It was the centre of the WHOLE HEAD's bounding box — a box
+   * that spans the knuckle, the arm and the shade — so the light left the lamp
+   * from a point halfway down the arm, and the glow disc sat in mid-air beside
+   * the shade rather than inside it. The hinge had the same bug and so did the
+   * first pivot. A bounding box around several parts describes none of them:
+   * the centre of "arm plus shade" is not a feature of either.
+   *
+   * So the shade is identified above and used here. Converted into the HEAD's
+   * space, because that is the space the bulb and aim are declared in and the
+   * space the glow is added to — the box came out in world coordinates, and the
+   * head sits at the hinge under a group turned through 180 degrees, so the two
+   * are nowhere near each other.
+   *
+   * Dropped a little below the shade's centre, because a bulb hangs at the
+   * mouth of a shade rather than floating in the middle of it. */
+  head.updateMatrixWorld(true);
+  const bulb = shadeCentre ? head.worldToLocal(shadeCentre.clone()) : BULB.clone();
+  if (shadeCentre) bulb.y -= shadeSize.y * 0.22;
+  const glowRadius = shadeCentre
+    ? Math.max(0.045, Math.min(shadeSize.x, shadeSize.z, 0.16) * 0.44)
+    : 0.1;
   const glow = new Mesh(new CircleGeometry(glowRadius, 16), m.glow);
-  glow.position.copy(model ? bulb : BULB);
+  glow.position.copy(model && shadeCentre ? bulb : BULB);
   glow.rotation.x = -90 * DEG;
   glow.renderOrder = 1;
   head.add(glow);
@@ -845,8 +886,9 @@ function buildLamp(p: Palette, m: Materials, models: ModelKit): LampParts {
   // For the model, the beam starts at the shade and goes straight down with a
   // slight lean, which lands the pool under the lamp on any lamp geometry. The
   // procedural lamp keeps its hand-tuned pair.
-  const lampBulb = model ? bulb.clone() : BULB.clone();
-  const lampAim = model ? bulb.clone().add(new Vector3(0.12, -1, 0.22)) : AIM.clone();
+  const lampBulb = model && shadeCentre ? bulb.clone() : BULB.clone();
+  const lampAim =
+    model && shadeCentre ? bulb.clone().add(new Vector3(0.12, -1, 0.22)) : AIM.clone();
 
   return { group, head, pool, glow, bulb: lampBulb, aim: lampAim };
 }
