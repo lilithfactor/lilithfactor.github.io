@@ -60,9 +60,8 @@ interface Piece {
   readonly id: ArtifactId;
   readonly object: Object3D;
   readonly restY: number;
-  /** Its paper name-note, which lifts with it. Absent if the press failed. */
+  /** Its paper name-note, a child of the object. Absent if the press failed. */
   readonly note?: Object3D;
-  readonly noteRestY?: number;
   raised: boolean;
 }
 
@@ -272,6 +271,9 @@ export async function mountDesk(): Promise<DeskHandle | null> {
   const anchors = new Map<ArtifactId, Vector3>();
   const placed = new Map<string, Object3D>();
   const pieces: Piece[] = [];
+  const noteWorld = new Vector3();
+  /** Each artifact's anchor in its OWN space, for re-projecting every frame. */
+  const anchorLocals = new Map<ArtifactId, Vector3>();
   // The lamp base is not an artifact, so it declares its own footprint; the
   // eight artifacts measure theirs below.
   const feet: Footprint[] = [{ x: LAMP.x, z: LAMP.z, halfX: 0.094, halfZ: 0.094 }];
@@ -293,86 +295,71 @@ export async function mountDesk(): Promise<DeskHandle | null> {
       mesh.castShadow = true;
       mesh.receiveShadow = true;
     });
-    outlines.apply(object);
     object.position.set(...placement.position);
     object.rotation.y = placement.yaw * DEG;
-    scene.add(object);
 
-    // World space, resolved once. The hover lift moves the object by 18mm; if
-    // the anchor moved with it, every section on the page would twitch
-    // whenever the mouse crossed it.
-    object.updateWorldMatrix(true, false);
-    const anchor = object.localToWorld(new Vector3(...placement.anchor));
-    anchors.set(id, anchor);
-
-    /* The paper note that names this object.
+    /* THE NOTE IS PART OF THE OBJECT.
      *
-     * Added to the SCENE rather than to the object, deliberately: the anchor is
-     * resolved once and never tracks the hover lift (a label that twitched
-     * every time the mouse crossed it would be unbearable), and the note has to
-     * sit exactly where the invisible button sits or clicking the paper would
-     * miss. Same position, same rules.
+     * It was a sibling, added to the scene at a world position worked out once
+     * — which was wrong, and wrong in a way that only shows up with the tuner
+     * open: drag an object across the desk and its name stays behind, because
+     * nothing told the label the thing it names had moved. The invisible button
+     * stayed behind with it, since both were pinned to an anchor resolved at
+     * build time.
      *
-     * Turned to face the resting camera once, not every frame. A billboard
-     * would always be perfectly readable and would also be the one object here
-     * that behaves like a UI element rather than like a piece of card. The
-     * camera only sways a few centimetres at rest, so a fixed angle looks
-     * right for the whole of the time anyone is reading it. */
-    let raisedNote: Object3D | null = null;
+     * A piece of paper standing on a thing is part of that thing. So the note
+     * is a child now, the anchor is re-read from the live matrix every frame
+     * (see the tick), and moving, turning or rescaling an object carries its
+     * name, its ink and its hit target along with it.
+     *
+     * Added BEFORE the outline is baked so the note's own ink is baked as its
+     * own root and pruned from the object's — see outline.ts/ownOutline. */
     const printedNote = pressKit.notes.get(id);
+    let noteOf: Object3D | null = null;
     if (printedNote) {
       const note = buildNote(palette, materials, printedNote, 8);
-      note.position.copy(anchor);
-      const toCamera = Math.atan2(
-        OVERVIEW.position[0] - anchor.x,
-        OVERVIEW.position[2] - anchor.z,
-      );
-      note.rotation.y = toCamera;
-      /* Stepped 150mm toward the viewer along that same bearing.
+      /* Stepped 150mm toward the viewer, in the object's own space.
        *
        * The anchors were solved for a chip floating in screen space, which
-       * cannot be occluded by anything. A note is in the room, so it can: the
-       * library's note stood inside the bookcase it names and the record
-       * player's went behind the lamp. Moving each one along the line to the
-       * camera clears whatever is in front of it without touching the anchor
-       * itself — the anchor still governs where the button goes, and the two
-       * still agree on screen because the step is along the sightline. */
-      note.position.x += Math.sin(toCamera) * 0.15;
-      note.position.z += Math.cos(toCamera) * 0.15;
-      outlines.apply(note);
+       * nothing can stand in front of. A note is in the room, so it can: the
+       * library's note stood inside the bookcase it names. Stepping along the
+       * sightline clears whatever is in front without moving it on screen. */
+      const bearing =
+        Math.atan2(
+          OVERVIEW.position[0] - placement.position[0],
+          OVERVIEW.position[2] - placement.position[2],
+        ) -
+        placement.yaw * DEG;
+      note.position.set(
+        placement.anchor[0] + Math.sin(bearing) * 0.15,
+        placement.anchor[1],
+        placement.anchor[2] + Math.cos(bearing) * 0.15,
+      );
       note.traverse((n) => {
         const mesh = n as Mesh;
         if (mesh.isMesh) mesh.castShadow = true;
       });
-      scene.add(note);
-      raisedNote = note;
+      object.add(note);
+      noteOf = note;
     }
 
-    // Where this object touches the base sheet. Measured off the built object
-    // rather than tabulated, so moving something in layout.ts moves its shadow
-    // with it and there is no second table to forget.
-    bounds.setFromObject(object);
-    const onDesk =
-      bounds.min.y < 0.08 &&
-      Math.abs(bounds.max.x + bounds.min.x) / 2 < DESK_SIZE[0] / 2 &&
-      Math.abs(bounds.max.z + bounds.min.z) / 2 < DESK_SIZE[1] / 2;
-    if (onDesk) {
-      feet.push({
-        x: (bounds.max.x + bounds.min.x) / 2,
-        z: (bounds.max.z + bounds.min.z) / 2,
-        halfX: (bounds.max.x - bounds.min.x) / 2,
-        halfZ: (bounds.max.z - bounds.min.z) / 2,
-      });
-    }
+    outlines.apply(object);
+    scene.add(object);
 
-    pieces.push({
-      id,
-      object,
-      restY: object.position.y,
-      note: raisedNote ?? undefined,
-      noteRestY: raisedNote?.position.y,
-      raised: false,
-    });
+    /* The anchor: a live world point, not a resolved one.
+     *
+     * Kept as one Vector3 per artifact and MUTATED IN PLACE each frame, because
+     * bindAnchors holds the reference and projectAnchors reads it — so writing
+     * into it is what makes the button follow. The hover lift is subtracted
+     * there rather than here, so a mouse crossing an object does not make its
+     * section marker twitch 18mm up the page. */
+    object.updateWorldMatrix(true, false);
+    const anchorLocal = new Vector3(...placement.anchor);
+    const anchor = object.localToWorld(anchorLocal.clone());
+    anchors.set(id, anchor);
+    anchorLocals.set(id, anchorLocal);
+
+    pieces.push({ id, object, restY: object.position.y, note: noteOf ?? undefined, raised: false });
     placed.set(id, object);
   }
 
@@ -597,15 +584,38 @@ export async function mountDesk(): Promise<DeskHandle | null> {
     elapsed += dt;
 
     for (const piece of pieces) {
-      const ease = Math.min(dt * 9, 1);
       const goal = piece.restY + (piece.raised ? LIFT : 0);
-      piece.object.position.y += (goal - piece.object.position.y) * ease;
-      // The note rises with its object. It is the only hover feedback left now
-      // that the chip no longer changes colour, so it has to be the paper that
-      // answers rather than a cursor change.
-      if (piece.note && piece.noteRestY !== undefined) {
-        const noteGoal = piece.noteRestY + (piece.raised ? LIFT : 0);
-        piece.note.position.y += (noteGoal - piece.note.position.y) * ease;
+      piece.object.position.y += (goal - piece.object.position.y) * Math.min(dt * 9, 1);
+
+      /* Re-read the anchor from where the object actually IS.
+       *
+       * Written into the existing Vector3 rather than replacing it, because
+       * bindAnchors captured that object. Minus the hover lift: the object
+       * rises 18mm under the pointer and its section marker must not.
+       *
+       * This is what makes the tuner honest — drag something across the desk
+       * and its note, its ink and its hit target all arrive with it. */
+      /* The note turns to face the camera, and only about Y.
+       *
+       * A fixed angle was the first attempt, on the grounds that a billboard is
+       * the one thing here that would behave like UI rather than like card.
+       * That reasoning does not survive the note becoming a child: the object
+       * can now be turned — by the tuner, and one day by a visitor — and a
+       * label facing away is not a label. Yaw only, so it stays a piece of
+       * paper standing on a desk rather than a sprite. */
+      if (piece.note) {
+        piece.note.getWorldPosition(noteWorld);
+        piece.note.rotation.y =
+          Math.atan2(rig.camera.position.x - noteWorld.x, rig.camera.position.z - noteWorld.z) -
+          piece.object.rotation.y;
+      }
+
+      const anchorLocal = anchorLocals.get(piece.id);
+      const anchor = anchors.get(piece.id);
+      if (anchorLocal && anchor) {
+        piece.object.updateWorldMatrix(true, false);
+        anchor.copy(piece.object.localToWorld(anchorLocal.clone()));
+        anchor.y -= piece.object.position.y - piece.restY;
       }
     }
 

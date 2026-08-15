@@ -433,6 +433,19 @@ export const NOTE_SIZE = 0.2;
 
 export function buildNote(p: Palette, m: Materials, map: Texture, lean: number): Group {
   const g = new Group();
+  /* IT CARRIES ITS OWN INK.
+   *
+   * The note turns to face the camera every frame, which means it is a moving
+   * part inside a parent — and outline.ts bakes a parent's whole subtree into
+   * one line object in the PARENT's space. Without this flag the border stays
+   * pointing where the note used to point, and you get a paper square with a
+   * black rectangle floating beside it at the wrong angle.
+   *
+   * Fourth thing in this model to need it: the lamp head, the blind, the
+   * blind's bottom rail, now this. The rule is simply "if it moves under its
+   * own steam, it says so here", and it belongs next to the thing that moves
+   * rather than in the file that draws the lines. */
+  g.userData.ownOutline = true;
   const paper = stock(p.paper, 1);
 
   const sheet = printedSheet(paper, p.cut, map, NOTE_SIZE, 0.005, NOTE_SIZE, {
