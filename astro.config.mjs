@@ -1,9 +1,7 @@
 // @ts-check
 import { defineConfig } from "astro/config";
+import tunerSave from "./scripts/tuner-save.mjs";
 
-// The repo is `lilithfactor.github.io`, so Pages serves from the domain root.
-// No `base` — adding one is the classic GitHub Pages trap that breaks every
-// absolute asset path. If a custom domain is bought, only `site` changes.
 export default defineConfig({
   site: "https://lilithfactor.github.io",
 
@@ -23,5 +21,9 @@ export default defineConfig({
 
   devToolbar: {
     enabled: false,
+  },
+
+  vite: {
+    plugins: [tunerSave],
   },
 });

@@ -259,7 +259,64 @@ export interface Press {
   /** One texture per outcome, in the order given. */
   readonly sheets: readonly CanvasTexture[];
   readonly chess: CanvasTexture | null;
+  /** The sign nobody is meant to read. See paintSign. */
+  readonly sign: CanvasTexture | null;
   dispose(): void;
+}
+
+/* --- The sign behind the set -----------------------------------------------
+ * For whoever opens the console, grabs the camera and flies out of the room.
+ *
+ * That person is not a problem to be locked out. They are the one visitor who
+ * has demonstrated, without being asked, that they can read a stranger's scene
+ * graph and drive it — which is a hiring signal, not a violation. Every other
+ * site's answer here is an invisible wall. This one puts up a sign and makes an
+ * offer.
+ *
+ * Deliberately NOT reachable by the ordinary camera: the whole joke is that
+ * finding it costs something. It hangs outside the back wall facing the room,
+ * so it is only ever read by someone who has already left. */
+const SIGN = [
+  "OH — YOU ARE NOT SUPPOSED TO BE HERE.",
+  "",
+  "But you got the camera out of the room, which is more",
+  "than the brief asked of anyone. So: if you build things",
+  "like this, drop me a line and let us make something.",
+  "",
+  "pranav.upadhyay.p@gmail.com",
+] as const;
+
+function paintSign(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  ink: string,
+  muted: string,
+  paper: string,
+): void {
+  ctx.fillStyle = paper;
+  ctx.fillRect(0, 0, w, h);
+  tooth(ctx, w, h, 0x51a1);
+
+  // A drawn border, so it reads as a hand-lettered card rather than a modal.
+  ctx.strokeStyle = ink;
+  ctx.lineWidth = 5;
+  ctx.strokeRect(18, 18, w - 36, h - 36);
+
+  ctx.textAlign = "center";
+  let y = 92;
+  SIGN.forEach((line, i) => {
+    if (!line) {
+      y += 26;
+      return;
+    }
+    const heading = i === 0;
+    const address = line.includes("@");
+    ctx.font = `${heading || address ? 700 : 400} ${heading ? 46 : 28}px ${MONO}`;
+    ctx.fillStyle = heading || address ? ink : muted;
+    ctx.fillText(line, w / 2, y);
+    y += heading ? 74 : 42;
+  });
 }
 
 /**
@@ -326,6 +383,19 @@ export function press(p: Palette, outcomes: readonly Outcome[]): Press {
     });
   }
 
+  let sign: CanvasTexture | null = null;
+  const signCtx = pad(1024, 512);
+  if (signCtx) {
+    const draw = () => paintSign(signCtx, 1024, 512, ink, muted, css(p.paper));
+    draw();
+    sign = texture(signCtx.canvas);
+    const t = sign;
+    repaint.push(() => {
+      draw();
+      t.needsUpdate = true;
+    });
+  }
+
   let disposed = false;
   void document.fonts?.ready
     .then(() => {
@@ -339,10 +409,12 @@ export function press(p: Palette, outcomes: readonly Outcome[]): Press {
   return {
     sheets,
     chess,
+    sign,
     dispose() {
       disposed = true;
       for (const t of sheets) t.dispose();
       chess?.dispose();
+      sign?.dispose();
     },
   };
 }

@@ -73,7 +73,10 @@ export function createOutlines(line: Color): Outlines {
   const roots: Object3D[] = [];
 
   function bake(root: Object3D): void {
-    const existing = root.getObjectByName("outline");
+    // A DIRECT child, not a descendant. getObjectByName searches the whole
+    // subtree, so on the room it found the lamp head's own line and deleted
+    // that instead of the room's.
+    const existing = root.children.find((c) => c.name === "outline");
     if (existing) {
       (existing as LineSegments2).geometry.dispose();
       existing.removeFromParent();
@@ -84,10 +87,33 @@ export function createOutlines(line: Color): Outlines {
     root.updateMatrixWorld(true);
     const inverse = new Matrix4().copy(root.matrixWorld).invert();
 
-    root.traverse((o) => {
+    /* A MANUAL WALK, because this has to stop descending and traverse cannot.
+     *
+     * The whole point of baking is that the lines are frozen into the root's
+     * local space — which is what makes them travel with it for free. The cost
+     * is that anything which moves INSIDE that root leaves its line behind: the
+     * lamp head pivots and its ink stays pointing at where the shade used to
+     * be, and the curtains slide open out of their own outlines.
+     *
+     * So a part that moves under its own steam is flagged `ownOutline` where it
+     * is built, gets baked as its own root here, and is pruned from its
+     * parent's. The knowledge stays next to the thing that moves, which is the
+     * only place anyone will remember to put it. */
+    const walk = (o: Object3D): void => {
+      if (o !== root && o.userData.ownOutline) {
+        outlines.apply(o);
+        return;
+      }
+
       const mesh = o as Mesh;
-      if (!mesh.isMesh || !mesh.geometry) return;
-      if (mesh.userData.noOutline) return;
+      if (!mesh.isMesh || !mesh.geometry) {
+        for (const child of o.children) walk(child);
+        return;
+      }
+      if (mesh.userData.noOutline) {
+        for (const child of o.children) walk(child);
+        return;
+      }
 
       /* NOTHING TRANSPARENT GETS A LINE.
        *
@@ -105,7 +131,10 @@ export function createOutlines(line: Color): Outlines {
        * to be remembered every time something new is added and this cannot be
        * forgotten. */
       const material = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
-      if (material && (material as { transparent?: boolean }).transparent) return;
+      if (material && (material as { transparent?: boolean }).transparent) {
+        for (const child of o.children) walk(child);
+        return;
+      }
 
       const edges = new EdgesGeometry(mesh.geometry, threshold);
       // Into the artifact's own space, so the baked lines move, lift and rotate
@@ -115,7 +144,10 @@ export function createOutlines(line: Color): Outlines {
       const array = edges.getAttribute("position").array;
       for (let i = 0; i < array.length; i++) positions.push(array[i] as number);
       edges.dispose();
-    });
+
+      for (const child of o.children) walk(child);
+    };
+    walk(root);
 
     if (!positions.length) return;
     const geometry = new LineSegmentsGeometry().setPositions(positions);
@@ -127,10 +159,14 @@ export function createOutlines(line: Color): Outlines {
     root.add(lines);
   }
 
-  return {
+  const outlines: Outlines = {
     material,
     apply(root) {
-      roots.push(root);
+      // A part that moves is baked by its parent's walk as well as by whoever
+      // asked for it; without this, re-baking on a threshold change would keep
+      // adding the same root and the list would grow every time.
+      if (!roots.includes(root)) roots.push(root);
+      root.userData.ownOutline = true;
       bake(root);
     },
     resize(width, height) {
@@ -144,9 +180,11 @@ export function createOutlines(line: Color): Outlines {
     },
     setThreshold(degrees) {
       threshold = degrees;
-      for (const root of roots) bake(root);
+      // Copied: a re-bake can discover a new sub-root and push onto `roots`.
+      for (const root of [...roots]) bake(root);
     },
   };
+  return outlines;
 }
 
 /** Shared by the tuner: the visual extent of anything, for sane slider ranges. */

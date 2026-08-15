@@ -369,6 +369,36 @@ html.stage-swapping main {
   cursor: pointer;
 }
 
+.desk-tuner footer button + button {
+  margin-top: 0.35rem;
+  background: transparent;
+  color: #b9b4a4;
+  border: 1px solid #3a382f;
+}
+
+/* The x/z pad: drag the dot, the object slides across the desk under it.
+   Aspect ratio 1 because the two axes have the same range, so a square pad is
+   the only shape in which "up" and "left" mean the same distance. */
+.desk-tuner__pad {
+  position: relative;
+  aspect-ratio: 1;
+  margin: 0 0 0.4rem;
+  background: #0b0a08;
+  border: 1px solid #3a382f;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.desk-tuner__pad i {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  background: #f2efe6;
+  pointer-events: none;
+}
+
 .desk-tuner textarea {
   width: 100%;
   margin-top: 0.5rem;

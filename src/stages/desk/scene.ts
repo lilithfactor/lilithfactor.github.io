@@ -18,8 +18,10 @@ import {
   BufferGeometry,
   Float32BufferAttribute,
   Mesh,
+  MeshBasicMaterial,
   NeutralToneMapping,
   PCFSoftShadowMap,
+  PlaneGeometry,
   Scene,
   SRGBColorSpace,
   Vector3,
@@ -39,6 +41,8 @@ import { loadModels } from "./models";
 import { buildArtifact, MODEL_SPECS } from "./objects";
 import { createOutlines } from "./outline";
 import { blend, readPalette } from "./palette";
+import { applyTuned, type Tuned, type TunerTargets } from "./params";
+import tuned from "./tuned.json";
 import { createGovernor, type Degradation } from "./quality";
 import { createTextures } from "./texture";
 import { startWeather, type Sky } from "./weather";
@@ -208,6 +212,33 @@ export async function mountDesk(): Promise<DeskHandle | null> {
   // The printed sheets: real outcome numbers, typeset onto the top papers so
   // the desk reads as a portfolio at rest, before any click.
   const pressKit = press(palette, ARTIFACT_LABELS);
+
+  /* THE SIGN BEHIND THE SET.
+   *
+   * The camera is on rails — createCameraRig owns it and nothing on the page
+   * can move it off them. But anyone who opens a console can reach into the
+   * scene graph and fly it wherever they like, and the first place they will go
+   * is straight through the back wall, because that is what you do.
+   *
+   * There is no lock worth building here: it is their machine, their renderer,
+   * and any guard is thirty seconds of work to remove. So instead of pretending
+   * the room has walls, there is a sign on the other side of this one. It faces
+   * the way that visitor is travelling, which is why it is turned to look back
+   * at the camera's approach rather than into the room.
+   *
+   * Unlit, so it reads at full contrast out there where the lamp does not
+   * reach, and never outlined — it is printing, not paper. */
+  if (pressKit.sign) {
+    const sign = new Mesh(
+      new PlaneGeometry(3.6, 1.8),
+      new MeshBasicMaterial({ map: pressKit.sign, toneMapped: false }),
+    );
+    sign.position.set(0, 1.2, -2.7);
+    sign.rotation.y = Math.PI;
+    sign.userData.noOutline = true;
+    sign.receiveShadow = false;
+    room.add(sign);
+  }
   // The rig owns the head angle and drives the key light from it.
   const lampRig = createLampRig(lamp, lighting.key);
 
@@ -577,30 +608,45 @@ export async function mountDesk(): Promise<DeskHandle | null> {
    * edit → rebuild → screenshot → squint stops being how the look gets found.
    * Dynamically imported and opt-in via ?tune, so a visitor never pays for it.
    * See tuner.ts. */
+  const tunerTargets: TunerTargets = {
+    outlines,
+    key: lighting.key,
+    fill: lighting.fill,
+    ambient: lighting.ambient,
+    room,
+    artifacts: placed,
+    lamp: lamp.group,
+    camera: { get: rig.overview, set: rig.setOverview },
+    materials: {
+      contactOpacity: (v) => (v < 0 ? materials.contact.opacity : (materials.contact.opacity = v)),
+      glowOpacity: (v) => (v < 0 ? materials.glow.opacity : (materials.glow.opacity = v)),
+      paper: (hex) => {
+        materials.card.color.set(hex);
+        scene.background = new Color(hex);
+      },
+      surface: (name) => textures.setSurface(name),
+      surfaces: textures.surfaces,
+    },
+  };
+
+  /* Saved tuning, replayed through the same setters the sliders use.
+   *
+   * This runs for everyone, which is the point: a number moved with a slider
+   * and saved is the number the site is built with. It is a scratchpad, not the
+   * source of truth — anything that settles gets folded back into the constant
+   * it came from and the file emptied, so nobody has to read JSON to find out
+   * where the lamp is. Empty is the normal state. */
+  if (Object.keys(tuned).length) applyTuned(tunerTargets, tuned as Tuned);
+
+  /* The tuner: sliders for every number this scene is made of, so the loop of
+   * edit → rebuild → screenshot → squint stops being how the look gets found.
+   * Dynamically imported and opt-in via ?tune, so a visitor never pays for it.
+   * See tuner.ts. */
   let tuner: { dispose(): void } | null = null;
   if (wantsTuner()) {
     void import("./tuner").then(({ mountTuner }) => {
       if (destroyed) return;
-      tuner = mountTuner({
-        outlines,
-        key: lighting.key,
-        fill: lighting.fill,
-        ambient: lighting.ambient,
-        room,
-        artifacts: placed,
-        lamp: lamp.group,
-        camera: { get: rig.overview, set: rig.setOverview },
-        materials: {
-          contactOpacity: (v) => (v < 0 ? materials.contact.opacity : (materials.contact.opacity = v)),
-          glowOpacity: (v) => (v < 0 ? materials.glow.opacity : (materials.glow.opacity = v)),
-          paper: (hex) => {
-            materials.card.color.set(hex);
-            scene.background = new Color(hex);
-          },
-          surface: (name) => textures.setSurface(name),
-          surfaces: textures.surfaces,
-        },
-      });
+      tuner = mountTuner(tunerTargets);
     });
   }
 

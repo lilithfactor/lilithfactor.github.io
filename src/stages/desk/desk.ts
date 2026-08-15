@@ -44,11 +44,19 @@ import type { Weather } from "./weather";
 
 const DEG = Math.PI / 180;
 
-/** The base sheet, in metres. */
-export const DESK_SIZE = [2.7, 1.5] as const;
+/**
+ * The base sheet, in metres.
+ *
+ * Shortened from 2.7 when the window took the middle of the wall: a 2.7m slab
+ * ran wider than the opening behind it, so the desk read as a counter that
+ * happened to have a window near one end. At 2.4 the window overhangs it
+ * slightly at both ends, which is the proportion that says "desk under a
+ * window" without anyone thinking about it.
+ */
+export const DESK_SIZE = [2.4, 1.45] as const;
 
 /** Where the lamp stands. */
-export const LAMP = new Vector3(1.16, 0, -0.5);
+export const LAMP = new Vector3(1.0, 0, -0.48);
 /** The arm's joint, in the lamp's own space. Everything above this pivots. */
 export const JOINT = new Vector3(0.012, 0.355, 0);
 /** The bulb, in the HEAD's space — so it follows the head when the head turns. */
@@ -84,6 +92,13 @@ export interface Lighting {
  */
 export interface WindowRig {
   readonly group: Group;
+  /**
+   * The centre of the sill's top surface, in the ROOM's space — so anything
+   * meant to stand on the ledge can be positioned against a published number
+   * instead of one measured off a screenshot. Width is the sill's, for spacing
+   * more than one thing along it.
+   */
+  readonly sill: { readonly centre: Vector3; readonly width: number };
   /** Dress the view and open up. Safe to call with null — then nothing opens. */
   reveal(weather: Weather | null): void;
   /** Eases the curtains. Called from the scene's tick. */
@@ -125,6 +140,50 @@ function sheet(
   const geometry = new BoxGeometry(w, h, d);
   paint(geometry, face, edgeOf(face, cut), thin);
   return geometry;
+}
+
+/**
+ * A hanging blind: ONE sheet, creased into horizontal folds, hung from its top
+ * edge so that raising it is a single scale about y = 0.
+ *
+ * ONE MESH, NOT A STACK OF STRIPS. The first version of this was separate
+ * folds stepped back and forth in z, which shades like cloth and inks like a
+ * portcullis: every strip is a closed box, EdgesGeometry draws every boundary,
+ * and the window came out barred with black rectangles. One mesh has one
+ * boundary, so the ink traces the blind's silhouette and nothing else.
+ *
+ * The folds are a TRIANGLE wave rather than a sine on purpose. A sine is
+ * smooth: every facet meets its neighbour under the 38° threshold, no crease is
+ * drawn at all, and the blind reads as a bent board. A triangle wave puts a
+ * real ~75° fold at each crest, which is exactly one ink line along each
+ * pleat — cloth drawn the way an illustrator draws cloth.
+ *
+ * The geometry is translated so the HEAD EDGE sits at the origin. That is what
+ * makes raising it free: scale.y from 1 to a little above nothing, and the
+ * folds crowd into a stack under the head rail exactly as a Roman blind does,
+ * with no second geometry and no animation of vertices.
+ */
+function pleat(
+  w: number,
+  h: number,
+  folds: number,
+  depth: number,
+  face: Color,
+  cut: Color,
+): BufferGeometry {
+  const geometry = new PlaneGeometry(w, h, 6, folds * 2);
+  const position = geometry.getAttribute("position");
+  for (let i = 0; i < position.count; i++) {
+    const v = (position.getY(i) + h / 2) / h;
+    const wave = Math.abs(((v * folds * 2) % 2) - 1) * 2 - 1;
+    // Slacker toward the hem, tight under the rail — a blind is held flat where
+    // it is fixed and bellies out as it hangs.
+    position.setZ(i, wave * depth * (0.55 + 0.45 * (1 - v)));
+  }
+  geometry.translate(0, -h / 2, 0);
+  // facet() before paint(): it rebuilds the vertex list, and the colours are
+  // written per vertex.
+  return paint(facet(geometry), face, edgeOf(face, cut), 2);
 }
 
 /** A rolled tube of card: the curved side is paper, the two ends are cuts. */
@@ -246,20 +305,28 @@ export function buildRoom(
  * (z = -1.25) that the furthest layer still clears it. It did not, first time:
  * the sky landed at -1.265, behind the wall, and the window was a frame around
  * a blank piece of backdrop. */
-/* Placed against what the camera can actually see, not against the wall's
- * middle: the resting shot crops the backdrop at about y = 1.0, and the desk
- * itself fills everything below y ≈ 0.45. That leaves one band — above the
- * corkboard, between the bookcase and the lamp — and the window is sized to
- * sit in it rather than to be a nice size in the abstract. */
-const WINDOW = new Vector3(0.6, 0.5, -1.19);
+/* CENTRED, AND THE WIDEST THING ON THE WALL.
+ *
+ * It used to be tucked to the right, sized to fit the one gap left over between
+ * the bookcase and the lamp — which is how you get a window that reads as a
+ * picture someone hung rather than the thing the desk is placed in front of. A
+ * desk under a window is the arrangement every desk on earth is in, and it only
+ * says that if the window is behind the MIDDLE of the desk.
+ *
+ * So the window was given the wall and everything else moved: the desk is
+ * shorter (see DESK_SIZE), the pinboard has gone left off the glass and the
+ * bookcase further left again. Height is still set by what the camera sees —
+ * the resting shot crops the backdrop at about y = 1.0, so the pole has to
+ * clear the sill and still be under that. */
+const WINDOW = new Vector3(0, 0.47, -1.19);
 
 function buildWindow(p: Palette, m: Materials): WindowRig {
   const g = new Group();
   g.name = "window";
   g.position.copy(WINDOW);
 
-  const W = 0.86;
-  const H = 0.48;
+  const W = 2.05;
+  const H = 0.54;
   const bar = 0.035;
 
   /* Time of day, from the machine looking at it. Three states rather than a
@@ -330,16 +397,28 @@ function buildWindow(p: Palette, m: Materials): WindowRig {
     heights: readonly number[],
     width: number,
   ): void => {
+    /* THE CITY STANDS ON A HORIZON, not on the bottom of the glass.
+     *
+     * Two reasons, and the second is the one that actually forced it. A distant
+     * skyline seen from a desk never shows its own feet — the ground it stands
+     * on is below the sill line, which is why every real window shows buildings
+     * cut off. And practically: the blind hangs 45mm in front of the glass, so
+     * from a camera above there is a thin band at the bottom of the pane that
+     * the blind cannot cover no matter how far it drops. With buildings sitting
+     * on the glass bottom that band was a strip of dark rooftops showing under a
+     * closed blind. With a horizon, the same band is plain sky — the same paper
+     * as the frame around it, so there is nothing left to see. */
+    const base = -H / 2 + H * 0.26;
     let x = -W / 2 + width / 2;
     for (const h of heights) {
       const block = new Mesh(sheet(width, h, 0.006, tone, p.cut, 2), m.card);
-      block.position.set(x, -H / 2 + h / 2, depth);
+      block.position.set(x, base + h / 2, depth);
       block.receiveShadow = false;
       g.add(block);
       // A lit window or two, at night only, so the city is somewhere people are.
       if (night && h > 0.12) {
         const lit = new Mesh(sheet(width * 0.24, 0.026, 0.004, p.paper, p.paper, 2), m.card);
-        lit.position.set(x - width * 0.16, -H / 2 + h - 0.06, depth + 0.005);
+        lit.position.set(x - width * 0.16, base + h - 0.06, depth + 0.005);
         g.add(lit);
       }
       x += width;
@@ -351,8 +430,21 @@ function buildWindow(p: Palette, m: Materials): WindowRig {
   const haze = sky5 === "fog" ? 0.35 : 1;
   const far = blend(sky, p.line, (night ? 0.16 : 0.1) * haze);
   const near = blend(sky, p.line, (night ? 0.3 : 0.2) * haze);
-  skyline(-0.022, far, [0.16, 0.28, 0.2, 0.34, 0.22, 0.3, 0.18], W / 7);
-  skyline(-0.012, near, [0.12, 0.22, 0.14, 0.18, 0.26, 0.15], W / 6);
+  // More blocks than before, because the window is twice as wide now and the
+  // same seven towers stretched into seven slabs. Roughly 120mm each, which is
+  // the width that still reads as a building at this distance.
+  skyline(
+    -0.022,
+    far,
+    [0.16, 0.28, 0.2, 0.34, 0.22, 0.3, 0.18, 0.26, 0.36, 0.21, 0.29, 0.17, 0.31, 0.23],
+    W / 14,
+  );
+  skyline(
+    -0.012,
+    near,
+    [0.12, 0.22, 0.14, 0.18, 0.26, 0.15, 0.24, 0.13, 0.2, 0.28, 0.16, 0.19],
+    W / 12,
+  );
 
   /* Rain, as strokes on the glass rather than falling drops.
    *
@@ -389,52 +481,124 @@ function buildWindow(p: Palette, m: Materials): WindowRig {
     piece.castShadow = true;
     g.add(piece);
   };
+  /* THE BOTTOM RAIL IS DEEP, and that is load-bearing rather than decorative.
+   *
+   * The blind hangs 45mm in front of the glass, and the camera looks down at
+   * about 23°, so the blind's hem PROJECTS higher on screen than the glass
+   * bottom it is meant to cover — the lowered blind left a strip of city
+   * showing under it. The hem cannot simply be dropped further, because below
+   * it is the sill and cloth does not pass through a shelf.
+   *
+   * A deeper bottom rail solves it from the other end: it raises the glass by
+   * 90mm, which is more than the parallax can eat, and it is also what a real
+   * window has — the bottom rail of a sash is always the thickest member. */
+  const apron = 0.11;
   frame(W + bar * 2, bar, 0, H / 2 + bar / 2);
-  frame(W + bar * 2, bar, 0, -H / 2 - bar / 2);
+  frame(W + bar * 2, apron, 0, -H / 2 - apron / 2);
   frame(bar, H + bar * 2, -W / 2 - bar / 2, 0);
   frame(bar, H + bar * 2, W / 2 + bar / 2, 0);
-  // The glazing bars, thinner, sitting proud of the frame.
-  frame(0.016, H, 0, 0, 0.03);
+  // The glazing bars, thinner, sitting proud of the frame. Two uprights rather
+  // than one: a 1.7m opening split down the middle is a patio door, and three
+  // lights across is what a window that wide actually has.
+  frame(0.016, H, -W / 6, 0, 0.03);
+  frame(0.016, H, W / 6, 0, 0.03);
   frame(W, 0.016, 0, 0, 0.03);
 
-  // A sill, which is the one part that says the window is in a wall with a
-  // thickness rather than printed on it.
-  const sill = new Mesh(sheet(W + bar * 4, 0.03, 0.09, p.kraft, p.cut), m.card);
-  sill.position.set(0, -H / 2 - bar - 0.015, 0.03);
+  /* THE SILL, and it is a LEDGE rather than a lip.
+   *
+   * The old one was 90mm deep, which is enough to say "this window is in a wall
+   * with a thickness" and not enough to stand anything on. A window sill in a
+   * room somebody uses has things on it — a pot, a jar, whatever accumulates —
+   * so this one is 200mm deep with two brackets under it, which is a shelf.
+   *
+   * Where things go is published as `sill` on the rig rather than left for
+   * someone to measure off the screen: it is the centre of the top surface, in
+   * the room's own space, so an object placed there stands on it exactly. */
+  const sillDepth = 0.2;
+  const sillThick = 0.036;
+  const sillY = -H / 2 - apron - sillThick / 2;
+  const sillZ = sillDepth / 2 - 0.02;
+  const sill = new Mesh(sheet(W + bar * 4, sillThick, sillDepth, p.kraft, p.cut), m.card);
+  sill.position.set(0, sillY, sillZ);
   sill.castShadow = true;
   g.add(sill);
 
-  /* THE CURTAINS. Two panels meeting in the middle, drawn back when the sky
-   * is known. Folded card with a few vertical creases, because a curtain that
-   * is one flat rectangle is a door. */
-  const curtains: Mesh[] = [];
-  for (const side of [-1, 1] as const) {
-    const panel = new Group();
-    const half = W / 2 + bar;
-    for (let i = 0; i < 5; i++) {
-      const fold = new Mesh(sheet(half / 5, H + bar, 0.012, p.kraft, p.cut), m.card);
-      // Alternating depth is the whole trick: five coplanar strips are one
-      // rectangle, and five strips that step back and forth are cloth.
-      fold.position.set(-half / 2 + (i + 0.5) * (half / 5), 0, i % 2 ? 0.012 : 0.026);
-      fold.castShadow = true;
-      panel.add(fold);
-    }
-    panel.position.x = (side * W) / 4;
-    panel.userData.shut = panel.position.x;
-    // Far enough that the panel's inner edge clears the opening, minus a
-    // little: curtains bunch at the sides, they do not vanish.
-    panel.userData.open = side * (W / 2 + half * 0.78);
-    g.add(panel);
-    curtains.push(panel as unknown as Mesh);
+  // Brackets. A 200mm shelf with nothing holding it up is a shelf that reads as
+  // floating, and two folded triangles of card are what a paper model uses.
+  for (const end of [-1, 1] as const) {
+    const bracket = new Mesh(sheet(0.02, 0.07, sillDepth * 0.7, p.kraft, p.cut, 0), m.card);
+    bracket.position.set((end * (W + bar * 4)) / 2.6, sillY - 0.05, sillZ - 0.01);
+    bracket.castShadow = true;
+    g.add(bracket);
   }
+
+  /* THE BLIND. One sheet covering the whole opening, pulled up when the sky is
+   * known.
+   *
+   * It was a pair of side-drawing curtains, which is the wrong fitting for this
+   * window: side curtains have to go SOMEWHERE when they open, and once the
+   * window moved to the centre of the wall and grew, the only somewhere left was
+   * across the glass. A blind has nowhere to go but up, and stacks into a hand's
+   * width of folds under its own head rail.
+   *
+   * It also drops a moving part: one group, one scale, instead of two panels
+   * sliding in opposite directions with their own limits. */
+  const headY = H / 2 + bar + 0.012;
+  const front = 0.045;
+  const clothW = W + bar * 1.4;
+  // Down to just above the sill — derived, not chosen, so that changing the
+  // apron or the head height cannot reopen the gap this closes.
+  const drop = headY - (-H / 2 - apron) - 0.004;
+
+  // The head rail. A blind with nothing along its top edge is a sheet taped to
+  // the wall, and this is also what the folds stack up under.
+  const rail = new Mesh(sheet(clothW + 0.03, 0.036, 0.055, p.kraft, p.cut), m.card);
+  rail.position.set(0, headY + 0.018, front);
+  rail.castShadow = true;
+  g.add(rail);
+
+  const blind = new Group();
+  const cloth = new Mesh(pleat(clothW, drop, 7, 0.016, p.kraft, p.cut), m.card);
+  cloth.castShadow = true;
+  blind.add(cloth);
+  blind.position.set(0, headY, front);
+  // It moves under its own steam, so it carries its own ink. See outline.ts:
+  // lines baked into a parent stay behind when the child moves.
+  blind.userData.ownOutline = true;
+  g.add(blind);
+
+  // The bottom bar, with a pull tab. Not a child of the blind: scaling the
+  // blind to raise it would squash the bar flat. A sibling whose height is set
+  // each frame keeps its own proportions all the way up.
+  const bottom = new Group();
+  const bottomBar = new Mesh(sheet(clothW + 0.012, 0.022, 0.026, p.kraft, p.cut), m.card);
+  bottom.add(bottomBar);
+  const pull = new Mesh(sheet(0.016, 0.03, 0.006, p.kraft, p.cut), m.card);
+  pull.position.set(clothW * 0.32, -0.024, 0.004);
+  bottom.add(pull);
+  bottom.position.set(0, headY - drop, front + 0.004);
+  bottom.userData.ownOutline = true;
+  g.add(bottom);
+
+  // How far up it goes. Not zero: a raised blind is a stack of folds sitting
+  // under its rail, not an absence.
+  const RAISED = 0.13;
 
   let openness = 0;
   let target = 0;
 
   return {
     group: g,
+    sill: {
+      centre: new Vector3(
+        WINDOW.x,
+        WINDOW.y + sillY + sillThick / 2,
+        WINDOW.z + sillZ,
+      ),
+      width: W + bar * 4,
+    },
     reveal(weather) {
-      if (!weather) return; // Curtains stay shut. A closed window is a window.
+      if (!weather) return; // The blind stays down. A covered window is a window.
       // The sky pane is the one unlit surface here, so its tone is a straight
       // material change — no geometry to repaint.
       const wetNow = weather.sky === "rain" || weather.sky === "storm";
@@ -457,10 +621,11 @@ function buildWindow(p: Palette, m: Materials): WindowRig {
       // Cloth is heavy and does not bounce: a plain ease toward the target.
       openness += Math.min(dt * 1.7, 1) * (target - openness);
       if (Math.abs(target - openness) < 0.002) openness = target;
-      for (const panel of curtains) {
-        const { shut, open } = panel.userData as { shut: number; open: number };
-        panel.position.x = shut + (open - shut) * openness;
-      }
+      // Squeezing y IS the raise: the creases are in the geometry, so they
+      // crowd into a stack under the rail on their own.
+      const shown = 1 - (1 - RAISED) * openness;
+      blind.scale.y = shown;
+      bottom.position.y = headY - drop * shown;
     },
   };
 }
@@ -507,6 +672,14 @@ function buildLamp(p: Palette, m: Materials, models: ModelKit): LampParts {
   const head = new Group();
   head.name = "lamp-head";
   head.position.copy(JOINT);
+  /* THE HEAD CARRIES ITS OWN INK.
+   *
+   * This is the one part of the model a visitor can move, and its lines were
+   * baked into the room with everything else — so the shade turned and left its
+   * outline hanging in the air where the shade used to be. Every drag made it
+   * worse. See outline.ts: anything flagged here is baked as its own root and
+   * pruned from its parent's. */
+  head.userData.ownOutline = true;
 
   if (model) {
     // Normalise to the desk's scale, standing on y = 0.
@@ -538,34 +711,49 @@ function buildLamp(p: Palette, m: Materials, models: ModelKit): LampParts {
     const pivotY = LAMP_HEIGHT * HEAD_SPLIT;
     const headParts: Mesh[] = [];
     const union = new Box3().makeEmpty();
+    const body = new Box3().makeEmpty();
     const partBox = new Box3();
     const partCentre = new Vector3();
     for (const part of parts) {
       partBox.setFromObject(part);
       partBox.getCenter(partCentre);
       // World y, which equals group-local y: the lamp group sits at y = 0.
-      if (partCentre.y < pivotY) continue;
+      if (partCentre.y < pivotY) {
+        body.union(partBox);
+        continue;
+      }
       headParts.push(part);
       union.union(partBox);
     }
 
-    /* THE PIVOT GOES AT THE KNUCKLE, not on the lamp's centre line.
+    /* THE PIVOT GOES AT THE KNUCKLE — and finding it means asking the BODY,
+     * not the head.
      *
-     * It was `(0, pivotY, 0)`, and that looked perfectly fine at rest —
-     * attach() preserves world position, so nothing moved until the lamp was
-     * dragged. Then the head swung about a point in mid-air beside the joint
-     * and the shade sailed off the end of the arm. The bug was invisible in
-     * every static screenshot and obvious the first time a hand touched it.
+     * Two wrong answers came before this one, and both looked perfect at rest,
+     * because attach() preserves world position: nothing moves until a hand
+     * drags it. First `(0, pivotY, 0)`, a point on the lamp's centre line, so
+     * the head swung about mid-air beside the joint. Then the bottom-centre of
+     * the moving parts — which sounds like the joint and is not: that box spans
+     * the knuckle AND the arm AND the shade hanging off the far end, so its
+     * centre is out along the arm and the lamp visibly came apart when turned.
      *
-     * The joint is the bottom-centre of the parts that move, which is what the
-     * union box gives us. */
-    if (!union.isEmpty()) {
-      const pivotWorld = new Vector3(
-        (union.min.x + union.max.x) / 2,
-        union.min.y,
-        (union.min.z + union.max.z) / 2,
+     * The hinge is not a feature of the head. It is where the head MEETS the
+     * part that stays put: the top of the pole. So take the top-centre of the
+     * body's box, and clamp it into the head's box so the pivot is guaranteed
+     * to sit on the assembly that turns rather than floating below it. */
+    if (!union.isEmpty() && !body.isEmpty()) {
+      const hinge = new Vector3(
+        (body.min.x + body.max.x) / 2,
+        body.max.y,
+        (body.min.z + body.max.z) / 2,
+      ).clamp(union.min, union.max);
+      head.position.copy(group.worldToLocal(hinge));
+    } else if (!union.isEmpty()) {
+      head.position.copy(
+        group.worldToLocal(
+          new Vector3((union.min.x + union.max.x) / 2, union.min.y, (union.min.z + union.max.z) / 2),
+        ),
       );
-      head.position.copy(group.worldToLocal(pivotWorld));
     } else {
       head.position.set(0, pivotY, 0);
     }
