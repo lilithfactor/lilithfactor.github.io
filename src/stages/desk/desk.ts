@@ -229,8 +229,22 @@ export function buildRoom(
    * 4mm irregularity is a full centimetre of screen.
    *
    * And it is bowed, because a 2.6-metre sheet of card that is mathematically
-   * planar is the loudest "computed" signal available. See cut.ts. */
-  const mat = new PlaneGeometry(DESK_SIZE[0] - 0.08, DESK_SIZE[1] - 0.08, 34, 20);
+   * planar is the loudest "computed" signal available. See cut.ts.
+   *
+   * THE INSET IS GONE, and the reason is the same one that has bitten this file
+   * three times now: the monochrome repaint quietly removed the thing that made
+   * a feature legible. The 80mm margin worked when the sheet and the board were
+   * different card — you read a lighter sheet lying on a darker one. With every
+   * stock the same paper there is nothing on either side of the join, so all
+   * that survived was the ink line: a wavy stroke wandering across an otherwise
+   * empty desk 40mm in from its edge, attached to nothing. It read as a stray
+   * pen mark, which is exactly what it looked like.
+   *
+   * Matching the sheet to the board puts that torn edge back where an edge
+   * belongs — on the desk's own front edge, where it now wanders in and out
+   * across the board's corner by ±14mm and reads as a hand-torn sheet rather
+   * than a scribble. Same detail, same cost, and it lands on something. */
+  const mat = new PlaneGeometry(DESK_SIZE[0], DESK_SIZE[1], 34, 20);
   deckle(mat, 0.014, { bottom: true, right: true }, 7);
   bow(mat, 0.0055, 2);
   const top = new Mesh(mat, m.card);
