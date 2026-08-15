@@ -69,6 +69,27 @@ export interface Lighting {
   readonly ambient: HemisphereLight;
 }
 
+/**
+ * The window, and the curtains that hide it until the weather lands.
+ *
+ * This is what let the desk stop waiting. It used to await the forecast before
+ * building anything — two network round trips in front of the whole scene, for
+ * scenery. Now the window is built shut, and the sky is dressed and the
+ * curtains drawn back the moment the answer arrives.
+ *
+ * The good part is the failure: if the weather never comes, the curtains
+ * simply stay closed, which is an entirely normal thing for a window to be.
+ * No spinner, no fallback state, no code that says "if it broke". The state we
+ * cannot avoid is the one we would have chosen anyway.
+ */
+export interface WindowRig {
+  readonly group: Group;
+  /** Dress the view and open up. Safe to call with null — then nothing opens. */
+  reveal(weather: Weather | null): void;
+  /** Eases the curtains. Called from the scene's tick. */
+  update(dt: number): void;
+}
+
 /** The movable parts of the lamp. See lamp.ts for what moves them. */
 export interface LampParts {
   /** The whole lamp, standing on the desk. */
@@ -126,8 +147,7 @@ export function buildRoom(
   p: Palette,
   m: Materials,
   models: ModelKit,
-  weather: Weather | null,
-): { room: Group; lamp: LampParts } {
+): { room: Group; lamp: LampParts; window: WindowRig } {
   const room = new Group();
   room.name = "room";
 
@@ -181,7 +201,8 @@ export function buildRoom(
   backdrop.position.set(0, 1.3, -1.25);
   room.add(backdrop);
 
-  room.add(buildWindow(p, m, weather));
+  const window = buildWindow(p, m);
+  room.add(window.group);
 
   const lamp = buildLamp(p, m, models);
   room.add(lamp.group, lamp.pool);
@@ -194,7 +215,7 @@ export function buildRoom(
   coaster.position.set(-0.72, 0.0012, -0.28);
   room.add(coaster);
 
-  return { room, lamp };
+  return { room, lamp, window };
 }
 
 /* --- The window ------------------------------------------------------------
@@ -232,7 +253,7 @@ export function buildRoom(
  * sit in it rather than to be a nice size in the abstract. */
 const WINDOW = new Vector3(0.6, 0.5, -1.19);
 
-function buildWindow(p: Palette, m: Materials, weather: Weather | null): Group {
+function buildWindow(p: Palette, m: Materials): WindowRig {
   const g = new Group();
   g.name = "window";
   g.position.copy(WINDOW);
@@ -252,10 +273,12 @@ function buildWindow(p: Palette, m: Materials, weather: Weather | null): Group {
   const hour = Number.isFinite(forced) && forced >= 0 && forced <= 23 ? forced : new Date().getHours();
   // The API knows whether it is light where the desk is, which beats guessing
   // from the visitor's clock. The clock is the fallback, not the first answer.
-  const night = weather ? !weather.day : hour < 6 || hour >= 20;
+  // The clock dresses the window at build time; the forecast corrects it in
+  // reveal() if it ever turns up.
+  const night = hour < 6 || hour >= 20;
   const dusk = !night && (hour < 8 || hour >= 18);
   // ?sky=rain forces a condition, so all six can be looked at on a clear day.
-  const sky5 = (params.get("sky") as Weather["sky"] | null) ?? weather?.sky ?? "clear";
+  const sky5 = (params.get("sky") as Weather["sky"] | null) ?? "clear";
   const overcast = sky5 === "cloud" || sky5 === "rain" || sky5 === "storm" || sky5 === "fog";
   const wet = sky5 === "rain" || sky5 === "storm";
 
@@ -381,7 +404,65 @@ function buildWindow(p: Palette, m: Materials, weather: Weather | null): Group {
   sill.castShadow = true;
   g.add(sill);
 
-  return g;
+  /* THE CURTAINS. Two panels meeting in the middle, drawn back when the sky
+   * is known. Folded card with a few vertical creases, because a curtain that
+   * is one flat rectangle is a door. */
+  const curtains: Mesh[] = [];
+  for (const side of [-1, 1] as const) {
+    const panel = new Group();
+    const half = W / 2 + bar;
+    for (let i = 0; i < 5; i++) {
+      const fold = new Mesh(sheet(half / 5, H + bar, 0.012, p.kraft, p.cut), m.card);
+      // Alternating depth is the whole trick: five coplanar strips are one
+      // rectangle, and five strips that step back and forth are cloth.
+      fold.position.set(-half / 2 + (i + 0.5) * (half / 5), 0, i % 2 ? 0.012 : 0.026);
+      fold.castShadow = true;
+      panel.add(fold);
+    }
+    panel.position.x = (side * W) / 4;
+    panel.userData.shut = panel.position.x;
+    // Far enough that the panel's inner edge clears the opening, minus a
+    // little: curtains bunch at the sides, they do not vanish.
+    panel.userData.open = side * (W / 2 + half * 0.78);
+    g.add(panel);
+    curtains.push(panel as unknown as Mesh);
+  }
+
+  let openness = 0;
+  let target = 0;
+
+  return {
+    group: g,
+    reveal(weather) {
+      if (!weather) return; // Curtains stay shut. A closed window is a window.
+      // The sky pane is the one unlit surface here, so its tone is a straight
+      // material change — no geometry to repaint.
+      const wetNow = weather.sky === "rain" || weather.sky === "storm";
+      const overcastNow =
+        weather.sky === "cloud" || wetNow || weather.sky === "fog";
+      const w = !weather.day
+        ? overcastNow
+          ? 0.72
+          : 0.62
+        : weather.sky === "fog"
+          ? 0.3
+          : overcastNow
+            ? 0.18
+            : 0.02;
+      (pane.material as MeshBasicMaterial).color.copy(blend(p.backdrop, p.line, w));
+      target = 1;
+    },
+    update(dt) {
+      if (openness === target) return;
+      // Cloth is heavy and does not bounce: a plain ease toward the target.
+      openness += Math.min(dt * 1.7, 1) * (target - openness);
+      if (Math.abs(target - openness) < 0.002) openness = target;
+      for (const panel of curtains) {
+        const { shut, open } = panel.userData as { shut: number; open: number };
+        panel.position.x = shut + (open - shut) * openness;
+      }
+    },
+  };
 }
 
 /* --- The lamp --------------------------------------------------------------

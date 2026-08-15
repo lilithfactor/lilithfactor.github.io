@@ -41,7 +41,7 @@ import { createOutlines } from "./outline";
 import { blend, readPalette } from "./palette";
 import { createGovernor, type Degradation } from "./quality";
 import { createTextures } from "./texture";
-import { startWeather } from "./weather";
+import { startWeather, type Sky } from "./weather";
 
 const DEG = Math.PI / 180;
 /** How far an object rises when its section is hovered or focused. 18mm. */
@@ -175,7 +175,25 @@ export async function mountDesk(): Promise<DeskHandle | null> {
   // version in place.
   const models = await loadModels(MODEL_SPECS(palette), textures);
 
-  const { room, lamp } = buildRoom(palette, materials, models, await weather);
+  const { room, lamp, window: view } = buildRoom(palette, materials, models);
+
+  /* The scene NO LONGER WAITS for the sky.
+   *
+   * It used to await two chained network round trips — locate, then forecast —
+   * in front of the entire desk, for scenery. Now the window is built with its
+   * curtains shut and opens when the answer arrives, whenever that is. If it
+   * never arrives the curtains stay closed, which is a normal state for a
+   * window rather than an error state for a page. */
+  const forcedSky = new URLSearchParams(location.search).get("sky");
+  if (forcedSky) {
+    // ?sky=rain opens the curtains on a synthetic forecast, so every condition
+    // can be looked at without waiting on — or being lied to by — the network.
+    view.reveal({ sky: forcedSky as Sky, day: true, celsius: 20 });
+  } else {
+    void weather.then((w) => {
+      if (!destroyed) view.reveal(w);
+    });
+  }
   // The desk and the wall take shadow but never throw it; nothing is behind
   // them to catch one, and a caster costs a second draw.
   room.traverse((node) => {
@@ -485,6 +503,7 @@ export async function mountDesk(): Promise<DeskHandle | null> {
       piece.object.position.y += (goal - piece.object.position.y) * Math.min(dt * 9, 1);
     }
 
+    view.update(dt);
     rig.update(elapsed, dt);
     renderer.render(scene, rig.camera);
     projectAnchors(bindings, rig.camera, size.width, size.height, rig.reference);
