@@ -12,19 +12,95 @@
  * never arrives the desk is exactly as complete as it was before. Baking it at
  * build time would mean a deploy every half hour to keep a cloud up to date.
  *
- * WHOSE WEATHER: Pranav's, not the visitor's. It is his desk. That also means
- * no geolocation prompt, no IP lookup, and nothing about the visitor leaving
- * their machine — the request carries a fixed latitude and longitude and asks
- * about a place, not a person.
+ * WHOSE WEATHER: the visitor's, worked out from their IP, falling back to the
+ * desk's own city when that fails.
  *
- * Open-Meteo needs no API key and sends `access-control-allow-origin: *`, which
- * is why this is possible from a static page at all. Free tier is
- * non-commercial with a daily call ceiling well above anything a portfolio
- * generates; the response is cached for half an hour per session on top.
+ * Be clear about the trade, because it is a real one. This asks a third party
+ * (ipwho.is, then get.geojs.io) what city an IP is in, which means the
+ * visitor's address reaches a company neither of us has a contract with. It is
+ * the same exchange every CDN-hosted analytics script makes and a smaller one
+ * than asking the browser's Geolocation API, which prompts and returns a
+ * street rather than a city. No prompt appears, nothing is stored beyond the
+ * session, and the result is used only to choose which of six paper skies to
+ * cut. City-level accuracy is all this needs — a window does not care which
+ * suburb you are in — and if either lookup fails the desk simply shows the
+ * weather where it lives.
+ *
+ * Neither service needs an API key and both send
+ * `access-control-allow-origin: *`, which is what makes any of this possible
+ * from a static page. Same for Open-Meteo, whose free tier is non-commercial
+ * with a daily ceiling far above what a portfolio generates. Everything is
+ * cached for the session on top.
  * ========================================================================== */
 
-/** Where the desk is. Change this and the sky changes with it. */
+/** Where the desk lives. The fallback when an IP says nothing useful. */
 export const PLACE = { latitude: 12.97, longitude: 77.59, name: "Bengaluru" };
+
+interface Place {
+  latitude: number;
+  longitude: number;
+  name: string;
+}
+
+const PLACE_CACHE = "desk-place";
+
+/**
+ * City from IP, best effort.
+ *
+ * Two providers because free tiers fail in the most annoying way available:
+ * ipapi.co answers 429 with a perfectly valid-looking JSON body telling you to
+ * buy a plan, so "it returned 200-ish JSON" is not proof of anything. Each
+ * response is checked for actual numbers before it is believed.
+ */
+async function locate(): Promise<Place> {
+  try {
+    const raw = sessionStorage.getItem(PLACE_CACHE);
+    if (raw) return JSON.parse(raw) as Place;
+  } catch {
+    /* private mode */
+  }
+
+  const sources: Array<{ url: string; read: (d: any) => Place | null }> = [
+    {
+      url: "https://ipwho.is/",
+      read: (d: { success?: boolean; latitude?: number; longitude?: number; city?: string }) =>
+        d?.success && typeof d.latitude === "number"
+          ? { latitude: d.latitude, longitude: d.longitude as number, name: d.city ?? "" }
+          : null,
+    },
+    {
+      url: "https://get.geojs.io/v1/ip/geo.json",
+      // geojs sends latitude and longitude as STRINGS, which is exactly the
+      // kind of thing that silently produces NaN two functions later.
+      read: (d: { latitude?: string; longitude?: string; city?: string }) => {
+        const lat = Number(d?.latitude);
+        const lon = Number(d?.longitude);
+        return Number.isFinite(lat) && Number.isFinite(lon)
+          ? { latitude: lat, longitude: lon, name: d.city ?? "" }
+          : null;
+      },
+    },
+  ];
+
+  for (const source of sources) {
+    try {
+      const response = await fetch(source.url, { mode: "cors" });
+      if (!response.ok) continue;
+      const place = source.read(await response.json());
+      if (!place) continue;
+      try {
+        sessionStorage.setItem(PLACE_CACHE, JSON.stringify(place));
+      } catch {
+        /* private mode */
+      }
+      return place;
+    } catch {
+      // Offline, blocked by a tracker blocker (very likely for this kind of
+      // endpoint), or simply down. Try the next one, then give up quietly.
+    }
+  }
+  return PLACE;
+}
 
 export type Sky = "clear" | "cloud" | "rain" | "storm" | "snow" | "fog";
 
@@ -37,7 +113,9 @@ export interface Weather {
 
 const CACHE = "desk-weather";
 const MAX_AGE = 30 * 60 * 1000;
-const DEADLINE = 2500;
+// Two round trips in series (locate, then weather), so the deadline covers
+// both. The desk builds without it if it runs out.
+const DEADLINE = 4000;
 
 /**
  * WMO weather codes → the six skies this window knows how to draw.
@@ -81,11 +159,13 @@ export function startWeather(): Promise<Weather | null> {
   const hit = cached();
   if (hit) return Promise.resolve(hit);
 
-  const url =
-    `https://api.open-meteo.com/v1/forecast?latitude=${PLACE.latitude}` +
-    `&longitude=${PLACE.longitude}&current=weather_code,temperature_2m,is_day`;
-
-  const request = fetch(url, { mode: "cors", cache: "no-store" })
+  const request = locate()
+    .then((place) => {
+      const url =
+        `https://api.open-meteo.com/v1/forecast?latitude=${place.latitude}` +
+        `&longitude=${place.longitude}&current=weather_code,temperature_2m,is_day`;
+      return fetch(url, { mode: "cors", cache: "no-store" });
+    })
     .then((r) => (r.ok ? r.json() : null))
     .then((data: { current?: { weather_code: number; temperature_2m: number; is_day: number } } | null) => {
       const now = data?.current;

@@ -103,6 +103,16 @@ Ruling: the swap stays the simple opacity+transitionend version. TBT and LCP
 findings from the same Lighthouse run WERE real (640ms → 0ms via idle-deferred
 mount) — the tool is wrong about one number, not useless.
 
+**Amended 2026-08-15.** Lighthouse now reports performance 99, CLS 0, TBT 0 —
+and the reason is not that the swap got better. Checking `network-requests` in
+the report shows only the 2KB gate script ever loaded: the desk is deferred to
+`requestIdleCallback`, which does not fire inside Lighthouse's measurement
+window, so the scene chunk, the models and the weather call all happen after
+the tool has stopped watching. The score is real and it is honest about the
+load, but it says nothing at all about the desk. Read it as "the document is
+fast", never as "the desk is fixed" — and check the network table before
+believing any Lighthouse number about this page.
+
 ---
 
 ## The token colour and the rendered colour are not the same colour

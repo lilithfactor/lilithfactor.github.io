@@ -3,6 +3,10 @@
 Build-scoped tasks. Ideas live in [vision.md](vision.md); the flow is in
 [workflow.md](../work/workflow.md).
 
+**State, 2026-08-15.** Local is several commits ahead of the live site by
+design: changes are verified on `localhost:4321` first now, because people may
+be reading the deployed page. Live is on `898595e`.
+
 **State, 2026-08-14: the live desk is shipped.** https://lilithfactor.github.io/
 is a paper-craft desk with printed outcomes, click-to-open panels, an
 adjustable lamp, sound, cursor parallax, and full STAR case-study pages.
@@ -57,6 +61,16 @@ Content still needed before the two new objects can be wired:
 
 ## Next build
 
+- [ ] **Confirm the weather trade.** The window now asks ipwho.is (then
+  get.geojs.io) what city the visitor's IP is in, and Open-Meteo what the sky
+  is doing there. That is the project's only runtime fetch and it sends a
+  visitor's IP to a third party — a deliberate, reversible choice. Falling back
+  to the desk's own city needs one line: see `locate()` in `weather.ts`.
+- [ ] Place the chess set. Five matched pieces are fetched and credited but
+  nothing puts them on the board; the printed diagram is still doing the job.
+  Mark them `noOutline` or they collapse into black blobs at that size.
+- [ ] The bookcase reads as a ladder. Kenney has a low open bookcase and a
+  closed one; either may sit better than the current one.
 - [ ] **Wire the models into the scene.** 19 models sit in `public/models/`
   fetched, salvaged and verified — and *nothing renders them yet*. The desk is
   still entirely procedural. Needs: a loader that strips incoming materials and
