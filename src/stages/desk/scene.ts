@@ -41,6 +41,7 @@ import { createOutlines } from "./outline";
 import { blend, readPalette } from "./palette";
 import { createGovernor, type Degradation } from "./quality";
 import { createTextures } from "./texture";
+import { startWeather } from "./weather";
 
 const DEG = Math.PI / 180;
 /** How far an object rises when its section is hovered or focused. 18mm. */
@@ -97,6 +98,12 @@ export async function mountDesk(): Promise<DeskHandle | null> {
   // in whatever grey Three.js defaults to.
   const palette = readPalette();
   if (!palette) return null;
+
+  // Kicked off before anything else so the round trip overlaps the model
+  // loading below. By the time the window is built the answer is usually
+  // already here; if it is not, its own deadline passes and the window falls
+  // back to the clock. The desk never waits on the sky. See weather.ts.
+  const weather = startWeather();
 
   const canvas = document.createElement("canvas");
   canvas.className = "desk-stage";
@@ -168,7 +175,7 @@ export async function mountDesk(): Promise<DeskHandle | null> {
   // version in place.
   const models = await loadModels(MODEL_SPECS(palette), textures);
 
-  const { room, lamp } = buildRoom(palette, materials, models);
+  const { room, lamp } = buildRoom(palette, materials, models, await weather);
   // The desk and the wall take shadow but never throw it; nothing is behind
   // them to catch one, and a caster costs a second draw.
   room.traverse((node) => {

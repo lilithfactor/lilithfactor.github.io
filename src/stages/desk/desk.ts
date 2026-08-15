@@ -40,6 +40,7 @@ import { bow, deckle, edgeOf, facet, paint } from "./cut";
 import type { Materials } from "./materials";
 import { blend, stock, type Palette } from "./palette";
 import type { ModelKit } from "./models";
+import type { Weather } from "./weather";
 
 const DEG = Math.PI / 180;
 
@@ -121,7 +122,12 @@ function roll(
 }
 
 /** The base sheet, the backdrop it stands against, and the lamp. */
-export function buildRoom(p: Palette, m: Materials, models: ModelKit): { room: Group; lamp: LampParts } {
+export function buildRoom(
+  p: Palette,
+  m: Materials,
+  models: ModelKit,
+  weather: Weather | null,
+): { room: Group; lamp: LampParts } {
   const room = new Group();
   room.name = "room";
 
@@ -175,7 +181,7 @@ export function buildRoom(p: Palette, m: Materials, models: ModelKit): { room: G
   backdrop.position.set(0, 1.3, -1.25);
   room.add(backdrop);
 
-  room.add(buildWindow(p, m));
+  room.add(buildWindow(p, m, weather));
 
   const lamp = buildLamp(p, m, models);
   room.add(lamp.group, lamp.pool);
@@ -226,7 +232,7 @@ export function buildRoom(p: Palette, m: Materials, models: ModelKit): { room: G
  * sit in it rather than to be a nice size in the abstract. */
 const WINDOW = new Vector3(0.6, 0.5, -1.19);
 
-function buildWindow(p: Palette, m: Materials): Group {
+function buildWindow(p: Palette, m: Materials, weather: Weather | null): Group {
   const g = new Group();
   g.name = "window";
   g.position.copy(WINDOW);
@@ -241,19 +247,39 @@ function buildWindow(p: Palette, m: Materials): Group {
    * than a smooth ramp that just looks like a slightly different white. */
   // `?hour=22` forces a time, which is the only sane way to look at the night
   // view at eleven in the morning. Falls back to the visitor's own clock.
-  const forced = Number(new URLSearchParams(location.search).get("hour"));
+  const params = new URLSearchParams(location.search);
+  const forced = Number(params.get("hour"));
   const hour = Number.isFinite(forced) && forced >= 0 && forced <= 23 ? forced : new Date().getHours();
-  const night = hour < 6 || hour >= 20;
+  // The API knows whether it is light where the desk is, which beats guessing
+  // from the visitor's clock. The clock is the fallback, not the first answer.
+  const night = weather ? !weather.day : hour < 6 || hour >= 20;
   const dusk = !night && (hour < 8 || hour >= 18);
+  // ?sky=rain forces a condition, so all six can be looked at on a clear day.
+  const sky5 = (params.get("sky") as Weather["sky"] | null) ?? weather?.sky ?? "clear";
+  const overcast = sky5 === "cloud" || sky5 === "rain" || sky5 === "storm" || sky5 === "fog";
+  const wet = sky5 === "rain" || sky5 === "storm";
 
   // Sky: lighter than the wall by day, darker at night. Still the same stock —
   // this is a tone step, not a colour.
   // Toward p.line, NOT p.ink: --stage-ink is the paper now (the whole scene is
   // one stock), so blending toward it does nothing at all. Exactly the mistake
   // that printed the outcome numbers white on white. Black lives in --stage-line.
-  const sky = night
-    ? blend(p.backdrop, p.line, 0.62)
-    : blend(p.backdrop, p.line, dusk ? 0.12 : 0.02);
+  /* Overcast is a step toward the ink whatever the hour, which is the only
+   * move available: this window has one sheet of card and no colour, so
+   * "grey day" has to be literally that. Fog goes furthest and flattens the
+   * skyline behind it. */
+  const weight = night
+    ? overcast
+      ? 0.72
+      : 0.62
+    : sky5 === "fog"
+      ? 0.3
+      : overcast
+        ? 0.18
+        : dusk
+          ? 0.12
+          : 0.02;
+  const sky = blend(p.backdrop, p.line, weight);
   /* The sky is UNLIT, and that is not a shortcut.
    *
    * As lit card it came out white at midnight: the hemisphere alone runs at
@@ -297,10 +323,39 @@ function buildWindow(p: Palette, m: Materials): Group {
     }
   };
 
-  const far = blend(sky, p.line, night ? 0.16 : 0.1);
-  const near = blend(sky, p.line, night ? 0.3 : 0.2);
+  // Fog is distance you cannot see through, so the layers close up toward the
+  // sky's own tone rather than stepping away from it.
+  const haze = sky5 === "fog" ? 0.35 : 1;
+  const far = blend(sky, p.line, (night ? 0.16 : 0.1) * haze);
+  const near = blend(sky, p.line, (night ? 0.3 : 0.2) * haze);
   skyline(-0.022, far, [0.16, 0.28, 0.2, 0.34, 0.22, 0.3, 0.18], W / 7);
   skyline(-0.012, near, [0.12, 0.22, 0.14, 0.18, 0.26, 0.15], W / 6);
+
+  /* Rain, as strokes on the glass rather than falling drops.
+   *
+   * Static and slightly slanted: this is a paper model of a rainy window, and
+   * what says "rain" in that idiom is streaks on the pane, not simulated
+   * particles. Cheap, and it holds up at rest — which is the state the desk is
+   * in almost all the time. */
+  if (wet) {
+    const streaks = sky5 === "storm" ? 26 : 16;
+    for (let i = 0; i < streaks; i++) {
+      // Deterministic, so the rain does not reshuffle on every re-render.
+      const t = (i * 9301 + 49297) % 233280;
+      const x = (t / 233280 - 0.5) * W;
+      const len = 0.03 + ((t >> 5) % 100) / 100 * 0.07;
+      const streak = new Mesh(
+        new BoxGeometry(0.0022, len, 0.002),
+        new MeshBasicMaterial({ color: blend(sky, p.paper, 0.8), toneMapped: false }),
+      );
+      streak.position.set(x, ((t >> 9) % 100) / 100 * H - H / 2, -0.008);
+      streak.rotation.z = 0.22;
+      // Rain is not paper and gets no ink line. Outlined, each streak came out
+      // as a little hatched ladder rather than water on glass.
+      streak.userData.noOutline = true;
+      g.add(streak);
+    }
+  }
 
   /* The frame. Four bars and two glazing bars, because a rectangle of sky with
    * no frame is a poster, and the muntins are what make it a window at a
