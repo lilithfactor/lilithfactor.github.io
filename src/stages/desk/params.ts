@@ -30,6 +30,12 @@ export interface TunerTargets {
   room: Object3D;
   /** id → the placed group, for per-object position and yaw. */
   artifacts: Map<string, Object3D>;
+  /**
+   * id → its paper name-note. Separate from `artifacts` because a note is a
+   * CHILD of its object: its numbers are offsets within that object, so moving
+   * the object moves the note and this only says where on the object it sits.
+   */
+  notes: Map<string, Object3D>;
   lamp: Object3D;
   camera: {
     get(): { position: [number, number, number]; target: [number, number, number]; fov: number };
@@ -304,6 +310,51 @@ export function specs(t: TunerTargets): Spec[] {
       get: () => object.rotation.y / DEG,
       set: (v) => (t.artifacts.get(id)!.rotation.y = v * DEG),
     });
+    /* --- Its note ---------------------------------------------------------
+     * In the OBJECT's space, so these numbers stay true when the object is
+     * moved or turned. There is no yaw here on purpose: the note's yaw is
+     * written every frame to keep it square to the view, so a slider would be
+     * overwritten before the pointer left it.
+     *
+     * The step toward the viewer is baked into z at build time, which is why z
+     * does not start at zero — pulling it back toward 0 pushes the note into
+     * whatever stands in front of it. */
+    const note = t.notes.get(id);
+    if (note) {
+      AXIS.forEach((name, i) => {
+        num({
+          key: `note.${id}.${name}`,
+          group: id,
+          label: `note ${name}`,
+          min: -0.8,
+          max: 0.8,
+          step: 0.005,
+          get: () => note.position.getComponent(i),
+          set: (v) => note.position.setComponent(i, v),
+        });
+      });
+      num({
+        key: `note.${id}.lean`,
+        group: id,
+        label: "note lean°",
+        min: -45,
+        max: 45,
+        step: 0.5,
+        get: () => note.rotation.x / DEG,
+        set: (v) => (note.rotation.x = v * DEG),
+      });
+      num({
+        key: `note.${id}.scale`,
+        group: id,
+        label: "note scale",
+        min: 0.3,
+        max: 2.5,
+        step: 0.01,
+        get: () => note.scale.x,
+        set: (v) => note.scale.setScalar(v),
+      });
+    }
+
     // Size, because "realistic relative to the desk" is a judgement made by
     // looking, not by arithmetic: every object here is already about right in
     // absolute centimetres, and it is the RATIO to a 2.4m desk that decides

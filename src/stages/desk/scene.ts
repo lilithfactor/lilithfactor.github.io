@@ -270,6 +270,8 @@ export async function mountDesk(): Promise<DeskHandle | null> {
   // --- Objects and their anchors ------------------------------------------
   const anchors = new Map<ArtifactId, Vector3>();
   const placed = new Map<string, Object3D>();
+  /** id → its paper note, so the tuner can nudge a label off whatever it hides. */
+  const noteObjects = new Map<string, Object3D>();
   const pieces: Piece[] = [];
   const viewDirection = new Vector3();
   /** Each artifact's anchor in its OWN space, for re-projecting every frame. */
@@ -340,6 +342,7 @@ export async function mountDesk(): Promise<DeskHandle | null> {
         if (mesh.isMesh) mesh.castShadow = true;
       });
       object.add(note);
+      noteObjects.set(id, note);
       noteOf = note;
     }
 
@@ -709,6 +712,7 @@ export async function mountDesk(): Promise<DeskHandle | null> {
     ambient: lighting.ambient,
     room,
     artifacts: placed,
+    notes: noteObjects,
     lamp: lamp.group,
     camera: { get: rig.overview, set: rig.setOverview },
     materials: {
