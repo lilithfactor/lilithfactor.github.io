@@ -186,15 +186,16 @@ function paintSheet(
  * Immortal Game, mate on move 23). A real game, and the most famous one there
  * is, which is the point: a board set to nothing in particular is set dressing.
  */
-const IMMORTAL = "r1bk3r/p2pBpNp/n4n2/1p1NP2P/6P1/3P4/P1P1K3/q5b1";
+/**
+ * The final position of the Immortal Game, Anderssen–Kieseritzky 1851, as a
+ * FEN board field. Exported because the board is printed here and the men are
+ * carved in objects.ts, and the two have to agree about which corner is a1:
+ * rank 1 of this string is the FAR rank, file 1 is the LEFT file, which is the
+ * orientation the canvas is drawn in.
+ */
+export const IMMORTAL = "r1bk3r/p2pBpNp/n4n2/1p1NP2P/6P1/3P4/P1P1K3/q5b1";
 
-function paintChess(
-  ctx: CanvasRenderingContext2D,
-  size: number,
-  ink: string,
-  muted: string,
-  faint: string,
-): void {
+function paintChess(ctx: CanvasRenderingContext2D, size: number, muted: string): void {
   const cell = size / 8;
   ctx.clearRect(0, 0, size, size);
   ctx.fillStyle = "rgb(255,255,255)";
@@ -215,44 +216,16 @@ function paintChess(
   ctx.lineWidth = Math.max(1, size / 128);
   ctx.strokeRect(ctx.lineWidth / 2, ctx.lineWidth / 2, size - ctx.lineWidth, size - ctx.lineWidth);
 
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.font = `500 ${Math.round(cell * 0.62)}px ${MONO}`;
-
-  let rank = 0;
-  let file = 0;
-  for (const ch of IMMORTAL) {
-    if (ch === "/") {
-      rank += 1;
-      file = 0;
-      continue;
-    }
-    const skip = Number(ch);
-    if (!Number.isNaN(skip)) {
-      file += skip;
-      continue;
-    }
-
-    const cx = (file + 0.5) * cell;
-    const cy = (rank + 0.5) * cell;
-    const black = ch === ch.toLowerCase();
-
-    // A disc and a letter, which is how a position is set in a book. The disc
-    // is doing the real work: at this size the letters are below the threshold
-    // of reading and the pattern of light and dark men is not, so the board
-    // reads as a game in progress from across the desk.
-    ctx.beginPath();
-    ctx.arc(cx, cy, cell * 0.36, 0, Math.PI * 2);
-    ctx.fillStyle = black ? ink : "rgb(255,255,255)";
-    ctx.fill();
-    ctx.strokeStyle = ink;
-    ctx.lineWidth = Math.max(1, size / 200);
-    ctx.stroke();
-
-    ctx.fillStyle = black ? "rgb(255,255,255)" : ink;
-    ctx.fillText(ch.toUpperCase(), cx, cy + cell * 0.02);
-    file += 1;
-  }
+  /* THE MEN ARE NO LONGER PRINTED.
+   *
+   * They used to be — a disc and a letter per square, the way a position is set
+   * in a book — because twenty-three carved pieces looked like a lot of model
+   * for one square of desk. They are carved now (see objects.ts), and printing
+   * them as well would set the same position twice, once flat and once
+   * standing.
+   *
+   * The FEN stays here rather than moving, because this file is where the board
+   * is drawn and the two have to agree about which corner is a1. */
 }
 
 export interface Press {
@@ -373,7 +346,7 @@ export function press(p: Palette, outcomes: readonly Outcome[]): Press {
   let chess: CanvasTexture | null = null;
   const chessCtx = pad(256, 256);
   if (chessCtx) {
-    const draw = () => paintChess(chessCtx, 256, ink, muted, faint);
+    const draw = () => paintChess(chessCtx, 256, muted);
     draw();
     chess = texture(chessCtx.canvas);
     const t = chess;

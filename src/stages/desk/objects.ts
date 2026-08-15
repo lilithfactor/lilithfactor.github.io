@@ -29,12 +29,13 @@ import {
   type Color,
   type Object3D,
   type Texture,
+  MeshLambertMaterial,
 } from "three";
 import { bow, edgeOf, facet, paint } from "./cut";
 import type { ArtifactId } from "./layout";
 import { printed, type Materials } from "./materials";
-import { stock, type Palette } from "./palette";
-import type { Press } from "./print";
+import { blend, stock, type Palette } from "./palette";
+import { IMMORTAL, type Press } from "./print";
 import type { ModelKit, ModelSpec } from "./models";
 
 const DEG = Math.PI / 180;
@@ -170,16 +171,26 @@ export const MODEL_SPECS = (p: Palette): readonly ModelSpec[] => [
   { name: "books", size: 0.32, tone: p.cool },
   { name: "book-stack", size: 0.19, tone: p.accent },
   { name: "rubiks", size: 0.075, tone: p.accent },
+  /* The chess set. Five files, one author, so the pieces match — there is no
+   * queen among them, and the position needs one, so the queen borrows the
+   * king. At 35mm squares nobody is going to challenge the ruling.
+   *
+   * These were left out for a long time on the grounds that a 200-triangle
+   * faceted piece 30 pixels tall, ringed in ink at every facet, collapses into
+   * a black blob. That reasoning was sound and the conclusion was wrong: the
+   * answer is to drop the ink on the pieces (see `chessmen`), not to drop the
+   * pieces. Sizes are proportioned to the square, the way a real set is —
+   * a king is about one and a half squares tall. */
+  { name: "chess-pawn", size: 0.034, tone: stock(p.paper, 1) },
+  { name: "chess-rook", size: 0.038, tone: stock(p.paper, 1) },
+  { name: "chess-knight", size: 0.044, tone: stock(p.paper, 1) },
+  { name: "chess-bishop", size: 0.048, tone: stock(p.paper, 1) },
+  { name: "chess-king", size: 0.056, tone: stock(p.paper, 1) },
 ];
-// Not the chess knights, though they are fetched and credited. At 62mm on a
-// paper board they are ~30 screen pixels of a 200-triangle faceted mesh, and
-// the ink outline round every facet collapses into a solid black blob — the one
-// thing on a white desk that reads as a bug. The printed position IS the chess
-// entry (art-direction.md); a diagram is also the more paper answer.
-// Deliberately NOT loaded: folder, clipboard, mug, postit. They are fetched and
-// ready, but nothing places them yet — the desk's rule is that every object
-// opens something, and downloading four objects to decorate with would break
-// it and cost bytes at the same time. See brain/vision/todo.md.
+// Deliberately NOT loaded: folder, clipboard, pinboard, turntable. They are
+// fetched and ready, but nothing places them yet — the desk's rule is that
+// every object opens something, and downloading objects to decorate with would
+// break it and cost bytes at the same time. See brain/vision/todo.md.
 
 /* --- About: an open notebook, always open — this is the landing state ------ */
 function notebook(p: Palette, m: Materials, _press: Press, models: ModelKit): Group {
@@ -397,6 +408,85 @@ function shelf(p: Palette, m: Materials, _press: Press, models: ModelKit): Group
   return g;
 }
 
+/* --- The chess set ---------------------------------------------------------
+ * Twenty-three carved men in the final position of the Immortal Game, standing
+ * on the printed board. The position is the one thing art-direction.md is most
+ * explicit about, and reading it off a diagram was always the compromise.
+ *
+ * NO INK ON THE MEN, and this is the whole reason they are here at all. Every
+ * other object in the model is outlined, because on one white paper the drawn
+ * line is what separates one object from the next. A chess piece is the case
+ * where that rule inverts: it is 40mm of turned, faceted geometry about thirty
+ * pixels tall on screen, so an edge at every facet is not a contour, it is a
+ * fill — the piece arrives as a solid black lozenge. Left unlined they read as
+ * what they are, small pale carvings, and the thing that separates them from
+ * the board is the board: printed dark squares and a real cast shadow.
+ *
+ * The dark side gets its own material rather than its own model. `take` clones
+ * share a material, so recolouring one piece would recolour all of them.
+ */
+function chessmen(p: Palette, models: ModelKit, square: number, top: number): Group {
+  const set = new Group();
+  const OF: Record<string, string> = {
+    p: "chess-pawn",
+    r: "chess-rook",
+    n: "chess-knight",
+    b: "chess-bishop",
+    k: "chess-king",
+    // No queen in the set, so she takes the king's shape. At this size the
+    // silhouette difference is under a pixel.
+    q: "chess-king",
+  };
+
+  let dark: MeshLambertMaterial | null = null;
+  let rank = 0;
+  let file = 0;
+  for (const ch of IMMORTAL) {
+    if (ch === "/") {
+      rank += 1;
+      file = 0;
+      continue;
+    }
+    const skip = Number(ch);
+    if (!Number.isNaN(skip)) {
+      file += skip;
+      continue;
+    }
+
+    const black = ch === ch.toLowerCase();
+    const piece = models.take(OF[ch.toLowerCase()] ?? "chess-pawn");
+    file += 1;
+    if (!piece) continue;
+
+    piece.traverse((o) => {
+      const mesh = o as Mesh;
+      if (!mesh.isMesh) return;
+      mesh.userData.noOutline = true;
+      if (!black) return;
+      const base = mesh.material as MeshLambertMaterial;
+      // One dark material for the whole side, cloned off whatever the loader
+      // built so it keeps the fibre map and the lighting model.
+      dark ??= Object.assign(base.clone(), { color: blend(p.paper, p.line, 0.74) });
+      mesh.material = dark;
+    });
+
+    /* Files run left to right and rank 0 is the FAR rank, matching the order
+     * the FEN is drawn onto the board in print.ts. Getting this backwards
+     * mirrors the position, which is the kind of error a chess player spots
+     * instantly and nobody else ever does. */
+    set.add(
+      place(piece, {
+        x: (file - 1 - 3.5) * square,
+        y: top,
+        z: (rank - 3.5) * square,
+        // A hand set these down, so no two face quite the same way.
+        yaw: ((file * 37 + rank * 61) % 24) - 12,
+      }),
+    );
+  }
+  return set;
+}
+
 /* --- Beyond the routine: the props are the content ------------------------
  * The cube IS the speedcubing entry, the board IS the chess entry, the
  * turntable IS the music entry. Nothing here is set dressing. */
@@ -429,16 +519,19 @@ function props(p: Palette, m: Materials, press: Press, models: ModelKit): Group 
   // Chess entry, and it is set to a real position") the emptiest thing on the
   // desk. Printed rather than built: see print.ts for what twenty-four carved
   // pieces would have cost and why a diagram is the more paper answer anyway.
-  g.add(
+  // Grown from 200mm to 280mm, because 23 men on a 200mm board is a 25mm
+  // square and a piece narrower than the line drawn round the board.
+  const BOARD = 0.28;
+  const board = new Group();
+  board.position.set(0.06, 0, 0.32);
+  board.rotation.y = -6 * DEG;
+  board.add(
     press.chess
-      ? printedSheet(p.paperAged, p.cut, press.chess, 0.2, 0.016, 0.2, {
-          x: 0.02,
-          y: 0.008,
-          z: 0.3,
-          yaw: -6,
-        })
-      : card(m, p.paperAged, p.cut, 0.2, 0.016, 0.2, { x: 0.02, y: 0.008, z: 0.3, yaw: -6 }),
+      ? printedSheet(p.paperAged, p.cut, press.chess, BOARD, 0.016, BOARD, { y: 0.008 })
+      : card(m, p.paperAged, p.cut, BOARD, 0.016, BOARD, { y: 0.008 }),
+    chessmen(p, models, BOARD / 8, 0.016),
   );
+  g.add(board);
   return g;
 }
 
