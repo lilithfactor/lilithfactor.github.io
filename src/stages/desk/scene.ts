@@ -40,7 +40,6 @@ import { createOutlines } from "./outline";
 import { blend, readPalette } from "./palette";
 import { createGovernor, type Degradation } from "./quality";
 import { createTextures } from "./texture";
-import { tuningRequested } from "./tuner";
 
 const DEG = Math.PI / 180;
 /** How far an object rises when its section is hovered or focused. 18mm. */
@@ -68,6 +67,27 @@ interface Footprint {
   readonly z: number;
   readonly halfX: number;
   readonly halfZ: number;
+}
+
+/**
+ * Is the tuner wanted? Inlined here rather than imported from tuner.ts, because
+ * a static import of that module — even of one tiny function — pulls the whole
+ * panel into the desk chunk for every visitor, which is exactly what the
+ * dynamic import below exists to prevent.
+ */
+function wantsTuner(): boolean {
+  const KEY = "desk-tune";
+  try {
+    const flag = new URLSearchParams(location.search).get("tune");
+    if (flag === "off") {
+      localStorage.removeItem(KEY);
+      return false;
+    }
+    if (flag !== null) localStorage.setItem(KEY, "1");
+    return localStorage.getItem(KEY) === "1";
+  } catch {
+    return false;
+  }
 }
 
 export async function mountDesk(): Promise<DeskHandle | null> {
@@ -508,7 +528,7 @@ export async function mountDesk(): Promise<DeskHandle | null> {
    * Dynamically imported and opt-in via ?tune, so a visitor never pays for it.
    * See tuner.ts. */
   let tuner: { dispose(): void } | null = null;
-  if (tuningRequested()) {
+  if (wantsTuner()) {
     void import("./tuner").then(({ mountTuner }) => {
       if (destroyed) return;
       tuner = mountTuner({
