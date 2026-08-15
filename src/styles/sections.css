@@ -104,6 +104,20 @@
   text-transform: uppercase;
 }
 
+/* The mark before a Connect link. Sized in em and coloured by currentColor, so
+   it is the weight of the word beside it and picks up hover, focus and visited
+   without a single extra rule. `flex: none` because a mono label with
+   letter-spacing will otherwise squeeze it in a narrow panel. */
+.link-icon {
+  width: 1.05em;
+  height: 1.05em;
+  flex: none;
+  margin-inline-end: 0.55em;
+  /* Optical, not geometric: an icon aligned to the text baseline sits high
+     next to uppercase mono. */
+  transform: translateY(-0.04em);
+}
+
 /* --- Recommendations -------------------------------------------------------- */
 
 figure.sheet {

@@ -1,4 +1,5 @@
 import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 
 /**
  * THE TUNER'S SAVE BUTTON, and the only server-side code in this project.
@@ -16,11 +17,20 @@ import { writeFileSync } from "node:fs";
  *
  * No auth and no path handling because it binds to localhost, writes one fixed
  * filename and takes no filename from the request.
+ *
+ * THE TARGET IS RESOLVED FROM VITE'S ROOT, not from import.meta.url. It was
+ * import.meta.url, which was correct exactly as long as this code lived in
+ * astro.config.mjs — moving the file to scripts/ silently moved the write with
+ * it, to scripts/src/stages/desk/tuned.json, and the Save button started
+ * reporting "no dev server" because a 400 and an unreachable server look
+ * identical from a fetch(). A path relative to the file is a path that breaks
+ * when the file moves; server.config.root cannot.
  */
 const tunerSave = {
   name: "desk-tuner-save",
   apply: "serve",
   configureServer(server) {
+    const target = join(server.config.root, "src/stages/desk/tuned.json");
     server.middlewares.use("/__tune", (request, response, next) => {
       if (request.method !== "POST") return next();
       let body = "";
@@ -34,13 +44,13 @@ const tunerSave = {
           // Parsed before it is written, so a malformed body cannot leave a
           // broken import behind that stops the whole scene from building.
           const values = JSON.parse(body);
-          writeFileSync(
-            new URL("./src/stages/desk/tuned.json", import.meta.url),
-            `${JSON.stringify(values, null, 2)}\n`,
-          );
+          writeFileSync(target, `${JSON.stringify(values, null, 2)}\n`);
           response.statusCode = 200;
           response.end("saved");
         } catch (error) {
+          // Logged as well as returned: the browser only ever sees "not ok",
+          // and the reason it is not ok belongs where someone will read it.
+          server.config.logger.error(`[tuner] save failed: ${error}`);
           response.statusCode = 400;
           response.end(String(error));
         }
@@ -48,9 +58,5 @@ const tunerSave = {
     });
   },
 };
-
-// The repo is `lilithfactor.github.io`, so Pages serves from the domain root.
-// No `base` — adding one is the classic GitHub Pages trap that breaks every
-// absolute asset path. If a custom domain is bought, only `site` changes.
 
 export default tunerSave;

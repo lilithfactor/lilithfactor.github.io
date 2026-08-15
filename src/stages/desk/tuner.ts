@@ -210,11 +210,20 @@ export function mountTuner(t: TunerTargets): { dispose(): void } {
         headers: { "content-type": "application/json" },
         body: text,
       });
-      if (!response.ok) throw new Error(String(response.status));
-      save.textContent = "Saved — tuned.json";
+      /* A SERVER THAT SAID NO IS NOT A MISSING SERVER, and conflating the two
+       * cost an hour: the writer was resolving its path against its own file,
+       * so after it moved directories every save returned 400 — and the panel
+       * reported "no dev server", which sent everyone to restart a dev server
+       * that was running perfectly. The status line is on screen now, and the
+       * reason is in the terminal. */
+      if (!response.ok) {
+        await toClipboard(text, save, `Server said ${response.status} — see terminal`);
+      } else {
+        save.textContent = "Saved — tuned.json";
+      }
     } catch {
-      // A built site, or the dev middleware is not there. Say so rather than
-      // pretending it saved, and put the values somewhere they are not lost.
+      // fetch() itself threw: nothing is listening. A built site, or dev is
+      // not running. Say so, and put the values somewhere they are not lost.
       await toClipboard(text, save, "No dev server — copied instead");
     }
     setTimeout(() => (save.textContent = "Save to disk"), 4000);

@@ -1,5 +1,6 @@
 ---
 import Base from "../layouts/Base.astro";
+import LinkIcon from "../components/LinkIcon.astro";
 import Section from "../components/Section.astro";
 import Chips from "../components/Chips.astro";
 // The desk mounts here and only here: it is this page's presentation of the
@@ -187,6 +188,7 @@ const bookLine = (b: { name: string; author: string | null }) =>
         {
           links.map((l) => (
             <a href={l.url} target={l.url.startsWith("mailto:") ? undefined : "_blank"} rel="noopener">
+              <LinkIcon label={l.label} />
               {l.label}
             </a>
           ))
