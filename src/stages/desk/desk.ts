@@ -30,6 +30,7 @@ import {
   HemisphereLight,
   Mesh,
   PlaneGeometry,
+  MeshBasicMaterial,
   SpotLight,
   Vector3,
   type BufferGeometry,
@@ -174,6 +175,8 @@ export function buildRoom(p: Palette, m: Materials, models: ModelKit): { room: G
   backdrop.position.set(0, 1.3, -1.25);
   room.add(backdrop);
 
+  room.add(buildWindow(p, m));
+
   const lamp = buildLamp(p, m, models);
   room.add(lamp.group, lamp.pool);
 
@@ -186,6 +189,144 @@ export function buildRoom(p: Palette, m: Materials, models: ModelKit): { room: G
   room.add(coaster);
 
   return { room, lamp };
+}
+
+/* --- The window ------------------------------------------------------------
+ * A hole cut in the backdrop with a city behind it, in layers, like every
+ * paper-craft diorama ever made.
+ *
+ * "Live" here means the visitor's own clock, not a network call. That is a
+ * deliberate limit rather than a shortcut:
+ *
+ *   - architecture.md Directive 1 says content comes through the proxy at build
+ *     time. A weather API would be the first runtime fetch this site has ever
+ *     made, and it would need a key, a failure state and a privacy answer about
+ *     asking for someone's location.
+ *   - The clock is free, offline, instant, and already correct for whoever is
+ *     looking. A desk that is dark at midnight and bright at noon is the part
+ *     of "outside" that actually lands.
+ *
+ * Weather is the obvious next step and it is genuinely nice — rain on the glass
+ * changing the soundscape is in vision.md. It should be a decision made on
+ * purpose, with a key and a fallback, not smuggled in behind a window.
+ *
+ * The view is cut from the same paper as everything else, so what separates the
+ * skyline from the sky is the ink line and one step of tone — which is exactly
+ * how a paper diorama does distance.
+ *
+ * Z MATTERS HERE. Every layer of the view sits BEHIND the frame in the group's
+ * own space, so the group has to stand far enough in front of the backdrop
+ * (z = -1.25) that the furthest layer still clears it. It did not, first time:
+ * the sky landed at -1.265, behind the wall, and the window was a frame around
+ * a blank piece of backdrop. */
+/* Placed against what the camera can actually see, not against the wall's
+ * middle: the resting shot crops the backdrop at about y = 1.0, and the desk
+ * itself fills everything below y ≈ 0.45. That leaves one band — above the
+ * corkboard, between the bookcase and the lamp — and the window is sized to
+ * sit in it rather than to be a nice size in the abstract. */
+const WINDOW = new Vector3(0.6, 0.5, -1.19);
+
+function buildWindow(p: Palette, m: Materials): Group {
+  const g = new Group();
+  g.name = "window";
+  g.position.copy(WINDOW);
+
+  const W = 0.86;
+  const H = 0.48;
+  const bar = 0.035;
+
+  /* Time of day, from the machine looking at it. Three states rather than a
+   * gradient: paper does not do subtle gradations of daylight, and a sheet that
+   * is *one step* lighter than the wall reads as "bright outside" far better
+   * than a smooth ramp that just looks like a slightly different white. */
+  // `?hour=22` forces a time, which is the only sane way to look at the night
+  // view at eleven in the morning. Falls back to the visitor's own clock.
+  const forced = Number(new URLSearchParams(location.search).get("hour"));
+  const hour = Number.isFinite(forced) && forced >= 0 && forced <= 23 ? forced : new Date().getHours();
+  const night = hour < 6 || hour >= 20;
+  const dusk = !night && (hour < 8 || hour >= 18);
+
+  // Sky: lighter than the wall by day, darker at night. Still the same stock —
+  // this is a tone step, not a colour.
+  // Toward p.line, NOT p.ink: --stage-ink is the paper now (the whole scene is
+  // one stock), so blending toward it does nothing at all. Exactly the mistake
+  // that printed the outcome numbers white on white. Black lives in --stage-line.
+  const sky = night
+    ? blend(p.backdrop, p.line, 0.62)
+    : blend(p.backdrop, p.line, dusk ? 0.12 : 0.02);
+  /* The sky is UNLIT, and that is not a shortcut.
+   *
+   * As lit card it came out white at midnight: the hemisphere alone runs at
+   * 2.7, so any tone this side of black is multiplied back up to paper. Sky is
+   * not a surface in the room catching the room's light — it is distance, and
+   * distance has no normal to shade. An unlit material gives exactly the tone
+   * asked for, which is also how a paper diorama does a sky: you choose the
+   * card and that IS the colour. */
+  const pane = new Mesh(
+    new BoxGeometry(W, H, 0.006),
+    new MeshBasicMaterial({ color: sky, toneMapped: false }),
+  );
+  pane.position.z = -0.03;
+  // Sky is not a surface anything lands on; a shadow falling on it would be a
+  // shadow cast onto the horizon.
+  pane.receiveShadow = false;
+  g.add(pane);
+
+  /* The city, in two layers. The far one is closer to the sky's tone and the
+   * near one closer to the wall's, which is the whole trick of paper distance:
+   * every layer you step forward gets one step darker and one step sharper. */
+  const skyline = (
+    depth: number,
+    tone: Color,
+    heights: readonly number[],
+    width: number,
+  ): void => {
+    let x = -W / 2 + width / 2;
+    for (const h of heights) {
+      const block = new Mesh(sheet(width, h, 0.006, tone, p.cut, 2), m.card);
+      block.position.set(x, -H / 2 + h / 2, depth);
+      block.receiveShadow = false;
+      g.add(block);
+      // A lit window or two, at night only, so the city is somewhere people are.
+      if (night && h > 0.12) {
+        const lit = new Mesh(sheet(width * 0.24, 0.026, 0.004, p.paper, p.paper, 2), m.card);
+        lit.position.set(x - width * 0.16, -H / 2 + h - 0.06, depth + 0.005);
+        g.add(lit);
+      }
+      x += width;
+    }
+  };
+
+  const far = blend(sky, p.line, night ? 0.16 : 0.1);
+  const near = blend(sky, p.line, night ? 0.3 : 0.2);
+  skyline(-0.022, far, [0.16, 0.28, 0.2, 0.34, 0.22, 0.3, 0.18], W / 7);
+  skyline(-0.012, near, [0.12, 0.22, 0.14, 0.18, 0.26, 0.15], W / 6);
+
+  /* The frame. Four bars and two glazing bars, because a rectangle of sky with
+   * no frame is a poster, and the muntins are what make it a window at a
+   * glance. */
+  const frame = (w: number, h: number, x: number, y: number, thick = 0.05) => {
+    const piece = new Mesh(sheet(w, h, thick, p.kraft, p.cut), m.card);
+    piece.position.set(x, y, 0);
+    piece.castShadow = true;
+    g.add(piece);
+  };
+  frame(W + bar * 2, bar, 0, H / 2 + bar / 2);
+  frame(W + bar * 2, bar, 0, -H / 2 - bar / 2);
+  frame(bar, H + bar * 2, -W / 2 - bar / 2, 0);
+  frame(bar, H + bar * 2, W / 2 + bar / 2, 0);
+  // The glazing bars, thinner, sitting proud of the frame.
+  frame(0.016, H, 0, 0, 0.03);
+  frame(W, 0.016, 0, 0, 0.03);
+
+  // A sill, which is the one part that says the window is in a wall with a
+  // thickness rather than printed on it.
+  const sill = new Mesh(sheet(W + bar * 4, 0.03, 0.09, p.kraft, p.cut), m.card);
+  sill.position.set(0, -H / 2 - bar - 0.015, 0.03);
+  sill.castShadow = true;
+  g.add(sill);
+
+  return g;
 }
 
 /* --- The lamp --------------------------------------------------------------
