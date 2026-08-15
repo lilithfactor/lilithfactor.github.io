@@ -36,7 +36,7 @@ import {
   type BufferGeometry,
   type Object3D,
 } from "three";
-import { bow, deckle, edgeOf, facet, paint } from "./cut";
+import { bow, edgeOf, facet, paint } from "./cut";
 import type { Materials } from "./materials";
 import { blend, stock, type Palette } from "./palette";
 import type { ModelKit } from "./models";
@@ -210,42 +210,24 @@ export function buildRoom(
   const room = new Group();
   room.name = "room";
 
-  /* The base sheet, INSET by 4cm on every side from the board beneath it.
+  /* The base sheet: the surface everything stands on, matched to the board
+   * beneath it so the desk has one clean edge rather than two.
    *
-   * That inset is the single most paper-craft thing in the model. A real
-   * cut-paper build is stacked: a heavier board underneath, a lighter sheet
-   * laid on top, and a margin where you can see both. Making them the same size
-   * — which is what this was — hides the join and leaves one slab with a line
-   * round it. Making them different sizes turns the desk into two pieces of
-   * card that someone put one on top of the other.
+   * NO TORN EDGE. There was one, along the two sides the camera can see, on the
+   * argument that every other edge in the model is ruled straight and one
+   * hand-torn edge is the proof a person made it. It is a real argument and it
+   * lost: a wobble is only read as "torn" when there is a torn thing to attach
+   * it to, and on a desk cut from the same paper as the board under it, the
+   * wobble is just a line that is not straight. Pranav called it a random
+   * squiggle, which is the only verdict that matters — a detail nobody can
+   * name is not a detail, it is a defect with a rationale.
    *
-   * TORN, not cut, along the two edges the camera can see. This is the single
-   * highest-value detail in the whole repaint and it is worth saying why: every
-   * other edge in the model is a straight line, because a straight line is what
-   * a blade and a steel rule produce, and a model made entirely of them still
-   * reads as something a machine laid out. One torn edge is the proof of a
-   * hand. It goes on the mat because the mat is the largest object in frame and
-   * its front edge runs right across the bottom of the shot — the one place a
-   * 4mm irregularity is a full centimetre of screen.
-   *
-   * And it is bowed, because a 2.6-metre sheet of card that is mathematically
-   * planar is the loudest "computed" signal available. See cut.ts.
-   *
-   * THE INSET IS GONE, and the reason is the same one that has bitten this file
-   * three times now: the monochrome repaint quietly removed the thing that made
-   * a feature legible. The 80mm margin worked when the sheet and the board were
-   * different card — you read a lighter sheet lying on a darker one. With every
-   * stock the same paper there is nothing on either side of the join, so all
-   * that survived was the ink line: a wavy stroke wandering across an otherwise
-   * empty desk 40mm in from its edge, attached to nothing. It read as a stray
-   * pen mark, which is exactly what it looked like.
-   *
-   * Matching the sheet to the board puts that torn edge back where an edge
-   * belongs — on the desk's own front edge, where it now wanders in and out
-   * across the board's corner by ±14mm and reads as a hand-torn sheet rather
-   * than a scribble. Same detail, same cost, and it lands on something. */
+   * It is still BOWED, and that stays: a 2.4-metre sheet of card that is
+   * mathematically planar is the loudest "computed" signal available. The
+   * difference is that the bow works on the SHADING across the sheet, which
+   * needs no edge to land on and cannot be mistaken for a stray mark. See
+   * cut.ts. */
   const mat = new PlaneGeometry(DESK_SIZE[0], DESK_SIZE[1], 34, 20);
-  deckle(mat, 0.014, { bottom: true, right: true }, 7);
   bow(mat, 0.0055, 2);
   const top = new Mesh(mat, m.card);
   paint(top.geometry, p.desk, p.desk, 2);
