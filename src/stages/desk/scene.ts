@@ -14,6 +14,7 @@
 
 import {
   Box3,
+  Color,
   BufferGeometry,
   Float32BufferAttribute,
   Mesh,
@@ -39,6 +40,7 @@ import { createOutlines } from "./outline";
 import { blend, readPalette } from "./palette";
 import { createGovernor, type Degradation } from "./quality";
 import { createTextures } from "./texture";
+import { tuningRequested } from "./tuner";
 
 const DEG = Math.PI / 180;
 /** How far an object rises when its section is hovered or focused. 18mm. */
@@ -156,12 +158,14 @@ export async function mountDesk(): Promise<DeskHandle | null> {
   // room here — the lamp's painted glow and pool are light, not paper, and are
   // marked so no line is drawn round them.
   const outlines = createOutlines(palette.line);
+  outlines.resize(window.innerWidth, window.innerHeight);
   lamp.pool.userData.noOutline = true;
   lamp.glow.userData.noOutline = true;
   outlines.apply(room);
 
   // --- Objects and their anchors ------------------------------------------
   const anchors = new Map<ArtifactId, Vector3>();
+  const placed = new Map<string, Object3D>();
   const pieces: Piece[] = [];
   // The lamp base is not an artifact, so it declares its own footprint; the
   // eight artifacts measure theirs below.
@@ -202,6 +206,7 @@ export async function mountDesk(): Promise<DeskHandle | null> {
     }
 
     pieces.push({ id, object, restY: object.position.y, raised: false });
+    placed.set(id, object);
   }
 
   /* --- Contact shadows ----------------------------------------------------
@@ -308,6 +313,9 @@ export async function mountDesk(): Promise<DeskHandle | null> {
     size.height = window.innerHeight;
     rig.resize(size.width, size.height);
     renderer.setSize(size.width, size.height, false);
+    // Fat lines size their quads in pixels, so they need the new resolution or
+    // every outline in the scene changes width when the window does.
+    outlines.resize(size.width, size.height);
   };
 
   const stopLoop = () => {
@@ -334,6 +342,7 @@ export async function mountDesk(): Promise<DeskHandle | null> {
     canvas.removeEventListener("webglcontextlost", onContextLost);
     viewport.removeEventListener("change", onViewportChange);
 
+    tuner?.dispose();
     lampRig.dispose();
     pressKit.dispose();
     clearAnchors(bindings);
@@ -493,6 +502,37 @@ export async function mountDesk(): Promise<DeskHandle | null> {
   canvas.addEventListener("webglcontextlost", onContextLost);
   viewport.addEventListener("change", onViewportChange);
   window.addEventListener("pagehide", destroy, { once: true });
+
+  /* The tuner: sliders for every number this scene is made of, so the loop of
+   * edit → rebuild → screenshot → squint stops being how the look gets found.
+   * Dynamically imported and opt-in via ?tune, so a visitor never pays for it.
+   * See tuner.ts. */
+  let tuner: { dispose(): void } | null = null;
+  if (tuningRequested()) {
+    void import("./tuner").then(({ mountTuner }) => {
+      if (destroyed) return;
+      tuner = mountTuner({
+        outlines,
+        key: lighting.key,
+        fill: lighting.fill,
+        ambient: lighting.ambient,
+        room,
+        artifacts: placed,
+        lamp: lamp.group,
+        camera: { get: rig.overview, set: rig.setOverview },
+        materials: {
+          contactOpacity: (v) => (v < 0 ? materials.contact.opacity : (materials.contact.opacity = v)),
+          glowOpacity: (v) => (v < 0 ? materials.glow.opacity : (materials.glow.opacity = v)),
+          paper: (hex) => {
+            materials.card.color.set(hex);
+            scene.background = new Color(hex);
+          },
+          surface: (name) => textures.setSurface(name),
+          surfaces: textures.surfaces,
+        },
+      });
+    });
+  }
 
   startLoop();
   return { destroy };

@@ -275,3 +275,105 @@ html.stage-swapping main {
   opacity: 0;
   transition: opacity 240ms ease-out;
 }
+
+/* --- The tuner ------------------------------------------------------------
+ * Development only: mounted solely when ?tune is set (see tuner.ts), and its
+ * module is not in the desk chunk otherwise. Styled plainly and deliberately —
+ * it is an instrument, not part of the design, and it should never be mistaken
+ * for one. */
+.desk-tuner {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 9999;
+  width: 21rem;
+  max-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #14130f;
+  color: #f2efe6;
+  font: 12px/1.4 ui-monospace, monospace;
+  box-shadow: -2px 0 24px rgb(0 0 0 / 0.4);
+}
+
+.desk-tuner header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #3a382f;
+}
+
+.desk-tuner header button {
+  background: none;
+  border: 1px solid #3a382f;
+  color: inherit;
+  width: 1.5rem;
+  height: 1.5rem;
+  cursor: pointer;
+}
+
+.desk-tuner__body {
+  overflow-y: auto;
+  padding: 0.5rem 0.75rem;
+}
+
+.desk-tuner[data-folded] .desk-tuner__body,
+.desk-tuner[data-folded] footer {
+  display: none;
+}
+
+.desk-tuner h4 {
+  margin: 0.75rem 0 0.25rem;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #b9b4a4;
+}
+
+.desk-tuner label {
+  display: grid;
+  grid-template-columns: 6.5rem 1fr 3rem;
+  gap: 0.4rem;
+  align-items: center;
+  margin: 0.15rem 0;
+}
+
+.desk-tuner label > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.desk-tuner input[type="range"] {
+  width: 100%;
+}
+
+.desk-tuner output {
+  text-align: right;
+  color: #b9b4a4;
+}
+
+.desk-tuner footer {
+  padding: 0.5rem 0.75rem;
+  border-top: 1px solid #3a382f;
+}
+
+.desk-tuner footer button {
+  width: 100%;
+  padding: 0.5rem;
+  background: #f2efe6;
+  color: #14130f;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.desk-tuner textarea {
+  width: 100%;
+  margin-top: 0.5rem;
+  background: #0b0a08;
+  color: #f2efe6;
+  border: 1px solid #3a382f;
+  font: inherit;
+}

@@ -65,6 +65,18 @@ const MODELS = {
     // cube printed on it, which is nothing once the texture is stripped.
     note: "geometric cubies, not a printed box",
   },
+  bookcase: {
+    resource: "867fee8d-2b89-4383-92f9-58660a76d29a",
+    page: "MTH8ZwnA27",
+    title: "Bookcase Open",
+    creator: "Kenney",
+    licence: "CC0 1.0",
+    tris: 640,
+    parts: 2,
+    // Open shelves, so it reads as a bookcase at a glance. The procedural
+    // version was a plank on a slab and nobody could tell what it was.
+    note: "visible shelves — the whole point",
+  },
   books: {
     resource: "a3d65818-0da5-4ac0-ab39-87846fa3458f",
     page: "M2cJ5sVUgJ",
@@ -172,6 +184,54 @@ const MODELS = {
     licence: "CC-BY 3.0",
     tris: 208,
     parts: 10,
+  },
+  /* A chess set, five of the six from one author so the pieces match. The
+   * printed diagram is gone: a board with real men on it is what a game in
+   * progress looks like, and "obviously a chess board" was the brief. */
+  "chess-pawn": {
+    resource: "97097510-1b75-40b2-b24f-bfaa14d7aaba",
+    page: "0xRVhzfseb3",
+    title: "Chess Pawn",
+    creator: "Jarlan Perez",
+    licence: "CC-BY 3.0",
+    tris: 444,
+    parts: 1,
+  },
+  "chess-knight": {
+    resource: "2b5a6939-9032-402f-b1d0-e44a6bfa226e",
+    page: "fMIykP6ncx7",
+    title: "Chess Knight",
+    creator: "Jarlan Perez",
+    licence: "CC-BY 3.0",
+    tris: 372,
+    parts: 1,
+  },
+  "chess-rook": {
+    resource: "8aa97001-9d59-4bb4-b03f-27d14ecf0ef5",
+    page: "417Xec_xlU0",
+    title: "Chess Rook",
+    creator: "Jarlan Perez",
+    licence: "CC-BY 3.0",
+    tris: 416,
+    parts: 1,
+  },
+  "chess-bishop": {
+    resource: "c8df9cb7-4d63-4451-98b9-ea756909910a",
+    page: "7xay8UYqePI",
+    title: "Chess Bishop",
+    creator: "Jarlan Perez",
+    licence: "CC-BY 3.0",
+    tris: 448,
+    parts: 1,
+  },
+  "chess-king": {
+    resource: "a8d3f6bb-8155-4e32-9627-9c42e80647e0",
+    page: "4TP6oa34Fp-",
+    title: "Chess King",
+    creator: "Jarlan Perez",
+    licence: "CC-BY 3.0",
+    tris: 532,
+    parts: 1,
   },
   knights: {
     resource: "59dc3fa6-3dea-4024-be63-d5ef4fad0772",

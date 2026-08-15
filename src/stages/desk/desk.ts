@@ -244,17 +244,11 @@ function buildLamp(p: Palette, m: Materials, models: ModelKit): LampParts {
     model.position.set(-centre.x, -seated.min.y, -centre.z);
     model.updateMatrixWorld(true);
 
-    // Re-home the pivot on the real geometry rather than the procedural
-    // lamp's hand-placed JOINT, which described a different object.
-    const pivotY = LAMP_HEIGHT * HEAD_SPLIT;
-    head.position.set(0, pivotY, 0);
-
     // Turned to face the desk. The model is authored with its arm reaching
     // along +x; the lamp stands at the desk's right-hand end, so left is where
-    // the work is. Rotating the whole group keeps the head's pivot on axis and
-    // carries AIM round with it, so the beam follows without special-casing.
+    // the work is.
     group.rotation.y = Math.PI;
-    group.add(model, head);
+    group.add(model);
     group.updateMatrixWorld(true);
 
     // Split by each part's own centre height. Collected first, because moving
@@ -263,6 +257,10 @@ function buildLamp(p: Palette, m: Materials, models: ModelKit): LampParts {
     model.traverse((o: Object3D) => {
       if ((o as Mesh).isMesh) parts.push(o as Mesh);
     });
+
+    const pivotY = LAMP_HEIGHT * HEAD_SPLIT;
+    const headParts: Mesh[] = [];
+    const union = new Box3().makeEmpty();
     const partBox = new Box3();
     const partCentre = new Vector3();
     for (const part of parts) {
@@ -270,6 +268,34 @@ function buildLamp(p: Palette, m: Materials, models: ModelKit): LampParts {
       partBox.getCenter(partCentre);
       // World y, which equals group-local y: the lamp group sits at y = 0.
       if (partCentre.y < pivotY) continue;
+      headParts.push(part);
+      union.union(partBox);
+    }
+
+    /* THE PIVOT GOES AT THE KNUCKLE, not on the lamp's centre line.
+     *
+     * It was `(0, pivotY, 0)`, and that looked perfectly fine at rest —
+     * attach() preserves world position, so nothing moved until the lamp was
+     * dragged. Then the head swung about a point in mid-air beside the joint
+     * and the shade sailed off the end of the arm. The bug was invisible in
+     * every static screenshot and obvious the first time a hand touched it.
+     *
+     * The joint is the bottom-centre of the parts that move, which is what the
+     * union box gives us. */
+    if (!union.isEmpty()) {
+      const pivotWorld = new Vector3(
+        (union.min.x + union.max.x) / 2,
+        union.min.y,
+        (union.min.z + union.max.z) / 2,
+      );
+      head.position.copy(group.worldToLocal(pivotWorld));
+    } else {
+      head.position.set(0, pivotY, 0);
+    }
+    group.add(head);
+    group.updateMatrixWorld(true);
+
+    for (const part of headParts) {
       // attach(), NOT add(). The parts hang two scaled parents deep — the
       // loader normalises the gltf scene, then this function scales it again —
       // and add() keeps only the local transform, so a re-parented shade

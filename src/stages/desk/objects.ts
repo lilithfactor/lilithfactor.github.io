@@ -166,6 +166,7 @@ export const MODEL_SPECS = (p: Palette): readonly ModelSpec[] => [
   { name: "crate", size: 0.3, tone: p.kraft },
   { name: "envelope", size: 0.19, tone: p.paperAged },
   { name: "letter", size: 0.16, tone: stock(p.paper, 3) },
+  { name: "bookcase", size: 0.95, tone: p.kraft },
   { name: "books", size: 0.32, tone: p.cool },
   { name: "book-stack", size: 0.19, tone: p.accent },
   { name: "rubiks", size: 0.075, tone: p.accent },
@@ -345,6 +346,18 @@ function letters(p: Palette, m: Materials, _press: Press, models: ModelKit): Gro
 function shelf(p: Palette, m: Materials, _press: Press, models: ModelKit): Group {
   const row = models.take("books");
   const stack = models.take("book-stack");
+  const carcass = models.take("bookcase");
+
+  // A real bookcase with open shelves. What was here — a plank on a tall blank
+  // slab — was unreadable: at this angle it was a white wall with two books on
+  // top, and "library" is not a thing anyone would have guessed from it.
+  if (carcass) {
+    const g = group(place(carcass, { y: -0.62, yaw: 1 }));
+    if (row) g.add(place(row, { x: -0.16, y: 0.02, yaw: 2 }));
+    if (stack) g.add(place(stack, { x: 0.2, y: 0.02, yaw: 4 }));
+    return g;
+  }
+
   const g = group(
     card(m, p.deskDeep, p.cut, 0.86, 0.03, 0.2, {}),
     // The carcass. It runs down to the floor and is almost entirely hidden by

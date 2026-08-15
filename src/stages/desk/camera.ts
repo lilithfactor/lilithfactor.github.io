@@ -42,6 +42,17 @@ export interface CameraRig {
   resize(width: number, height: number): void;
   /** Cursor position, each axis −1…1. The rig damps it; callers just report. */
   parallax(nx: number, ny: number): void;
+  /**
+   * The resting shot, live. The rig recomputes the camera every frame from
+   * these, so a tuner cannot just move camera.position — it would be
+   * overwritten on the next tick. See tuner.ts.
+   */
+  overview(): { position: [number, number, number]; target: [number, number, number]; fov: number };
+  setOverview(v: {
+    position?: [number, number, number];
+    target?: [number, number, number];
+    fov?: number;
+  }): void;
 }
 
 export function createCameraRig(
@@ -82,6 +93,25 @@ export function createCameraRig(
   return {
     camera,
     reference,
+
+    overview: () => ({
+      position: overviewPosition.toArray() as [number, number, number],
+      target: overviewTarget.toArray() as [number, number, number],
+      fov: camera.fov,
+    }),
+
+    setOverview({ position, target, fov }) {
+      if (position) overviewPosition.set(...position);
+      if (target) overviewTarget.set(...target);
+      if (fov !== undefined) {
+        camera.fov = fov;
+        camera.updateProjectionMatrix();
+      }
+      // Retarget only if nothing is being framed, so tuning the resting shot
+      // while a panel is open does not yank the camera off its subject.
+      targetPosition.copy(overviewPosition);
+      targetLookAt.copy(overviewTarget);
+    },
 
     frame(id) {
       const anchor = id === null ? null : anchors.get(id);

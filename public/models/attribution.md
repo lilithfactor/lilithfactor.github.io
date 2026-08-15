@@ -13,7 +13,13 @@ colours and the palette tokens are ours; the geometry is theirs.
 | File | Model | Author | Licence |
 |---|---|---|---|
 | `book-stack.glb` | [Book Stack](https://poly.pizza/m/1WggoIFq8tx) | Danni Bittman | CC-BY 3.0 |
+| `bookcase.glb` | [Bookcase Open](https://poly.pizza/m/MTH8ZwnA27) | Kenney | CC0 1.0 |
 | `books.glb` | [Books](https://poly.pizza/m/M2cJ5sVUgJ) | Kenney | CC0 1.0 |
+| `chess-bishop.glb` | [Chess Bishop](https://poly.pizza/m/7xay8UYqePI) | Jarlan Perez | CC-BY 3.0 |
+| `chess-king.glb` | [Chess King](https://poly.pizza/m/4TP6oa34Fp-) | Jarlan Perez | CC-BY 3.0 |
+| `chess-knight.glb` | [Chess Knight](https://poly.pizza/m/fMIykP6ncx7) | Jarlan Perez | CC-BY 3.0 |
+| `chess-pawn.glb` | [Chess Pawn](https://poly.pizza/m/0xRVhzfseb3) | Jarlan Perez | CC-BY 3.0 |
+| `chess-rook.glb` | [Chess Rook](https://poly.pizza/m/417Xec_xlU0) | Jarlan Perez | CC-BY 3.0 |
 | `clipboard.glb` | [clipboard](https://poly.pizza/m/8H5SDxwMnEA) | William Murphy | CC-BY 3.0 |
 | `corkboard.glb` | [Wall Corkboard](https://poly.pizza/m/U8yQZ9l0HZ) | CreativeTrio | CC0 1.0 |
 | `crate.glb` | [Empty Box](https://poly.pizza/m/pZBpmjtvw8) | CreativeTrio | CC0 1.0 |

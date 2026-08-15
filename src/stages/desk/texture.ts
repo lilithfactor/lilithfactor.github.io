@@ -74,10 +74,16 @@ function pad(size: number): CanvasRenderingContext2D | null {
  * text contrast — and this map now lies under printed text (see print.ts), so
  * that ceiling is a real constraint here rather than an inherited one.
  */
-function fibre(anisotropy: number): CanvasTexture | null {
-  const S = 256;
-  const ctx = pad(S);
-  if (!ctx) return null;
+/**
+ * Paints the card's tooth. Split out of `fibre` so the tuner can repaint the
+ * same canvas in a different finish without building a new texture — every
+ * material already holds this map, so a repaint is one `needsUpdate`.
+ *
+ * `grain` is how far the tone strays from white (in 0-255 steps) and `strokes`
+ * is how many fibres lie in it. Those two carry the whole difference between
+ * copier paper and watercolour stock.
+ */
+function paintFibre(ctx: CanvasRenderingContext2D, S: number, grain = 4, strokes = 900): void {
   const rand = seeded(0xfa7e11);
   ctx.fillStyle = grey(255);
   ctx.fillRect(0, 0, S, S);
@@ -89,9 +95,10 @@ function fibre(anisotropy: number): CanvasTexture | null {
     const y = rand() * S;
     const r = 26 + rand() * 62;
     const dark = rand() > 0.5;
+    const tone = 255 - (dark ? grain * 4.75 : 0);
     const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-    g.addColorStop(0, grey(dark ? 236 : 255, 0.5));
-    g.addColorStop(1, grey(dark ? 236 : 255, 0));
+    g.addColorStop(0, grey(tone, 0.5));
+    g.addColorStop(1, grey(tone, 0));
     ctx.fillStyle = g;
     ctx.fillRect(x - r, y - r, r * 2, r * 2);
   }
@@ -99,12 +106,12 @@ function fibre(anisotropy: number): CanvasTexture | null {
   // 2 — the fibres. Short strokes lying mostly one way, because a couched sheet
   // has a grain direction and that is half of why paper looks like paper.
   ctx.lineCap = "round";
-  for (let i = 0; i < 900; i++) {
+  for (let i = 0; i < strokes; i++) {
     const x = rand() * S;
     const y = rand() * S;
     const len = 3 + rand() * 13;
     const angle = (rand() - 0.5) * 0.7;
-    ctx.strokeStyle = grey(rand() > 0.45 ? 240 : 255, 0.42);
+    ctx.strokeStyle = grey(rand() > 0.45 ? 255 - grain * 3.75 : 255, 0.42);
     ctx.lineWidth = rand() > 0.8 ? 1.4 : 0.7;
     ctx.beginPath();
     ctx.moveTo(x, y);
@@ -115,9 +122,16 @@ function fibre(anisotropy: number): CanvasTexture | null {
   // 3 — the speck. Flecks of unbleached pulp. Rare and small, and the only
   // thing here dark enough to notice individually.
   for (let i = 0; i < 90; i++) {
-    ctx.fillStyle = grey(228, 0.5);
+    ctx.fillStyle = grey(255 - grain * 6.75, 0.5);
     ctx.fillRect(rand() * S, rand() * S, 1 + Math.round(rand()), 1);
   }
+}
+
+function fibre(anisotropy: number): CanvasTexture | null {
+  const S = 256;
+  const ctx = pad(S);
+  if (!ctx) return null;
+  paintFibre(ctx, S);
 
   const texture = new CanvasTexture(ctx.canvas);
   texture.colorSpace = SRGBColorSpace;
@@ -218,13 +232,49 @@ export interface StageTextures {
   readonly fibre: CanvasTexture | null;
   readonly contact: CanvasTexture | null;
   readonly pool: CanvasTexture | null;
+  /** Surface finishes the card can wear, for the tuner to flip between. */
+  readonly surfaces: readonly string[];
+  /** Repaints `fibre` in the named finish. No new texture object, so every
+   * material already holding the map picks it up on the next frame. */
+  setSurface(name: string): void;
   dispose(): void;
 }
+
+/**
+ * The card's surface, as a repaintable set rather than one baked look.
+ *
+ * All procedural: a downloaded paper photograph would be a megabyte of someone
+ * else's lighting baked into a scene that lights itself, and at this scale the
+ * only thing a real scan contributes over noise is its low-frequency cloud —
+ * which is cheap to generate and free to ship. These four are the honest range
+ * of "what paper is this", and the tuner exists so the choice can be made by
+ * looking rather than by arguing.
+ */
+const SURFACES = ["fibre", "smooth", "laid", "rough"] as const;
 
 export function createTextures(anisotropy: number): StageTextures {
   const set = { fibre: fibre(anisotropy), contact: contact(), pool: pool() };
   return {
     ...set,
+    surfaces: SURFACES,
+    setSurface(name) {
+      const map = set.fibre;
+      if (!map) return;
+      const ctx = map.image.getContext("2d") as CanvasRenderingContext2D | null;
+      if (!ctx) return;
+      const S = map.image.width;
+      // Grain amount and fibre density are the only two knobs that matter:
+      // "smooth" is a near-flat sheet, "rough" is watercolour stock.
+      const spec: Record<string, { grain: number; strokes: number }> = {
+        fibre: { grain: 4, strokes: 900 },
+        smooth: { grain: 1.5, strokes: 200 },
+        laid: { grain: 3, strokes: 2600 },
+        rough: { grain: 9, strokes: 1400 },
+      };
+      const { grain, strokes } = spec[name] ?? spec.fibre!;
+      paintFibre(ctx, S, grain, strokes);
+      map.needsUpdate = true;
+    },
     dispose() {
       for (const texture of Object.values(set)) texture?.dispose();
     },
