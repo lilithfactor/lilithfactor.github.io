@@ -167,7 +167,6 @@ export const MODEL_SPECS = (p: Palette): readonly ModelSpec[] => [
   { name: "crate", size: 0.3, tone: p.kraft },
   { name: "envelope", size: 0.19, tone: p.paperAged },
   { name: "letter", size: 0.16, tone: stock(p.paper, 3) },
-  { name: "bookcase", size: 0.95, tone: p.kraft },
   { name: "books", size: 0.32, tone: p.cool },
   { name: "book-stack", size: 0.19, tone: p.accent },
   { name: "rubiks", size: 0.075, tone: p.accent },
@@ -357,57 +356,134 @@ function letters(p: Palette, m: Materials, _press: Press, models: ModelKit): Gro
   );
 }
 
-/* --- Library: a shelf behind the desk, visibly read ----------------------- */
-function shelf(p: Palette, m: Materials, _press: Press, models: ModelKit): Group {
-  const row = models.take("books");
-  const stack = models.take("book-stack");
-  const carcass = models.take("bookcase");
+/* --- Library: a bookcase, built rather than downloaded ---------------------
+ * The downloaded carcass was an open frame — four uprights and some rails —
+ * and at this angle, in one colour, that is a ladder. It never mattered how
+ * many books were put on it: an object nobody can name is not helped by
+ * decorating it.
+ *
+ * What makes a bookcase legible is not the frame, it is the SHADOW BOX. A
+ * bookcase is a stack of dark rectangular openings with rows of vertical
+ * spines set back inside them, and that silhouette is unmistakable at any size
+ * and from any angle. So this one is closed: two solid sides, a back, and
+ * shelf boards that read as horizontal bands right across it.
+ *
+ * Which is also why it is built here rather than fetched. Every dimension is
+ * one this file can choose — the sides run past the boards, the boards are
+ * thick enough to see, the books stand back from the front edge — and none of
+ * those is negotiable with a .glb someone else authored for a different scene.
+ *
+ * The origin is the TOP SURFACE, because that is what layout.ts places (the
+ * carcass hangs below it and most of it is behind the desk).
+ */
+const CASE = { width: 0.92, depth: 0.26, bay: 0.34, board: 0.026, side: 0.022 };
 
-  // A real bookcase with open shelves. What was here — a plank on a tall blank
-  // slab — was unreadable: at this angle it was a white wall with two books on
-  // top, and "library" is not a thing anyone would have guessed from it.
-  if (carcass) {
-    const g = group(place(carcass, { y: -0.62, yaw: 1 }));
-    if (row) g.add(place(row, { x: -0.16, y: 0.02, yaw: 2 }));
-    if (stack) g.add(place(stack, { x: 0.2, y: 0.02, yaw: 4 }));
-    return g;
+/**
+ * A row of books standing on a shelf.
+ *
+ * Varied on every axis that costs nothing: height, width, and a lean for the
+ * last one into the gap. A shelf where every spine is the same size is a
+ * texture of a bookshelf; a shelf where they are not is a bookshelf.
+ *
+ * Deterministic from `seed`, so a shelf does not reshuffle between renders and
+ * two shelves are never the same shelf twice.
+ */
+function spines(
+  p: Palette,
+  m: Materials,
+  x0: number,
+  span: number,
+  y: number,
+  seed: number,
+): Object3D[] {
+  const out: Object3D[] = [];
+  let s = seed >>> 0;
+  const rand = () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+
+  let x = x0;
+  while (x < x0 + span - 0.02) {
+    const w = 0.016 + rand() * 0.022;
+    const h = 0.17 + rand() * 0.08;
+    const d = 0.13 + rand() * 0.05;
+    if (x + w > x0 + span) break;
+    // Every fifth book or so is off the vertical, resting on its neighbour.
+    const lean = rand() > 0.82 ? (rand() - 0.5) * 16 : 0;
+    out.push(
+      card(m, stock(p.paper, Math.floor(rand() * 5)), p.cut, w, h, d, {
+        x: x + w / 2,
+        y: y + h / 2,
+        // Back from the front edge, which is where books actually sit and what
+        // puts the shelf board's own edge in front of them.
+        z: -0.02,
+        roll: lean,
+      }),
+    );
+    x += w + 0.002;
+  }
+  return out;
+}
+
+function shelf(p: Palette, m: Materials, _press: Press, models: ModelKit): Group {
+  const { width, depth, bay, board, side } = CASE;
+  const bays = 3;
+  const height = bays * bay + board;
+  const g = new Group();
+
+  // Two solid sides, running the full height and standing proud of the boards.
+  for (const end of [-1, 1] as const) {
+    g.add(
+      card(m, p.kraft, p.cut, side, height, depth, {
+        x: (end * (width - side)) / 2,
+        y: -height / 2,
+      }),
+    );
   }
 
-  const g = group(
-    card(m, p.deskDeep, p.cut, 0.86, 0.03, 0.2, {}),
-    // The carcass. It runs down to the floor and is almost entirely hidden by
-    // the desk, which is the point: a shelf board with nothing under it reads
-    // as a missing mesh rather than as a shelf.
-    card(m, p.backdrop, p.cut, 0.82, 0.9, 0.18, { y: -0.46 }),
+  // The back. Thin, and set behind the boards so each opening reads as a box
+  // with a floor and a wall rather than as a gap you can see the room through.
+  g.add(
+    card(m, stock(p.kraft, 2), p.cut, width - side * 2, height, 0.01, {
+      y: -height / 2,
+      z: -depth / 2 + 0.006,
+    }),
   );
 
-  // Five spines, uneven — a shelf where every book is the same height is a
-  // prop shelf. Two are cut from the one cool card in the model, which is what
-  // stops a row of warm rectangles reading as five copies of the same book.
-  // The sixth leans into the gap the read one left.
-  if (row) {
-    // A leaning row of real books, which is a shape five extruded rectangles
-    // cannot make: the lean is the whole read of a shelf someone uses.
-    g.add(place(row, { x: -0.24, y: 0.015, yaw: 2 }));
-  } else {
-    const spines: ReadonlyArray<readonly [number, number, number, Color]> = [
-      [-0.36, 0.046, 0.22, p.cool],
-      [-0.305, 0.04, 0.19, p.kraft],
-      [-0.255, 0.054, 0.235, p.accent],
-      [-0.195, 0.042, 0.2, p.paperAged],
-      [-0.14, 0.048, 0.185, p.cool],
-    ];
-    for (const [x, w, h, colour] of spines) {
-      g.add(card(m, colour, p.cut, w, h, 0.15, { x, y: 0.015 + h / 2 }));
-    }
-    g.add(card(m, p.paperEdge, p.cut, 0.05, 0.2, 0.15, { x: -0.085, y: 0.115, roll: -9 }));
+  // The boards, including the top one the origin sits on.
+  for (let i = 0; i <= bays; i++) {
+    g.add(
+      card(m, p.kraft, p.cut, width, board, depth, {
+        y: -i * bay - board / 2,
+      }),
+    );
   }
 
-  // The ones currently being read, laid flat on the shelf.
+  /* The books. The top TWO bays are filled, and the rest is left empty on
+   * purpose: layout.ts stands this thing so that only its upper part clears
+   * the desk, and filling shelves nobody can see is triangles spent on nothing.
+   */
+  const inner = width - side * 2 - 0.03;
+  for (let i = 0; i < 2; i++) {
+    g.add(...spines(p, m, -inner / 2, inner, -(i + 1) * bay + board / 2, 0x51f3 + i * 977));
+  }
+
+  /* On top: the two things that say this shelf belongs to somebody. A row that
+   * has been read and put back leaning, and a stack laid flat with something on
+   * it. Both are the downloaded models when they arrived, because a leaning row
+   * of real books is a shape five extruded rectangles cannot make. */
+  const row = models.take("books");
+  const stack = models.take("book-stack");
+  if (row) {
+    g.add(place(row, { x: -0.2, y: 0.013, yaw: 2 }));
+  } else {
+    g.add(...spines(p, m, -0.34, 0.3, 0.013, 0x2b71));
+  }
   g.add(
     stack
-      ? place(stack, { x: 0.28, y: 0.015, yaw: 4 })
-      : card(m, p.paperAged, p.cut, 0.15, 0.032, 0.11, { x: 0.28, y: 0.031, yaw: 4 }),
+      ? place(stack, { x: 0.26, y: 0.013, yaw: 4 })
+      : card(m, p.paperAged, p.cut, 0.15, 0.032, 0.11, { x: 0.26, y: 0.029, yaw: 4 }),
   );
   return g;
 }
