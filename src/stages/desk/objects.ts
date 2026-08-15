@@ -171,6 +171,10 @@ export const MODEL_SPECS = (p: Palette): readonly ModelSpec[] => [
   { name: "books", size: 0.32, tone: p.cool },
   { name: "book-stack", size: 0.19, tone: p.accent },
   { name: "rubiks", size: 0.075, tone: p.accent },
+  // The one prop on this desk that opens nothing. A coaster with a ring on it
+  // and no mug is a conspicuous absence — every reference desk in
+  // brain/storyboard has a cup on it — and 95mm is what a mug is.
+  { name: "mug", size: 0.095, tone: stock(p.paper, 2) },
   /* The chess set. Five files, one author, so the pieces match — there is no
    * queen among them, and the position needs one, so the queen borrows the
    * king. At 35mm squares nobody is going to challenge the ruling.
@@ -404,6 +408,49 @@ function shelf(p: Palette, m: Materials, _press: Press, models: ModelKit): Group
     stack
       ? place(stack, { x: 0.28, y: 0.015, yaw: 4 })
       : card(m, p.paperAged, p.cut, 0.15, 0.032, 0.11, { x: 0.28, y: 0.031, yaw: 4 }),
+  );
+  return g;
+}
+
+/* --- The notes -------------------------------------------------------------
+ * The paper label standing on each object, in place of the HTML chip that used
+ * to float over it. See print.ts/paintNote for what is written on it and why
+ * the words still live in the DOM.
+ *
+ * A note is a square of card pitched back a few degrees with a tab folded out
+ * behind it. The tab is not decoration: a card standing bolt upright in mid-air
+ * with nothing holding it is the one thing in this model that could not be made
+ * out of paper, and a folded foot is exactly how a paper model stands a sign
+ * up. It costs one box.
+ *
+ * The map goes on the +Y face — the same face `printedSheet` prints and the
+ * same reason (BoxGeometry lays u along +X and v = 1 at -Z there) — and then
+ * the whole thing is pitched up. Rotating -90° about X carries +Y to +Z and -Z
+ * to up, so the writing arrives facing the room and the right way up, with no
+ * second UV convention to keep in anyone's head.
+ */
+export const NOTE_SIZE = 0.2;
+
+export function buildNote(p: Palette, m: Materials, map: Texture, lean: number): Group {
+  const g = new Group();
+  const paper = stock(p.paper, 1);
+
+  const sheet = printedSheet(paper, p.cut, map, NOTE_SIZE, 0.005, NOTE_SIZE, {
+    pitch: -90 + lean,
+    // Half a note above its own origin, so the origin is the bottom edge and
+    // the anchor it is placed at reads as "where the note stands".
+    y: (NOTE_SIZE / 2) * Math.cos(lean * DEG),
+    z: (NOTE_SIZE / 2) * Math.sin(lean * DEG),
+  });
+  g.add(sheet);
+
+  // The foot: a strip of the same card folded back under the note.
+  g.add(
+    card(m, paper, p.cut, NOTE_SIZE * 0.42, 0.004, 0.05, {
+      pitch: -34,
+      y: 0.012,
+      z: -0.022,
+    }),
   );
   return g;
 }

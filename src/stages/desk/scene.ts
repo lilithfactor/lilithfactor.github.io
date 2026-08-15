@@ -35,10 +35,10 @@ import { createCameraRig } from "./camera";
 import { buildLighting, buildRoom, DESK_SIZE, LAMP } from "./desk";
 import { createLampRig } from "./lamp";
 import { press } from "./print";
-import { ARTIFACT_IDS, ARTIFACT_LABELS, PLACEMENTS, type ArtifactId } from "./layout";
+import { ARTIFACT_IDS, ARTIFACT_LABELS, OVERVIEW, PLACEMENTS, type ArtifactId } from "./layout";
 import { createMaterials } from "./materials";
 import { loadModels } from "./models";
-import { buildArtifact, MODEL_SPECS } from "./objects";
+import { buildArtifact, buildNote, MODEL_SPECS } from "./objects";
 import { createOutlines } from "./outline";
 import { blend, readPalette } from "./palette";
 import { applyTuned, type Tuned, type TunerTargets } from "./params";
@@ -60,6 +60,9 @@ interface Piece {
   readonly id: ArtifactId;
   readonly object: Object3D;
   readonly restY: number;
+  /** Its paper name-note, which lifts with it. Absent if the press failed. */
+  readonly note?: Object3D;
+  readonly noteRestY?: number;
   raised: boolean;
 }
 
@@ -211,7 +214,20 @@ export async function mountDesk(): Promise<DeskHandle | null> {
 
   // The printed sheets: real outcome numbers, typeset onto the top papers so
   // the desk reads as a portfolio at rest, before any click.
-  const pressKit = press(palette, ARTIFACT_LABELS);
+  /* The note text comes from the DOCUMENT, not from a table in here.
+   *
+   * Each note is a picture of that section's <h2>, which is the same string the
+   * invisible button announces and the same string the open panel is titled
+   * with. One source: rename a section and its note follows, and there is no
+   * way for the paper to disagree with the page. */
+  const noteLabels = new Map<string, string>();
+  for (const id of ARTIFACT_IDS) {
+    const heading = document
+      .querySelector(`[data-artifact="${id}"] h2`)
+      ?.textContent?.trim();
+    if (heading) noteLabels.set(id, heading);
+  }
+  const pressKit = press(palette, ARTIFACT_LABELS, noteLabels);
 
   /* THE SIGN BEHIND THE SET.
    *
@@ -286,7 +302,51 @@ export async function mountDesk(): Promise<DeskHandle | null> {
     // the anchor moved with it, every section on the page would twitch
     // whenever the mouse crossed it.
     object.updateWorldMatrix(true, false);
-    anchors.set(id, object.localToWorld(new Vector3(...placement.anchor)));
+    const anchor = object.localToWorld(new Vector3(...placement.anchor));
+    anchors.set(id, anchor);
+
+    /* The paper note that names this object.
+     *
+     * Added to the SCENE rather than to the object, deliberately: the anchor is
+     * resolved once and never tracks the hover lift (a label that twitched
+     * every time the mouse crossed it would be unbearable), and the note has to
+     * sit exactly where the invisible button sits or clicking the paper would
+     * miss. Same position, same rules.
+     *
+     * Turned to face the resting camera once, not every frame. A billboard
+     * would always be perfectly readable and would also be the one object here
+     * that behaves like a UI element rather than like a piece of card. The
+     * camera only sways a few centimetres at rest, so a fixed angle looks
+     * right for the whole of the time anyone is reading it. */
+    let raisedNote: Object3D | null = null;
+    const printedNote = pressKit.notes.get(id);
+    if (printedNote) {
+      const note = buildNote(palette, materials, printedNote, 8);
+      note.position.copy(anchor);
+      const toCamera = Math.atan2(
+        OVERVIEW.position[0] - anchor.x,
+        OVERVIEW.position[2] - anchor.z,
+      );
+      note.rotation.y = toCamera;
+      /* Stepped 150mm toward the viewer along that same bearing.
+       *
+       * The anchors were solved for a chip floating in screen space, which
+       * cannot be occluded by anything. A note is in the room, so it can: the
+       * library's note stood inside the bookcase it names and the record
+       * player's went behind the lamp. Moving each one along the line to the
+       * camera clears whatever is in front of it without touching the anchor
+       * itself — the anchor still governs where the button goes, and the two
+       * still agree on screen because the step is along the sightline. */
+      note.position.x += Math.sin(toCamera) * 0.15;
+      note.position.z += Math.cos(toCamera) * 0.15;
+      outlines.apply(note);
+      note.traverse((n) => {
+        const mesh = n as Mesh;
+        if (mesh.isMesh) mesh.castShadow = true;
+      });
+      scene.add(note);
+      raisedNote = note;
+    }
 
     // Where this object touches the base sheet. Measured off the built object
     // rather than tabulated, so moving something in layout.ts moves its shadow
@@ -305,7 +365,14 @@ export async function mountDesk(): Promise<DeskHandle | null> {
       });
     }
 
-    pieces.push({ id, object, restY: object.position.y, raised: false });
+    pieces.push({
+      id,
+      object,
+      restY: object.position.y,
+      note: raisedNote ?? undefined,
+      noteRestY: raisedNote?.position.y,
+      raised: false,
+    });
     placed.set(id, object);
   }
 
@@ -530,8 +597,16 @@ export async function mountDesk(): Promise<DeskHandle | null> {
     elapsed += dt;
 
     for (const piece of pieces) {
+      const ease = Math.min(dt * 9, 1);
       const goal = piece.restY + (piece.raised ? LIFT : 0);
-      piece.object.position.y += (goal - piece.object.position.y) * Math.min(dt * 9, 1);
+      piece.object.position.y += (goal - piece.object.position.y) * ease;
+      // The note rises with its object. It is the only hover feedback left now
+      // that the chip no longer changes colour, so it has to be the paper that
+      // answers rather than a cursor change.
+      if (piece.note && piece.noteRestY !== undefined) {
+        const noteGoal = piece.noteRestY + (piece.raised ? LIFT : 0);
+        piece.note.position.y += (noteGoal - piece.note.position.y) * ease;
+      }
     }
 
     view.update(dt);

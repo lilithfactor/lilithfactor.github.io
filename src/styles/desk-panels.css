@@ -233,44 +233,66 @@ html[data-stage="desk"] .desk-handles[data-dimmed] {
   pointer-events: none;
 }
 
+/* THE HANDLE IS NOW INVISIBLE, and that is the point.
+ *
+ * It used to be the label: a rounded chip with the section's name in it,
+ * floating over the desk in screen space. Eight of those is a navigation bar
+ * hovering in front of a paper world, which is the one thing the whole model
+ * exists not to be. The name is written on a real square of paper standing on
+ * the object now (print.ts/paintNote, objects.ts/buildNote).
+ *
+ * What did NOT move is this button. It still carries the words, still takes
+ * tab and Enter, still announces itself, and it still sits exactly over its
+ * note — which is why the desk needs no raycaster and why clicking the paper
+ * works. Deleting it would trade a keyboard for a picture.
+ *
+ * So: no paint, no shadow, no visible text, and a box sized to cover the note
+ * behind it. `color: transparent` rather than `visibility: hidden` or a
+ * clip-path — the text has to stay in the accessible name and in Cmd-F.
+ */
 html[data-stage="desk"] .desk-handle {
   position: fixed;
   top: 0;
   left: 0;
   /* --x/--y are written by anchors.ts every frame; --a is 0 when the object is
-   * off-frame, which is also when the tag must not be clickable. */
-  transform: translate3d(calc(var(--x, 50vw) - 50%), calc(var(--y, 50vh) - 50%), 0);
+   * off-frame, which is also when the tag must not be clickable.
+   *
+   * -100% on y, not -50%: the anchor is where the note STANDS, so the note is
+   * above it and so is the button. transform-origin at the bottom keeps that
+   * true when --scale grows as the camera comes in. */
+  transform: translate3d(calc(var(--x, 50vw) - 50%), calc(var(--y, 50vh) - 100%), 0)
+    scale(var(--scale, 1));
+  transform-origin: 50% 100%;
   opacity: var(--a, 0);
   pointer-events: auto;
 
-  /* 44px minimum target even though the tag reads small. */
-  min-height: 2.75rem;
-  padding: var(--s-2) var(--s-4);
+  /* Roughly the note's size on screen at the resting camera: a 200mm note on a
+   * 2.4m desk is about 7rem across. Slightly generous, because a hit area that
+   * is a little bigger than the thing it covers has never annoyed anyone. */
+  width: 7rem;
+  height: 6rem;
+  padding: 0;
 
-  background-color: var(--paper-page);
-  color: var(--ink);
+  background: none;
   border: 0;
-  border-radius: var(--r-chip);
-  box-shadow:
-    0 1px 2px rgb(0 0 0 / 0.3),
-    0 8px 18px -10px rgb(0 0 0 / 0.5);
+  box-shadow: none;
+  color: transparent;
+  overflow: hidden;
 
   font-family: var(--font-mono);
   font-size: var(--t-label-size);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  white-space: nowrap;
   cursor: pointer;
-  transition:
-    opacity var(--m-quick),
-    background-color var(--m-quick),
-    color var(--m-quick);
+  transition: opacity var(--m-quick);
 }
 
-html[data-stage="desk"] .desk-handle:hover,
+/* Hover has no styling here on purpose — the answer to a hover is the note
+ * itself lifting, in the scene (see scene.ts). Focus is different: a keyboard
+ * user needs to know where they are, and an outline on an invisible button
+ * draws a ring exactly around the note it belongs to. */
 html[data-stage="desk"] .desk-handle:focus-visible {
-  background-color: var(--red-pen);
-  color: var(--paper-page);
+  outline: 3px solid var(--red-pen);
+  outline-offset: 3px;
+  border-radius: 2px;
 }
 
 /* --- Sound ----------------------------------------------------------------

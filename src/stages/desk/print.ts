@@ -228,12 +228,85 @@ function paintChess(ctx: CanvasRenderingContext2D, size: number, muted: string):
    * is drawn and the two have to agree about which corner is a1. */
 }
 
+/* --- The notes -------------------------------------------------------------
+ * One post-it per object, with that object's name written on it.
+ *
+ * These replace the floating HTML chips, and the reason is the whole premise:
+ * a paper world with eight rounded rectangles hovering over it in screen space
+ * is a paper world with a navigation bar in front of it. The name of a thing
+ * on a desk belongs on a piece of paper stuck to that thing.
+ *
+ * What does NOT change is where the accessible name lives. The <button> is
+ * still there, still carries the words, still takes tab and Enter — it is just
+ * invisible, sitting exactly over the note it labels. So nothing here is the
+ * only copy of anything: the same rule that lets print.ts exist at all.
+ *
+ * SIZE IS A LEGIBILITY PROBLEM, not a realism one. A real post-it is 76mm; on
+ * a 2.4m desk at the resting camera that is about forty screen pixels, and
+ * "RECOMMENDATIONS" across forty pixels is a grey smear. These are drawn at
+ * 200mm — a big square note — and the long names break onto two lines, which
+ * is what anyone writing on a note does anyway.
+ */
+const NOTE = 256;
+
+function paintNote(
+  ctx: CanvasRenderingContext2D,
+  label: string,
+  ink: string,
+  faint: string,
+  seed: number,
+): void {
+  ctx.clearRect(0, 0, NOTE, NOTE);
+  ctx.fillStyle = "rgb(255,255,255)";
+  ctx.fillRect(0, 0, NOTE, NOTE);
+  tooth(ctx, NOTE, NOTE, seed);
+
+  // The gummed strip across the top, the one piece of a post-it that says
+  // post-it rather than square. Faint, because it is a shade of the same paper.
+  ctx.fillStyle = faint;
+  ctx.fillRect(0, 0, NOTE, 34);
+
+  /* Two lines at most, broken at the space nearest the middle — "BEYOND THE
+   * ROUTINE" wants to break after THE, not after BEYOND, and a plain greedy
+   * wrap gets that wrong for exactly the labels that need it most. */
+  const words = label.toUpperCase().split(/\s+/);
+  let lines = [label.toUpperCase()];
+  if (words.length > 1) {
+    let best = 1;
+    let bestGap = Infinity;
+    for (let i = 1; i < words.length; i++) {
+      const left = words.slice(0, i).join(" ").length;
+      const right = words.slice(i).join(" ").length;
+      if (Math.abs(left - right) < bestGap) {
+        bestGap = Math.abs(left - right);
+        best = i;
+      }
+    }
+    lines = [words.slice(0, best).join(" "), words.slice(best).join(" ")];
+  }
+
+  // Fitted rather than fixed: one size that suits "ABOUT" leaves
+  // "RECOMMENDATIONS" hanging off both edges of the paper.
+  const longest = Math.max(...lines.map((l) => l.length));
+  const size = Math.min(46, Math.floor((NOTE - 44) / (longest * 0.62)));
+
+  ctx.fillStyle = ink;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `500 ${size}px ${MONO}`;
+  const step = size * 1.35;
+  const start = NOTE / 2 + 14 - ((lines.length - 1) * step) / 2;
+  lines.forEach((line, i) => ctx.fillText(line, NOTE / 2, start + i * step));
+}
+
 export interface Press {
   /** One texture per outcome, in the order given. */
   readonly sheets: readonly CanvasTexture[];
   readonly chess: CanvasTexture | null;
   /** The sign nobody is meant to read. See paintSign. */
   readonly sign: CanvasTexture | null;
+  /** Label texture per artifact id, for the paper notes. See paintNote. */
+  readonly notes: ReadonlyMap<string, CanvasTexture>;
   dispose(): void;
 }
 
@@ -307,7 +380,11 @@ function paintSign(
  * belt: if fonts.ready never settles the sheets are still printed, just in the
  * fallback. A blank sheet is the one outcome this file exists to prevent.
  */
-export function press(p: Palette, outcomes: readonly Outcome[]): Press {
+export function press(
+  p: Palette,
+  outcomes: readonly Outcome[],
+  labels: ReadonlyMap<string, string> = new Map(),
+): Press {
   /* INK, NOT CARD.
    *
    * These four used to derive from p.ink and p.accent, which were dark card
@@ -356,6 +433,23 @@ export function press(p: Palette, outcomes: readonly Outcome[]): Press {
     });
   }
 
+  const notes = new Map<string, CanvasTexture>();
+  let seed = 0x2f1b;
+  for (const [id, label] of labels) {
+    const ctx = pad(NOTE, NOTE);
+    if (!ctx) continue;
+    seed += 811;
+    const at = seed;
+    const draw = () => paintNote(ctx, label, ink, faint, at);
+    draw();
+    const t = texture(ctx.canvas);
+    notes.set(id, t);
+    repaint.push(() => {
+      draw();
+      t.needsUpdate = true;
+    });
+  }
+
   let sign: CanvasTexture | null = null;
   const signCtx = pad(1024, 512);
   if (signCtx) {
@@ -383,11 +477,13 @@ export function press(p: Palette, outcomes: readonly Outcome[]): Press {
     sheets,
     chess,
     sign,
+    notes,
     dispose() {
       disposed = true;
       for (const t of sheets) t.dispose();
       chess?.dispose();
       sign?.dispose();
+      for (const t of notes.values()) t.dispose();
     },
   };
 }

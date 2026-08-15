@@ -270,6 +270,16 @@ export function buildRoom(
   coaster.position.set(-0.72, 0.0012, -0.28);
   room.add(coaster);
 
+  // And the mug that made the ring. It stands ON the coaster, which is the
+  // whole point of a coaster and the difference between "a desk someone uses"
+  // and "a desk someone tidied before the photograph".
+  const mug = models.take("mug");
+  if (mug) {
+    mug.position.set(-0.72, 0.0024, -0.28);
+    mug.rotation.y = 128 * DEG;
+    room.add(mug);
+  }
+
   return { room, lamp, window };
 }
 
