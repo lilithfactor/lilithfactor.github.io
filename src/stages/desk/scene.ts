@@ -19,6 +19,7 @@ import {
   Float32BufferAttribute,
   Mesh,
   NeutralToneMapping,
+  PCFSoftShadowMap,
   Scene,
   SRGBColorSpace,
   Vector3,
@@ -137,6 +138,12 @@ export async function mountDesk(): Promise<DeskHandle | null> {
    * anyway, because the default is the kind of thing that changes between major
    * versions and this is the line whose absence is impossible to diagnose from
    * a screenshot. */
+  /* One shadow-casting light, softly filtered. The scene ran on painted
+   * contact ellipses alone, which ground an object but cannot show something
+   * standing between the lamp and the desk — and interrupting the pool is the
+   * entire reward for aiming an adjustable lamp. See buildLighting. */
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = PCFSoftShadowMap;
   renderer.outputColorSpace = SRGBColorSpace;
   renderer.toneMapping = NeutralToneMapping;
   renderer.toneMappingExposure = 1.08;
@@ -162,6 +169,12 @@ export async function mountDesk(): Promise<DeskHandle | null> {
   const models = await loadModels(MODEL_SPECS(palette), textures);
 
   const { room, lamp } = buildRoom(palette, materials, models);
+  // The desk and the wall take shadow but never throw it; nothing is behind
+  // them to catch one, and a caster costs a second draw.
+  room.traverse((node) => {
+    const mesh = node as Mesh;
+    if (mesh.isMesh) mesh.receiveShadow = true;
+  });
   scene.add(room);
 
   const lighting = buildLighting(palette);
@@ -197,6 +210,17 @@ export async function mountDesk(): Promise<DeskHandle | null> {
     const object = buildArtifact(id, palette, materials, pressKit, models);
     // Before placing: the line mesh is baked in the object's own space, so it
     // travels with every later move, lift and rotation for free.
+    // Casts and receives, so the lamp can throw one object's shape across
+    // another. Set before the outline is baked so the line mesh — which is not
+    // a Mesh and must never cast — is untouched.
+    object.traverse((node) => {
+      const mesh = node as Mesh;
+      if (!mesh.isMesh) return;
+      const material = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+      if (material && (material as { transparent?: boolean }).transparent) return;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+    });
     outlines.apply(object);
     object.position.set(...placement.position);
     object.rotation.y = placement.yaw * DEG;

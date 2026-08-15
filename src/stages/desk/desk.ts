@@ -398,7 +398,31 @@ export function buildLighting(p: Palette): Lighting {
   // opposite.
   key.decay = 0.9;
   key.distance = 0;
-  // No castShadow anywhere in this scene. See texture.ts.
+
+  /* The lamp casts, and only the lamp.
+   *
+   * This scene ran on painted contact ellipses alone, which ground an object
+   * but cannot say that something is BETWEEN the lamp and the desk. With a real
+   * articulated lamp that is the whole point of aiming it: the shade throws a
+   * pool, and anything standing in the pool interrupts it.
+   *
+   * One shadow-casting light, at 1024², is the affordable version of that. The
+   * fill and the hemisphere stay shadowless, which is also physically the right
+   * story — they are the room, not a source.
+   *
+   * normalBias rather than a big constant bias: the model is made of thin flat
+   * card lit at a grazing angle, which is the exact case where a constant bias
+   * either leaves acne or lifts the shadow off its object ("peter-panning").
+   * Offsetting along the normal fixes the sheets without detaching anything. */
+  key.castShadow = true;
+  key.shadow.mapSize.set(1024, 1024);
+  key.shadow.camera.near = 0.05;
+  key.shadow.camera.far = 6;
+  key.shadow.bias = -0.0004;
+  key.shadow.normalBias = 0.018;
+  // Softens the edge without a second pass. A paper model's shadows are short
+  // and soft; a hard-edged one would read as a rendering.
+  key.shadow.radius = 3;
 
   // A soft cool wash from the left, for form: it is what keeps the vertical
   // faces of a folded box distinguishable from its top when the lamp is not on

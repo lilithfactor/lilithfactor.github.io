@@ -87,9 +87,25 @@ export function createOutlines(line: Color): Outlines {
     root.traverse((o) => {
       const mesh = o as Mesh;
       if (!mesh.isMesh || !mesh.geometry) return;
-      // The contact shadows and the lamp's pool are painted light, not paper;
-      // an outline round a shadow is a rectangle lying on the desk.
       if (mesh.userData.noOutline) return;
+
+      /* NOTHING TRANSPARENT GETS A LINE.
+       *
+       * Light is not paper. The lamp's glow, its pool and the contact shadows
+       * are painted light, and an ink line around light is a drawn shape where
+       * there is no object — the lamp's glow disc is a CircleGeometry, so it
+       * came out as a perfect ring hanging in the air beside the lamp.
+       *
+       * Worth knowing WHY the fold threshold did not save us: EdgesGeometry
+       * always emits boundary edges — edges with only one adjoining face —
+       * whatever the angle. A flat disc is nothing but boundary, so it is the
+       * one shape guaranteed to draw fully at any threshold.
+       *
+       * A material test rather than a flag on each object, because the flag has
+       * to be remembered every time something new is added and this cannot be
+       * forgotten. */
+      const material = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+      if (material && (material as { transparent?: boolean }).transparent) return;
 
       const edges = new EdgesGeometry(mesh.geometry, threshold);
       // Into the artifact's own space, so the baked lines move, lift and rotate
