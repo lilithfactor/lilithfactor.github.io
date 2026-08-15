@@ -271,7 +271,7 @@ export async function mountDesk(): Promise<DeskHandle | null> {
   const anchors = new Map<ArtifactId, Vector3>();
   const placed = new Map<string, Object3D>();
   const pieces: Piece[] = [];
-  const noteWorld = new Vector3();
+  const viewDirection = new Vector3();
   /** Each artifact's anchor in its OWN space, for re-projecting every frame. */
   const anchorLocals = new Map<ArtifactId, Vector3>();
   // The lamp base is not an artifact, so it declares its own footprint; the
@@ -583,6 +583,27 @@ export async function mountDesk(): Promise<DeskHandle | null> {
     last = now;
     elapsed += dt;
 
+    /* WHICH WAY THE NOTES FACE.
+     *
+     * One angle for all eight, taken from the direction the camera is LOOKING
+     * rather than from where each note is relative to it. The two differ, and
+     * the difference is the whole point: aiming each note at the camera's
+     * position turns every one of them by a slightly different amount, so a
+     * note at the edge of the desk is seen at a slant and its writing skews,
+     * while a note in the middle is square on. Facing them all along the view
+     * direction makes every note parallel to the screen — the same reading
+     * angle wherever it stands on the desk, and whatever angle the desk is
+     * being looked at from.
+     *
+     * The note's printed face looks down its own +Z, so it wants to point back
+     * against the way the camera is pointing: hence the negated direction.
+     *
+     * Yaw ONLY. Matching the camera's downward tilt as well would make them
+     * perfectly face-on and would also make them sprites hanging in the air;
+     * the small lean keeps them standing on a desk. */
+    rig.camera.getWorldDirection(viewDirection);
+    const noteYaw = Math.atan2(-viewDirection.x, -viewDirection.z);
+
     for (const piece of pieces) {
       const goal = piece.restY + (piece.raised ? LIFT : 0);
       piece.object.position.y += (goal - piece.object.position.y) * Math.min(dt * 9, 1);
@@ -595,20 +616,8 @@ export async function mountDesk(): Promise<DeskHandle | null> {
        *
        * This is what makes the tuner honest — drag something across the desk
        * and its note, its ink and its hit target all arrive with it. */
-      /* The note turns to face the camera, and only about Y.
-       *
-       * A fixed angle was the first attempt, on the grounds that a billboard is
-       * the one thing here that would behave like UI rather than like card.
-       * That reasoning does not survive the note becoming a child: the object
-       * can now be turned — by the tuner, and one day by a visitor — and a
-       * label facing away is not a label. Yaw only, so it stays a piece of
-       * paper standing on a desk rather than a sprite. */
-      if (piece.note) {
-        piece.note.getWorldPosition(noteWorld);
-        piece.note.rotation.y =
-          Math.atan2(rig.camera.position.x - noteWorld.x, rig.camera.position.z - noteWorld.z) -
-          piece.object.rotation.y;
-      }
+      /* SQUARE TO THE VIEW, not aimed at the camera. See noteYaw above. */
+      if (piece.note) piece.note.rotation.y = noteYaw - piece.object.rotation.y;
 
       const anchorLocal = anchorLocals.get(piece.id);
       const anchor = anchors.get(piece.id);
