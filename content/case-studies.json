@@ -1,5 +1,37 @@
 [
   {
+    "id": "3cebe508-b291-80d2-a1b4-e74648aa4957",
+    "slug": "solving-room-mapping-and-identity-at-scale",
+    "name": "Solving Room Mapping and Identity at Scale",
+    "summary": "String similarity gets the two cases that matter exactly backwards: it merges the rooms that must never merge and splits the ones that must. This is the pipeline we built instead, stage by stage, including the part everyone tries to automate away.",
+    "type": [
+      "New Feature"
+    ],
+    "role": null,
+    "domain": [
+      "B2B"
+    ],
+    "kpis": [
+      "Conversion",
+      "Engagement",
+      "Retention"
+    ],
+    "association": null,
+    "links": [],
+    "order": 0,
+    "body": [
+      {
+        "heading": null,
+        "blocks": [
+          {
+            "type": "link",
+            "url": "https://www.onarrival.com/blog/how-we-solved-room-mapping"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "id": "31cbe508-b291-8026-9930-c9ad59e4dbb0",
     "slug": "configurator-visualize-customize-compare-purchase",
     "name": "Configurator: Visualize, Customize, Compare, Purchase",
@@ -23,7 +55,7 @@
       "https://magniteconfigurator.nissan.in/#/presentation?prevPage=homepage",
       "https://www.chevroletarabia.com/sa-en/crossovers-and-suvs/tahoe"
     ],
-    "order": 0,
+    "order": 1,
     "body": [
       {
         "heading": "Case Study",
@@ -109,7 +141,7 @@
     "links": [
       "https://www.metadome.ai/module/brand-led-agent"
     ],
-    "order": 1,
+    "order": 2,
     "body": [
       {
         "heading": "Case Study",
@@ -143,7 +175,7 @@
     ],
     "association": "Org",
     "links": [],
-    "order": 2,
+    "order": 3,
     "body": [
       {
         "heading": "Overview",
@@ -286,7 +318,7 @@
     ],
     "association": "Org",
     "links": [],
-    "order": 3,
+    "order": 4,
     "body": [
       {
         "heading": "Overview",
@@ -410,7 +442,7 @@
     ],
     "association": "Org",
     "links": [],
-    "order": 4,
+    "order": 5,
     "body": [
       {
         "heading": "Overview",
