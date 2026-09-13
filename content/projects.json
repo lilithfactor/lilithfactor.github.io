@@ -7,11 +7,15 @@
     "productType": "App",
     "links": [
       {
+        "url": "https://muretabi.com/ ",
+        "label": "Visit"
+      },
+      {
         "url": "https://play.google.com/store/apps/details?id=com.muretabi.app",
         "label": "Play Store"
       },
       {
-        "url": "https://muretabi.com/ ",
+        "url": "https://apps.apple.com/us/app/muretabi/id6794562819",
         "label": "Visit"
       }
     ],
