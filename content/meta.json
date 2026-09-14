@@ -1,7 +1,7 @@
 {
-  "syncedAt": "2026-09-14T16:44:31.964Z",
+  "syncedAt": "2026-09-14T20:43:01.862Z",
   "counts": {
-    "caseStudies": 7,
+    "caseStudies": 8,
     "productDives": 7,
     "projects": 5,
     "recommendations": 2,
@@ -9,6 +9,7 @@
     "beyond": 5
   },
   "warnings": [
+    "caseStudies \"From Search to Licensed API\": body contains an unrendered \"pdf\" block",
     "caseStudies \"Solving Room Mapping and Identity at Scale\": body is only 0 words",
     "caseStudies \"Configurator: Visualize, Customize, Compare, Purchase\": body is only 6 words",
     "caseStudies \"Brand-led agent: Expert Guidance, Instant\": body is only 2 words",
