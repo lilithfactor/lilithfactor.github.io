@@ -1,5 +1,125 @@
 [
   {
+    "id": "3dbbe508-b291-808e-8f5e-c91e8efdaf00",
+    "slug": "from-search-box-to-licensed-api",
+    "name": "From Search Box to Licensed API",
+    "summary": "Two-thirds of users never touch a sort or a filter, they take the list exactly as we ordered it. So the ranking is not a feature, it is the storefront. This is how we rebuilt it from what people actually type, and how it ended up being sold to other companies.",
+    "type": [
+      "New Product"
+    ],
+    "role": "Product Manager",
+    "domain": [
+      "Travel"
+    ],
+    "kpis": [
+      "Conversion",
+      "Revenue",
+      "Engagement"
+    ],
+    "association": "Org",
+    "links": [],
+    "order": 0,
+    "body": [
+      {
+        "heading": "Overview",
+        "blocks": [
+          {
+            "type": "list",
+            "items": [
+              "Owned hotel search & discovery e2e, from the question a user is asking to the order they get back.",
+              "87.5% of GMV now flows through the default ranking. Same engine licensed externally as an API, another travel business running its entire hotel operation on it.",
+              "Impact area: Revenue, via decision quality, not traffic."
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Situation",
+        "blocks": [
+          {
+            "type": "list",
+            "items": [
+              "Hero: a traveller booking a hotel, high-stakes, infrequent, no way to inspect before paying.",
+              "Blind spot: we could see what users chose. We could not see what they were asking for.",
+              "Pain: searches returning noise or nothing, the two were indistinguishable in the data, so neither could be fixed.",
+              "Stakes: two-thirds of results-page sessions never touch a sort or a filter. The default order isn't a feature, it's the storefront.",
+              "Constraints: no data scientist, no ranking infra, shared QA, pod of 8 across two products, weekly release train.",
+              "My hypothesis: ranking quality, not filter count, decides GMV, and ranking can't be fixed until the input is understood."
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Tasks",
+        "blocks": [
+          {
+            "type": "list",
+            "items": [
+              "SMART objective: ship a measurable default ranking in a quarter, and prove it beats what users pick for themselves.",
+              "North Star: share of GMV flowing through the default order.",
+              "Primary KPIs: GMV share, conversion by sort, AOV by sort.",
+              "Secondary KPIs: no-result rate, selection depth, sort adoption.",
+              "Owned: the full surface, input, relevance, ranking, filters, geo, and the instrumentation under all of it.",
+              "Process: JTBD on the query → instrument → measure → spec → ship → re-measure. Nothing shipped on an opinion.",
+              "Key players: 1 BE, shared QA."
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Actions",
+        "blocks": [
+          {
+            "type": "list",
+            "items": [
+              "Closed the instrumentation gap: until we could see what was being asked for, relevance was being scored against clicks the system had produced itself, a closed loop that can only confirm itself. Everything below depends on breaking it.",
+              "Made results unambiguous: users could not tell what kind of thing each result referred to. Removing that ambiguity also split two failure modes that had looked identical in the data, and only then could either be fixed.",
+              "Treated empty searches as causes, not screens: the instinct is to design a better no-results state. Instead, repeated investigations, each isolating a different failure class. 6 releases in 6 weeks, each off its own research.",
+              "Specced the ranking rather than requesting it: chose the signal set and how the signals trade against each other. Most PMs file a ticket for \"better ranking\", these are product tradeoffs, not engineering ones.",
+              "Weights as config, not code: retunable without a release. A modest call at the time; it became the reason the engine was portable, then sellable.",
+              "Compared users to themselves: same people's sessions with & without a manual re-sort. Kills the obvious objection, that re-sorters are simply cheaper customers.",
+              "Audited the menu on measured performance, not usage: then argued the effort belonged on the default, 1% better first result beats doubling every other option's usage.",
+              "Productised it: measurable ordering + config weights = no longer an internal feature. Now licensed as an API."
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Results",
+        "blocks": [
+          {
+            "type": "list",
+            "items": [
+              "87.5% of GMV through the default order, the ordering is the business.",
+              "Better choices, identical effort: on the default, users buy closer to the middle of what's on screen and at a higher star rating than when they re-sort, same inventory..",
+              "Same users: 1.33× AOV on the default versus their own re-sorted sessions. Within-user, so not a customer-mix effect.",
+              "Licensed externally as an API — another travel business runs its entire hotel operation on it.",
+              "Long-term: weights are config → retunable without a release, portable to a new vertical or a new buyer."
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Artifacts",
+        "blocks": [
+          {
+            "type": "quote",
+            "text": "Links/screenshots of:"
+          }
+        ]
+      },
+      {
+        "heading": "Learning",
+        "blocks": [
+          {
+            "type": "quote",
+            "text": "Contents"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "id": "3cebe508-b291-80d2-a1b4-e74648aa4957",
     "slug": "solving-room-mapping-and-identity-at-scale",
     "name": "Solving Room Mapping and Identity at Scale",
@@ -18,7 +138,7 @@
     ],
     "association": null,
     "links": [],
-    "order": 0,
+    "order": 1,
     "body": [
       {
         "heading": null,
@@ -55,7 +175,7 @@
       "https://magniteconfigurator.nissan.in/#/presentation?prevPage=homepage",
       "https://www.chevroletarabia.com/sa-en/crossovers-and-suvs/tahoe"
     ],
-    "order": 1,
+    "order": 2,
     "body": [
       {
         "heading": "Case Study",
@@ -141,7 +261,7 @@
     "links": [
       "https://www.metadome.ai/module/brand-led-agent"
     ],
-    "order": 2,
+    "order": 3,
     "body": [
       {
         "heading": "Case Study",
@@ -175,7 +295,7 @@
     ],
     "association": "Org",
     "links": [],
-    "order": 3,
+    "order": 4,
     "body": [
       {
         "heading": "Overview",
@@ -318,7 +438,7 @@
     ],
     "association": "Org",
     "links": [],
-    "order": 4,
+    "order": 5,
     "body": [
       {
         "heading": "Overview",
@@ -442,7 +562,7 @@
     ],
     "association": "Org",
     "links": [],
-    "order": 5,
+    "order": 6,
     "body": [
       {
         "heading": "Overview",
