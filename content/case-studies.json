@@ -3,7 +3,7 @@
     "id": "3dbbe508-b291-80f8-a7e2-d5809f1bca52",
     "slug": "24-of-gmv-hiding-across-funnel-steps",
     "name": "+24% of GMV, Hiding across funnel steps",
-    "summary": "We were watching one funnel. There were six, and they disagreed with each other. The aggregate rate was the average of a business that worked and a business that didn't, and averaging them hid the fact that the fix needed nothing built.",
+    "summary": "We were selling more every month and converting less, so we concluded the product was losing and planned a quarter of building. It wasn't the product. We had been watching a single number that turned out to be the average of six different businesses, some healthy, some not, and most of the loss was sitting in three screens we had already shipped.",
     "type": [
       "Optimization"
     ],
@@ -45,104 +45,75 @@
           {
             "type": "list",
             "items": [
-              "An identity check that only some customers ever see. Roughly three in\nfour people who reached it did not come out the other side. The customers\nwho skip that screen entirely convert at more than twice the rate.",
-              "The payment screen, failing worst for the most expensive bookings. Our\nbest customers, at our biggest basket sizes, were the ones most likely to drop\nat the very last step.",
-              "A price on one screen that didn't match the price at checkout — shown\nhigh, discounted after the customer had already decided."
+              "Room selection, the number moved. What a customer was shown here did not always match what they were charged at checkout. That is not a pricing problem, it is a trust problem: it arrives at the exact moment someone is deciding whether we are worth believing, and it costs us the booking, not just the margin.",
+              "Identification, the one step where conversion could more than double. An identity check only some customers ever reach, and three in four of them never come out the other side. The customers who never see it convert at 2.3× the rate of the ones who do. I sized half of that gap, not all of it.",
+              "Payment, failing worst for our best customers. The most expensive bookings were the most likely to fall over at the very last step, which is the opposite of what everyone assumed."
             ]
           },
           {
             "type": "para",
-            "text": "None of the three is exotic. That is the point: the expensive problems were\nordinary, and they were already in production."
+            "text": "None of the three is exotic. That is the point: the expensive problems were\nordinary, and they were already out there."
           }
         ]
       },
       {
-        "heading": "Overview",
+        "heading": "Why nobody had seen it",
+        "blocks": [
+          {
+            "type": "callout",
+            "text": "Everyone was watching one number: of the people who searched, how many booked. It had been falling subtly, and a falling number against a rising traffic chart reads like a product that is losing."
+          },
+          {
+            "type": "para",
+            "text": "But there was no such thing as \"our conversion rate.\" We sold to six quite different kinds of customer, different budgets, different destinations, different expectations, and we reported them as a single figure. Some of those businesses were healthy and some were not, and averaging them produced a number that described neither."
+          },
+          {
+            "type": "para",
+            "text": "That mattered because it left two explanations that look identical from the outside: either the product had got worse, or we were simply selling to a different mix of people than before. Those have opposite fixes, one is a quarter of engineering, the other is a pricing and marketing decision, and we were about to bet on the expensive one."
+          }
+        ]
+      },
+      {
+        "heading": "How I found it",
         "blocks": [
           {
             "type": "list",
             "items": [
-              "Tore down 3 quarters of the booking funnel, every confirmed order, matched to the catalogue with no unresolved rows, across every live partner instance, segmented on tier × destination.",
-              "+24% of annual GMV found recoverable, sitting in 3 live steps; no new product, supplier, or renegotiated deal.",
-              "Impact area: Revenue, by finding it rather than building anything."
+              "I rebuilt the foundation instead of noting it was cracked. The field every report depended on was wrong, so I reconstructed it from confirmed orders, matching every booked property against our catalogue, nothing unresolved, nothing quietly dropped.",
+              "I split the customers up before looking at the funnel. Six groups, not one, deciding in advance which differences between customers actually change how they behave. That is a product judgement, not a technical one.",
+              "I measured every step separately, rather than end to end. An e2e number tells you a group is doing badly. Only the individual steps tell you where. Each of the three findings is one step: a group doing better than its counterpart at every stage, then falling off a cliff at exactly one.",
+              "I compared like with like. Where two routes to the same room disagreed, I looked only at the properties available down both of them, so the inventory stopped being a possible explanation, and the only difference left was what the customer was shown.",
+              "I tested the thing everyone was sure of. The house view was that being cheapest wins the booking. I sorted every click by how its price compared to the rest of the page it appeared on, in five bands. Conversion is flat across all five, and at the premium end it reverses: a suspiciously cheap luxury property converts worse, not better.",
+              "I deliberately made my own number smaller. I took half of two of the three opportunities, assumed no knock-on benefit anywhere else, and published four things the analysis could not tell you.",
+              "I ended on decisions, not findings. Four questions to named owners, each answerable yes or no."
             ]
           }
         ]
       },
       {
-        "heading": "Situation",
+        "heading": "What happened next",
         "blocks": [
           {
             "type": "list",
             "items": [
-              "Hero: the business, choosing where next quarter's build capacity goes.",
-              "The shape of the problem: searches/day ×3.9, conversion ×0.78 over the same three quarters. We bought 3.9× the traffic and got 2.7× the money.",
-              "Blind spot: one conversion rate for every tier, every destination, every price point, six quite different businesses reported as one.",
-              "Pain: no way to tell whether the product got worse or the mix moved. Those have opposite roadmaps.",
-              "Stakes: the build plan was about to absorb a quarter, when the loss might already be sitting in screens shipped months ago.",
-              "My hypothesis: the aggregate is the average of segments that behave nothing alike, and the averaging is what hides the answer."
+              "The quarter of build capacity was not spent on the wrong thing. The question changed from what do we build to where do we spend.",
+              "One of the four decisions was answered inside two weeks, not in a meeting, but by someone changing the thing and shipping it twice in six days. It is the only part of this work that banked real money, and it is the part I never bothered to size. The others, in the coming weeks.",
+              "The cheapest-price assumption stayed disproved, but I put it up as a test to run, not a settled answer. The evidence at the premium end is thin, and I said so at the time.",
+              "One habit died. \"Most of our bookings are X\" stopped being a reason to do anything, once it turned out the biggest group by number of bookings was nearly the smallest by money."
             ]
           }
         ]
       },
       {
-        "heading": "Tasks",
+        "heading": "What I'd tell someone doing this",
         "blocks": [
           {
             "type": "list",
             "items": [
-              "SMART objective: explain the decline by segment and size what is recoverable, within one quarter.",
-              "North Star: recoverable GMV as a share of run rate, actionable, not diagnostic.",
-              "Primary: step conversion by segment, order value by segment, take rate by price band.",
-              "Secondary: segment GMV share, quarter-on-quarter share movement.",
-              "Owned: the question, the data model, the grain, the method, the sizing, the recommendation.",
-              "The grain decision: built the segment funnel at session × property, because tier only exists on one event in the chain, end-to-end session grain would have thrown it away."
-            ]
-          }
-        ]
-      },
-      {
-        "heading": "Actions",
-        "blocks": [
-          {
-            "type": "list",
-            "items": [
-              "Rebuilt the base, didn't caveat it: the dimension every report leaned on was wrong. Reconstructed it from confirmed orders, with every booked property matched to the catalogue, no unresolved rows, no silent exclusions.",
-              "Segmented on what changes behaviour: tier × destination segments; then order size, and partner across every live instance.",
-              "Step by step, not end to end: end-to-end says a segment is worse; steps say where. Each finding was one step, a segment beating its counterpart at every step, then converting at less than half at exactly one.",
-              "Held the property constant: compared partners only on properties booked through both, so inventory stopped being the variable and the only difference left was what the guest was shown.",
-              "Tested what everyone knew: bucketed every click by price position against the rest of that page, bands, cheapest to 2.5× page average. Conversion is flat across all. At the premium tier it inverts: the cheapest rooms convert at about half the rate of ones priced just below average.",
-              "Ended on decisions, not findings: 4 questions to named owners, each answerable yes or no."
-            ]
-          }
-        ]
-      },
-      {
-        "heading": "Results",
-        "blocks": [
-          {
-            "type": "list",
-            "items": [
-              "+24% of annual GMV recoverable, across funnel steps screens, none requiring anything built or renegotiated.",
-              "The decline explained: conversion fell because the mix moved, not because the product degraded, which changed the question from what's broken to where do we spend.",
-              "A pricing assumption retired: being cheapest buys nothing, and at the premium tier it costs. Redirected promotional spend rather than adding to it.",
-              "Method reused: segment → step → isolate → size → limit is now how funnel questions get answered here."
-            ]
-          }
-        ]
-      },
-      {
-        "heading": "Learning",
-        "blocks": [
-          {
-            "type": "list",
-            "items": [
-              "An aggregate is honest only when its segments agree. Ours didn't, the average of a business that works and one that doesn't describes neither.",
-              "\"Worse\" is a segment. \"Where\" is a step. The end-to-end rate located nothing.",
-              "Grain is a product decision. Session grain would have silently discarded tier, and with it every finding.",
-              "Size it small on purpose. Halving two gaps cost headline value and bought the thing that mattered: nobody argued with the number.",
-              "Test what everyone knows. The most valuable finding contradicted the assumption nobody had checked.",
-              "Next: the same teardown on the second vertical, and a re-run once the three screens are fixed, a recoverable number is worth nothing until someone recovers it."
+              "An average is only honest when the things inside it agree. Ours didn't.",
+              "Go back and check your own findings. A month later, one of mine had quietly moved to a different screen. I would have repeated the old answer with complete confidence.",
+              "Compare like with like before you accuse anyone. Holding the inventory constant, my headline gap fell from about 3× to 1.2×. The problem was real, but it was somewhere else, and that correction was worth more than the original finding.",
+              "The decision that moves is rarely the one you modelled. Three carefully sized fixes sat still; one commercial question in my closing paragraph was settled in a fortnight."
             ]
           }
         ]
