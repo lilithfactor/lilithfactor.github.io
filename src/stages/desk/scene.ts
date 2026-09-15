@@ -32,13 +32,21 @@ import {
 import { DESK_MIN_WIDTH } from "../choose";
 import { bindAnchors, clearAnchors, projectAnchors, type Binding } from "./anchors";
 import { createCameraRig } from "./camera";
-import { buildLighting, buildRoom, DESK_SIZE, LAMP } from "./desk";
+import {
+  buildLighting,
+  buildRoom,
+  DESK_SIZE,
+  LAMP,
+  matBowAmount,
+  matHeightAt,
+  setMatBow,
+} from "./desk";
 import { createLampRig } from "./lamp";
 import { press } from "./print";
-import { ARTIFACT_IDS, ARTIFACT_LABELS, OVERVIEW, PLACEMENTS, type ArtifactId } from "./layout";
+import { ARTIFACT_IDS, ARTIFACT_LABELS, PLACEMENTS, type ArtifactId } from "./layout";
 import { createMaterials } from "./materials";
 import { loadModels } from "./models";
-import { buildArtifact, buildNote, MODEL_SPECS } from "./objects";
+import { buildArtifact, buildNote, MODEL_SPECS, NOTE_SIZE } from "./objects";
 import { createOutlines } from "./outline";
 import { blend, readPalette } from "./palette";
 import { applyTuned, type Tuned, type TunerTargets } from "./params";
@@ -59,10 +67,53 @@ export interface DeskHandle {
 interface Piece {
   readonly id: ArtifactId;
   readonly object: Object3D;
-  readonly restY: number;
+  /**
+   * Height ABOVE THE BASE SHEET, not world y.
+   *
+   * The sheet is bowed, so "on the desk" is a different y at every point on it
+   * — and an object seated at a fixed y disappears into the hump wherever the
+   * hump is taller than the object. This is the number the tuner moves and the
+   * number every placement in layout.ts meant; `restOf` adds the sheet.
+   */
+  base: number;
   /** Its paper name-note, a child of the object. Absent if the press failed. */
   readonly note?: Object3D;
   raised: boolean;
+}
+
+/** Where a piece sits when nothing is hovering it: its own height, plus the sheet's. */
+function restOf(piece: Piece): number {
+  return piece.base + matHeightAt(piece.object.position.x, piece.object.position.z);
+}
+
+/** How far a note leans back onto the object it is stuck to. Degrees. */
+const NOTE_LEAN = -25;
+
+/* --- THEMES ----------------------------------------------------------------
+ * A theme is a set of --stage-* tokens (see stage.css) plus, for two of them, a
+ * switch in here. It is read once, at mount, from ?theme= or from the last one
+ * picked — which is why the tuner's picker reloads the page rather than
+ * rebuilding a scene whose colours, textures and print were all resolved on the
+ * way up. A reload is two hundred milliseconds; live re-theming is a second
+ * copy of every builder in this directory.
+ */
+export const THEMES = ["paper", "kraft", "blueprint", "wire", "sketch"] as const;
+export type ThemeName = (typeof THEMES)[number];
+const THEME_STORE = "desk-theme";
+
+/** Resolves the theme and stamps it on <html>. MUST run before readPalette. */
+function applyTheme(): ThemeName {
+  let name = "paper";
+  try {
+    const asked = new URLSearchParams(location.search).get("theme");
+    if (asked) localStorage.setItem(THEME_STORE, asked);
+    name = asked ?? localStorage.getItem(THEME_STORE) ?? "paper";
+  } catch {
+    /* No storage — a private window, or blocked. The URL still decides. */
+  }
+  const theme = (THEMES as readonly string[]).includes(name) ? (name as ThemeName) : "paper";
+  document.documentElement.dataset.theme = theme;
+  return theme;
 }
 
 function isMesh(o: Object3D): o is Mesh {
@@ -99,6 +150,10 @@ function wantsTuner(): boolean {
 }
 
 export async function mountDesk(): Promise<DeskHandle | null> {
+  // BEFORE the palette: the theme is a set of tokens on <html>, and the palette
+  // is those tokens resolved. Read in the other order, every theme is paper.
+  const theme = applyTheme();
+
   // Colours come from the stylesheet, never from a literal in here. If the
   // stage stylesheet did not load, the honest outcome is no desk — not a desk
   // in whatever grey Three.js defaults to.
@@ -272,6 +327,23 @@ export async function mountDesk(): Promise<DeskHandle | null> {
   const placed = new Map<string, Object3D>();
   /** id → its paper note, so the tuner can nudge a label off whatever it hides. */
   const noteObjects = new Map<string, Object3D>();
+
+  /* NOTE SIZING, IN TWO PARTS.
+   *
+   * One world size for every note — a label set is a set, and eight labels at
+   * eight sizes is eight different voices — times a per-note fudge for the one
+   * that has to be smaller because of what it stands on. Both land on the same
+   * `scale`, because the alternative (a wrapper group carrying one of them)
+   * would multiply the note's saved position by the size and move every label
+   * the moment the slider did. */
+  let noteSize = NOTE_SIZE;
+  const noteFudge = new Map<string, number>();
+  const sizeNote = (id: string): void => {
+    noteObjects.get(id)?.scale.setScalar((noteSize / NOTE_SIZE) * (noteFudge.get(id) ?? 1));
+  };
+  const sizeAllNotes = (): void => {
+    for (const id of noteObjects.keys()) sizeNote(id);
+  };
   const pieces: Piece[] = [];
   const viewDirection = new Vector3();
   /** Each artifact's anchor in its OWN space, for re-projecting every frame. */
@@ -297,7 +369,17 @@ export async function mountDesk(): Promise<DeskHandle | null> {
       mesh.castShadow = true;
       mesh.receiveShadow = true;
     });
-    object.position.set(...placement.position);
+    /* The object's own extent, measured while it is still at the origin and
+     * unturned — so this box IS its local space, with no world→local inverse
+     * to get wrong. The note below is hung off its front-top edge from it. */
+    const extent = new Box3().setFromObject(object);
+
+    object.position.set(
+      placement.position[0],
+      // ON the sheet, not on the plane the sheet used to be. See desk.ts.
+      placement.position[1] + matHeightAt(placement.position[0], placement.position[2]),
+      placement.position[2],
+    );
     object.rotation.y = placement.yaw * DEG;
 
     /* THE NOTE IS PART OF THE OBJECT.
@@ -319,30 +401,30 @@ export async function mountDesk(): Promise<DeskHandle | null> {
     const printedNote = pressKit.notes.get(id);
     let noteOf: Object3D | null = null;
     if (printedNote) {
-      const note = buildNote(palette, materials, printedNote, 8);
-      /* Stepped 150mm toward the viewer, in the object's own space.
+      const note = buildNote(palette, materials, printedNote, 8, pressKit.stock);
+      /* STUCK TO THE OBJECT, not standing in front of it.
        *
-       * The anchors were solved for a chip floating in screen space, which
-       * nothing can stand in front of. A note is in the room, so it can: the
-       * library's note stood inside the bookcase it names. Stepping along the
-       * sightline clears whatever is in front without moving it on screen. */
-      const bearing =
-        Math.atan2(
-          OVERVIEW.position[0] - placement.position[0],
-          OVERVIEW.position[2] - placement.position[2],
-        ) -
-        placement.yaw * DEG;
+       * It used to be stepped 150mm along the sightline from the anchor, which
+       * put a 200mm square of paper on the desk BETWEEN the viewer and the
+       * thing it names — the about note covered most of the notebook. A label
+       * that hides its subject has inverted its own job.
+       *
+       * So it goes on the object's front-top edge: the front face of its own
+       * bounding box, near the top of it, leaning back onto the object the way
+       * a card tucked against something leans. Nothing is behind it to hide. */
       note.position.set(
-        placement.anchor[0] + Math.sin(bearing) * 0.15,
-        placement.anchor[1],
-        placement.anchor[2] + Math.cos(bearing) * 0.15,
+        (extent.min.x + extent.max.x) / 2,
+        extent.max.y * 0.9,
+        extent.max.z + 0.006,
       );
+      note.rotation.x = NOTE_LEAN * DEG;
       note.traverse((n) => {
         const mesh = n as Mesh;
         if (mesh.isMesh) mesh.castShadow = true;
       });
       object.add(note);
       noteObjects.set(id, note);
+      sizeNote(id);
       noteOf = note;
     }
 
@@ -362,9 +444,12 @@ export async function mountDesk(): Promise<DeskHandle | null> {
     anchors.set(id, anchor);
     anchorLocals.set(id, anchorLocal);
 
-    pieces.push({ id, object, restY: object.position.y, note: noteOf ?? undefined, raised: false });
+    pieces.push({ id, object, base: placement.position[1], note: noteOf ?? undefined, raised: false });
     placed.set(id, object);
   }
+
+  /** id → its piece, for the tuner's per-object height. */
+  const byId = new Map<string, Piece>(pieces.map((piece) => [piece.id as string, piece]));
 
   /* --- Contact shadows ----------------------------------------------------
    * One darkened quad per object, lying a millimetre above the base sheet, and
@@ -608,7 +693,11 @@ export async function mountDesk(): Promise<DeskHandle | null> {
     const noteYaw = Math.atan2(-viewDirection.x, -viewDirection.z);
 
     for (const piece of pieces) {
-      const goal = piece.restY + (piece.raised ? LIFT : 0);
+      // Re-read every frame rather than cached: the sheet's height under an
+      // object changes when the object is dragged across the desk and when the
+      // bow itself is tuned, and two cosines times eight is nothing.
+      const rest = restOf(piece);
+      const goal = rest + (piece.raised ? LIFT : 0);
       piece.object.position.y += (goal - piece.object.position.y) * Math.min(dt * 9, 1);
 
       /* Re-read the anchor from where the object actually IS.
@@ -627,9 +716,12 @@ export async function mountDesk(): Promise<DeskHandle | null> {
       if (anchorLocal && anchor) {
         piece.object.updateWorldMatrix(true, false);
         anchor.copy(piece.object.localToWorld(anchorLocal.clone()));
-        anchor.y -= piece.object.position.y - piece.restY;
+        anchor.y -= piece.object.position.y - rest;
       }
     }
+
+    // The ink shivers; the paper does not. Free at amplitude 0. See outline.ts.
+    outlines.boil(dt);
 
     view.update(dt);
     rig.update(elapsed, dt);
@@ -701,6 +793,31 @@ export async function mountDesk(): Promise<DeskHandle | null> {
   viewport.addEventListener("change", onViewportChange);
   window.addEventListener("pagehide", destroy, { once: true });
 
+  /* --- What a theme does beyond its tokens --------------------------------
+   * Three of the five are nothing but --stage-* values and are already applied
+   * by the time the palette was read. Two are a switch:
+   *
+   *   wire    every material drawn as a wireframe and the ink turned off — the
+   *           three.js examples look, which is what this model is underneath.
+   *           Materials are shared, so this is four flags, not four hundred.
+   *   sketch  paper tokens with the line boiling: the same drawing re-drawn by
+   *           a hand five times a second, on a heavier line. See outline.ts.
+   *
+   * Set BEFORE the saved tuning replays, so a number moved on a slider still
+   * wins over a theme's opinion of it. */
+  if (theme === "wire") {
+    scene.traverse((node) => {
+      if (!isMesh(node)) return;
+      const list = Array.isArray(node.material) ? node.material : [node.material];
+      for (const m of list) (m as Material & { wireframe?: boolean }).wireframe = true;
+    });
+    outlines.setVisible(false);
+  }
+  if (theme === "sketch") {
+    outlines.setWidth(2.6);
+    outlines.setBoil(1);
+  }
+
   /* The tuner: sliders for every number this scene is made of, so the loop of
    * edit → rebuild → screenshot → squint stops being how the look gets found.
    * Dynamically imported and opt-in via ?tune, so a visitor never pays for it.
@@ -718,6 +835,47 @@ export async function mountDesk(): Promise<DeskHandle | null> {
     notes: noteObjects,
     lamp: lamp.group,
     camera: { get: rig.overview, set: rig.setOverview },
+    // The base sheet's bow. Re-bowed from the flat copy desk.ts keeps, and
+    // every object re-seats itself on the next frame because `restOf` asks the
+    // sheet how high it is rather than remembering.
+    deskBow: { get: matBowAmount, set: setMatBow },
+    /* An object's height ABOVE the sheet. This is what `artifact.<id>.y` has
+     * always meant and what every saved value in tuned.json is: a 0 there means
+     * "on the desk", which is only position.y = 0 on a desk that is flat. */
+    height: {
+      get: (id) => byId.get(id)?.base ?? 0,
+      set: (id, v) => {
+        const piece = byId.get(id);
+        if (piece) piece.base = v;
+      },
+    },
+    noteSize: { get: () => noteSize, set: (v) => ((noteSize = v), sizeAllNotes()) },
+    noteScale: {
+      get: (id) => noteFudge.get(id) ?? 1,
+      set: (id, v) => {
+        noteFudge.set(id, v);
+        sizeNote(id);
+      },
+    },
+    theme: {
+      options: THEMES,
+      get: () => theme,
+      /* A RELOAD, deliberately. The palette, the print, the textures and every
+       * vertex colour in the model were resolved from the tokens on the way up;
+       * re-theming live means a second path through all of it that nobody would
+       * exercise except by picking a theme. Guarded against the theme it is
+       * already on, because applyTuned replays every setter at mount and a
+       * setter that reloads unconditionally is a reload loop. */
+      set: (name) => {
+        if (name === theme) return;
+        try {
+          localStorage.setItem(THEME_STORE, name);
+        } catch {
+          /* No storage. The reload still lands on the ?theme= in the URL. */
+        }
+        location.reload();
+      },
+    },
     materials: {
       contactOpacity: (v) => (v < 0 ? materials.contact.opacity : (materials.contact.opacity = v)),
       glowOpacity: (v) => (v < 0 ? materials.glow.opacity : (materials.glow.opacity = v)),

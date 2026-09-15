@@ -36,7 +36,7 @@ import {
   type BufferGeometry,
   type Object3D,
 } from "three";
-import { bow, edgeOf, facet, paint } from "./cut";
+import { bow, bowLift, edgeOf, facet, paint } from "./cut";
 import type { Materials } from "./materials";
 import { blend, stock, type Palette } from "./palette";
 import type { ModelKit } from "./models";
@@ -54,6 +54,54 @@ const DEG = Math.PI / 180;
  * window" without anyone thinking about it.
  */
 export const DESK_SIZE = [2.4, 1.45] as const;
+
+/* --- THE BOW, AND WHAT STANDS ON IT ---------------------------------------
+ * The base sheet is bowed so a 2.4m plane does not read as computed. Every
+ * model in this scene, though, is seated base-at-y=0 (models.ts) — so at the
+ * top of the hump the sheet came UP through the pencil, the keyboard and the
+ * near corner of the notebook, and things looked like they were sinking into
+ * the desk. They were not: the desk was rising through them.
+ *
+ * Two halves to the fix, and both live here because the bow does:
+ *   - the amount is tunable (params.ts, "mat.bow"), re-bowed from a kept flat
+ *     copy of the vertices so it can be moved back and forth without drift;
+ *   - `matHeightAt` answers how high the sheet is at a point, so a caller can
+ *     seat an object on it instead of on the plane the sheet used to be.
+ */
+const MAT_BOW = 0.0055;
+let bowAmount = MAT_BOW;
+let matGeometry: PlaneGeometry | null = null;
+let matFlat: Float32Array | null = null;
+
+/** How far the base sheet is bowed right now, in metres. */
+export function matBowAmount(): number {
+  return bowAmount;
+}
+
+/** Re-bows the base sheet. Metres of lift at the crown. */
+export function setMatBow(amount: number): void {
+  bowAmount = amount;
+  if (!matGeometry || !matFlat) return;
+  const position = matGeometry.getAttribute("position");
+  (position.array as Float32Array).set(matFlat);
+  bow(matGeometry, amount, 2);
+}
+
+/**
+ * How high the base sheet stands at a point on the desk, in metres.
+ *
+ * The plane is built in its own space and laid down with rotation.x = -90°,
+ * which carries local +z (the bowed axis) to world +y and local +y to world
+ * -z. So the sheet's own (u, v) is (world x, -world z), normalised over
+ * DESK_SIZE and clamped — an object past the edge of the mat is seated at the
+ * edge's height rather than on an extrapolated cosine.
+ */
+export function matHeightAt(x: number, z: number): number {
+  const clamp = (v: number) => Math.min(Math.max(v, 0), 1);
+  const pu = clamp((x + DESK_SIZE[0] / 2) / DESK_SIZE[0]);
+  const pv = clamp((-z + DESK_SIZE[1] / 2) / DESK_SIZE[1]);
+  return bowLift(pu, pv) * bowAmount;
+}
 
 /** Where the lamp stands. */
 export const LAMP = new Vector3(1.0, 0, -0.48);
@@ -239,7 +287,9 @@ export function buildRoom(
    * needs no edge to land on and cannot be mistaken for a stray mark. See
    * cut.ts. */
   const mat = new PlaneGeometry(DESK_SIZE[0], DESK_SIZE[1], 34, 20);
-  bow(mat, 0.0055, 2);
+  matGeometry = mat;
+  matFlat = Float32Array.from(mat.getAttribute("position").array);
+  setMatBow(bowAmount);
   const top = new Mesh(mat, m.card);
   paint(top.geometry, p.desk, p.desk, 2);
   top.rotation.x = -90 * DEG;
@@ -273,14 +323,22 @@ export function buildRoom(
   room.add(window.group, window.patch);
 
   const lamp = buildLamp(p, m, models);
+  // Seated on the sheet, like everything else that stands on it. The lamp's
+  // painted pool goes up with it or it lights the underside of the hump.
+  const lampLift = matHeightAt(lamp.group.position.x, lamp.group.position.z);
+  lamp.group.position.y += lampLift;
+  lamp.pool.position.y += lampLift;
   room.add(lamp.group, lamp.pool);
+
+  // The patch of sun lies ON the sheet too.
+  window.patch.position.y += matHeightAt(window.patch.position.x, window.patch.position.z);
 
   // A paper coaster where a cup sat, because the desk should look used and this
   // costs one disc. Aged card, one shade off the base sheet.
   const coaster = new Mesh(new CircleGeometry(0.045, 20), m.card);
   paint(coaster.geometry, stock(p.paperAged, 3), p.paperAged, 2);
   coaster.rotation.x = -90 * DEG;
-  coaster.position.set(-0.72, 0.0012, -0.28);
+  coaster.position.set(-0.72, 0.0012 + matHeightAt(-0.72, -0.28), -0.28);
   room.add(coaster);
 
   // And the mug that made the ring. It stands ON the coaster, which is the
@@ -288,7 +346,7 @@ export function buildRoom(
   // and "a desk someone tidied before the photograph".
   const mug = models.take("mug");
   if (mug) {
-    mug.position.set(-0.72, 0.0024, -0.28);
+    mug.position.set(-0.72, 0.0024 + matHeightAt(-0.72, -0.28), -0.28);
     mug.rotation.y = 128 * DEG;
     room.add(mug);
   }

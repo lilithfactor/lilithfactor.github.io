@@ -39,6 +39,19 @@ export interface TunerTargets {
    */
   notes: Map<string, Object3D>;
   lamp: Object3D;
+  /** The base sheet's bow, in metres of lift at the crown. See desk.ts. */
+  deskBow: { get(): number; set(v: number): void };
+  /**
+   * An object's height ABOVE the base sheet — which is not its position.y,
+   * because the sheet is bowed. Every `artifact.<id>.y` ever saved means this.
+   */
+  height: { get(id: string): number; set(id: string, v: number): void };
+  /** One world size for every note, in metres. */
+  noteSize: { get(): number; set(v: number): void };
+  /** One note's own multiplier on top of that size. */
+  noteScale: { get(id: string): number; set(id: string, v: number): void };
+  /** The whole palette, swapped. Reloads — see scene.ts for why. */
+  theme: { options: readonly string[]; get(): string; set(v: string): void };
   camera: {
     get(): { position: [number, number, number]; target: [number, number, number]; fov: number };
     set(v: { position?: [number, number, number]; target?: [number, number, number]; fov?: number }): void;
@@ -108,6 +121,29 @@ export function specs(t: TunerTargets): Spec[] {
     label: "ink",
     value: "#12100c",
     set: (hex) => t.outlines.material.color.set(hex),
+  });
+
+  /* THE LINE BOIL. Amplitude first because it is the on/off — 0 is a still
+   * drawing, 1 is the "sketch" theme's pencil test. See outline.ts. */
+  num({
+    key: "line.boil",
+    group: "Outline",
+    label: "boil",
+    min: 0,
+    max: 1,
+    step: 0.05,
+    get: () => t.outlines.boilAmount,
+    set: (v) => t.outlines.setBoil(v),
+  });
+  num({
+    key: "line.boilRate",
+    group: "Outline",
+    label: "boil ms",
+    min: 60,
+    max: 300,
+    step: 5,
+    get: () => t.outlines.boilRate,
+    set: (v) => t.outlines.setBoilRate(v),
   });
 
   /* --- Paper and surface --------------------------------------------------- */
@@ -227,6 +263,49 @@ export function specs(t: TunerTargets): Spec[] {
     set: (v) => t.materials.glowOpacity(v),
   });
 
+  /* --- The base sheet ------------------------------------------------------
+   * How far the desk bows. It is a shading device and a hazard in equal parts:
+   * every object is seated on it now (see desk.ts), but the sheet still rises
+   * through anything built as a child of the room rather than placed on it, so
+   * this is the knob to reach for when something looks half-buried. */
+  num({
+    key: "mat.bow",
+    group: "Desk",
+    label: "sheet bow",
+    min: 0,
+    max: 0.012,
+    step: 0.0005,
+    get: () => t.deskBow.get(),
+    set: (v) => t.deskBow.set(v),
+  });
+
+  /* --- The notes ------------------------------------------------------------
+   * One size for all eight. The per-object `note.<id>.scale` below multiplies
+   * on top of it, so this moves the set and that moves the exception. */
+  num({
+    key: "note.size",
+    group: "Notes",
+    label: "size",
+    min: 0.06,
+    max: 0.24,
+    step: 0.005,
+    get: () => t.noteSize.get(),
+    set: (v) => t.noteSize.set(v),
+  });
+
+  /* --- The theme ------------------------------------------------------------
+   * Picking one stores it and reloads. Deliberately NOT replayed from
+   * tuned.json — see applyTuned. */
+  list.push({
+    kind: "pick",
+    key: "theme",
+    group: "Theme",
+    label: "theme",
+    options: t.theme.options,
+    value: t.theme.get(),
+    set: (v) => t.theme.set(v),
+  });
+
   /* --- Camera and the desk's angle ----------------------------------------- */
   AXIS.forEach((name, i) => {
     num({
@@ -304,6 +383,11 @@ export function specs(t: TunerTargets): Spec[] {
   /* --- Every object's placement -------------------------------------------- */
   for (const [id, object] of t.artifacts) {
     AXIS.forEach((name, i) => {
+      /* y is NOT position.y. The base sheet is bowed, so "0" — which is what
+       * every saved artifact y in tuned.json is — has to mean "on the desk",
+       * and the desk is at a different height under every object. x and z stay
+       * plain world components; the scene adds the sheet back each frame. */
+      const height = i === 1;
       num({
         key: `artifact.${id}.${name}`,
         group: id,
@@ -311,8 +395,8 @@ export function specs(t: TunerTargets): Spec[] {
         min: -1.6,
         max: 1.6,
         step: 0.005,
-        get: () => object.position.getComponent(i),
-        set: (v) => object.position.setComponent(i, v),
+        get: () => (height ? t.height.get(id) : object.position.getComponent(i)),
+        set: (v) => (height ? t.height.set(id, v) : object.position.setComponent(i, v)),
       });
     });
     num({
@@ -365,8 +449,8 @@ export function specs(t: TunerTargets): Spec[] {
         min: 0.3,
         max: 2.5,
         step: 0.01,
-        get: () => note.scale.x,
-        set: (v) => note.scale.setScalar(v),
+        get: () => t.noteScale.get(id),
+        set: (v) => t.noteScale.set(id, v),
       });
     }
 
@@ -399,6 +483,12 @@ export function specs(t: TunerTargets): Spec[] {
 export function applyTuned(t: TunerTargets, saved: Tuned): void {
   const byKey = new Map(specs(t).map((s) => [s.key, s]));
   for (const [key, value] of Object.entries(saved)) {
+    /* EXCEPT THE THEME. Its setter reloads the page, and the theme is already
+     * decided by the URL and localStorage before this file is reached — so
+     * replaying a saved one fights whatever ?theme= asked for, and the two
+     * bounce a reload off each other forever. The tuner still writes it to the
+     * file; nothing reads it back. */
+    if (key === "theme") continue;
     const spec = byKey.get(key);
     if (!spec) continue;
     if (spec.kind === "num") {
