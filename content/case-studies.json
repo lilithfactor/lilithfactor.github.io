@@ -20,7 +20,7 @@
     "order": 0,
     "body": [
       {
-        "heading": "Overview",
+        "heading": null,
         "blocks": [
           {
             "type": "image",
@@ -28,7 +28,37 @@
             "caption": null,
             "width": 2000,
             "height": 1091
+          }
+        ]
+      },
+      {
+        "heading": "What I found",
+        "blocks": [
+          {
+            "type": "callout",
+            "text": "We were selling more hotel rooms every month, but a smaller and smaller share\nof the people who looked at one actually booked it. We concluded\nthe product was falling behind, and were about to spend time and resources building its\nway out."
           },
+          {
+            "type": "para",
+            "text": "It wasn't the product. Most of the loss was sitting in three screens we had\nalready built, and I could put a number on it: about a quarter of a year's\nbooking revenue, recoverable without building anything, signing anyone new, or\nreopening a single commercial deal."
+          },
+          {
+            "type": "list",
+            "items": [
+              "An identity check that only some customers ever see. Roughly three in\nfour people who reached it did not come out the other side. The customers\nwho skip that screen entirely convert at more than twice the rate.",
+              "The payment screen, failing worst for the most expensive bookings. Our\nbest customers, at our biggest basket sizes, were the ones most likely to drop\nat the very last step.",
+              "A price on one screen that didn't match the price at checkout — shown\nhigh, discounted after the customer had already decided."
+            ]
+          },
+          {
+            "type": "para",
+            "text": "None of the three is exotic. That is the point: the expensive problems were\nordinary, and they were already in production."
+          }
+        ]
+      },
+      {
+        "heading": "Overview",
+        "blocks": [
           {
             "type": "list",
             "items": [
