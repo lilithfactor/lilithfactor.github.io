@@ -40,6 +40,14 @@ export interface Outlines {
   setWidth(px: number): void;
   setColour(colour: Color): void;
   setThreshold(degrees: number): void;
+  /** Every drawn line at once. The "wire" theme turns the ink off. */
+  setVisible(on: boolean): void;
+  /** THE LINE BOIL. Called every frame; does nothing at amplitude 0. */
+  boil(dt: number): void;
+  setBoil(amount: number): void;
+  setBoilRate(ms: number): void;
+  readonly boilAmount: number;
+  readonly boilRate: number;
   readonly material: LineMaterial;
 }
 
@@ -53,6 +61,23 @@ export interface Outlines {
  */
 const THRESHOLD = 38;
 const WIDTH = 2.2;
+
+/* --- THE LINE BOIL ---------------------------------------------------------
+ * What a pencil test looks like: the same drawing re-drawn every few frames by
+ * a hand that cannot put the line back in exactly the same place. The paper
+ * holds still and the ink shivers, which is the whole tell — animating the
+ * objects would be motion, and this is drawing.
+ *
+ * Done by nudging the baked line object inside its own parent, so nothing is
+ * re-baked and no geometry is touched: one position and one rotation per root,
+ * five times a second. The amounts are deliberately below the threshold of
+ * "something moved" — 0.7mm on a 2.4m desk — because past that it stops being
+ * a drawn line and starts being a loose one.
+ *
+ * Not on a per-frame lerp, on a HOLD: a boil that interpolates is a wobble.
+ * The jump is the point. */
+const BOIL_SHIFT = 0.0007;
+const BOIL_TURN = 0.2 * (Math.PI / 180);
 
 export function createOutlines(line: Color): Outlines {
   // toneMapped false so the ink stays ink: run through the Neutral curve it
@@ -70,6 +95,9 @@ export function createOutlines(line: Color): Outlines {
   material.resolution.set(window.innerWidth, window.innerHeight);
 
   let threshold = THRESHOLD;
+  let boilAmount = 0;
+  let boilRate = 110;
+  let boilClock = 0;
   const roots: Object3D[] = [];
 
   function bake(root: Object3D): void {
@@ -159,8 +187,44 @@ export function createOutlines(line: Color): Outlines {
     root.add(lines);
   }
 
+  /** The baked line under a root, if it has one yet. */
+  const lineOf = (root: Object3D): Object3D | undefined =>
+    root.children.find((c) => c.name === "outline");
+
   const outlines: Outlines = {
     material,
+    get boilAmount() {
+      return boilAmount;
+    },
+    get boilRate() {
+      return boilRate;
+    },
+    setVisible(on) {
+      material.visible = on;
+    },
+    setBoil(amount) {
+      boilAmount = amount;
+      // Back to where it was drawn, or the last shiver stays frozen in.
+      if (amount <= 0) {
+        for (const root of roots) lineOf(root)?.position.set(0, 0, 0);
+      }
+    },
+    setBoilRate(ms) {
+      boilRate = ms;
+    },
+    boil(dt) {
+      if (boilAmount <= 0) return;
+      boilClock += dt * 1000;
+      if (boilClock < boilRate) return;
+      boilClock = 0;
+      for (const root of roots) {
+        const line = lineOf(root);
+        if (!line) continue;
+        const jump = () => (Math.random() - 0.5) * 2 * BOIL_SHIFT * boilAmount;
+        line.position.set(jump(), jump(), jump());
+        line.rotation.y = (Math.random() - 0.5) * 2 * BOIL_TURN * boilAmount;
+      }
+    },
     apply(root) {
       // A part that moves is baked by its parent's walk as well as by whoever
       // asked for it; without this, re-baking on a threshold change would keep

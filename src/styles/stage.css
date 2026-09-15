@@ -101,6 +101,73 @@
   --stage-ambient: #f1eee7;
 }
 
+/* --- THE THEMES -----------------------------------------------------------
+ * A theme is nothing but a different set of the tokens above. scene.ts reads
+ * ?theme= (falling back to the last one picked, in localStorage) and stamps it
+ * on <html> BEFORE it reads the palette — so by the time the model is built,
+ * the only thing that changed is what getComputedStyle answered.
+ *
+ * Note how little each block has to say. Most --stage-* tokens forward
+ * --stage-sheet, and var() resolves at computed-value time on the element that
+ * won the cascade — which is <html> in both cases — so redefining the one
+ * sheet colour repaints the whole world. That is the payoff for the "one
+ * paper, every object" rule above, arriving from a direction nobody planned.
+ *
+ * Two of the five themes are not only tokens: "wire" wireframes every material
+ * and hides the ink, "sketch" boils the line. Both live in scene.ts, because
+ * neither is a colour. ======================================================= */
+
+/* KRAFT — the palette this scene was cut from before it went monochrome, back
+ * out of git. Six stocks that separate by colour rather than by outline: a
+ * kraft desk, aged paper, ink-dark plinths, a red pen, one cool spine. The
+ * drawn line stays, which the original never had — it turns out the two ideas
+ * are not opposed and this is the nicest thing in the file. */
+html[data-theme="kraft"] {
+  --stage-desk: #e3d3b6;
+  --stage-desk-deep: #cdba98;
+  --stage-paper: var(--paper-sheet);
+  --stage-paper-aged: var(--paper-aged);
+  --stage-paper-edge: var(--paper-edge);
+  --stage-kraft: var(--kraft);
+  --stage-ink: var(--ink);
+  --stage-accent: var(--red-pen);
+  --stage-cool: #c8d2d6;
+  --stage-backdrop: #ede4d4;
+  --stage-cut: var(--paper-edge);
+  --stage-shadow: #a9977a;
+}
+
+/* BLUEPRINT — a cyanotype. Every sheet the same deep blue, every line the pale
+ * one, which is the exact inverse of the paper theme and the reason print.ts
+ * has a second case: a print texture is a field of multipliers and a multiply
+ * cannot lay pale ink on dark stock. See the note in `press`. */
+html[data-theme="blueprint"] {
+  --stage-sheet: #1d3a6e;
+  --stage-line: #dbe6f5;
+  --stage-cut: #dbe6f5;
+  --stage-shadow: #10224a;
+  /* Cold light, all three. A warm key over blue paper makes it look like blue
+   * paper under a lamp; the point is that there is no lamp, only sun and
+   * ferric salts. */
+  --stage-key-light: #cfe0ff;
+  --stage-fill-light: #b6cdf0;
+  --stage-ambient: #7fa3d6;
+  --stage-night: #132749;
+  --stage-night-ambient: #0d1c36;
+}
+
+/* WIRE — the classic three.js examples look. The paper keeps its own colours;
+ * what changes is that every material is drawn as a wireframe and the ink is
+ * switched off, so the model shows its own construction. The cut tone flattens
+ * to the sheet because a wireframe has no faces to shade. */
+html[data-theme="wire"] {
+  --stage-cut: var(--stage-sheet);
+  --stage-shadow: var(--stage-sheet);
+}
+
+/* SKETCH is paper plus motion — a pencil test, with the line boiling. It needs
+ * no tokens of its own, which is why there is no block for it here. */
+
 /* --- The canvas -----------------------------------------------------------
  * Fixed and full-viewport, so it never participates in layout and never
  * contributes to the page's scroll width. ux-rules.md rule 10.

@@ -37,7 +37,7 @@
  * with a visible border, which is the exact opposite of the thing being built.
  * ========================================================================== */
 
-import { CanvasTexture, ClampToEdgeWrapping, SRGBColorSpace } from "three";
+import { CanvasTexture, ClampToEdgeWrapping, Color, SRGBColorSpace } from "three";
 import type { Outcome } from "./layout";
 import { blend, css, overprint, type Palette } from "./palette";
 
@@ -120,12 +120,14 @@ function paintSheet(
   muted: string,
   accent: string,
   faint: string,
+  ground: string,
   seed: number,
 ): void {
   ctx.clearRect(0, 0, W, H);
-  // White multiplies to "the card, unchanged" — so the sheet starts as whatever
-  // stock it was cut from and the drawing only ever takes light away.
-  ctx.fillStyle = "rgb(255,255,255)";
+  // The card, unchanged: white multiplies to whatever stock the sheet was cut
+  // from, and the drawing only ever takes light away. On inverted stock the
+  // ground is the paper itself — see `press`.
+  ctx.fillStyle = ground;
   ctx.fillRect(0, 0, W, H);
   tooth(ctx, W, H, seed);
 
@@ -254,10 +256,11 @@ function paintNote(
   label: string,
   ink: string,
   faint: string,
+  ground: string,
   seed: number,
 ): void {
   ctx.clearRect(0, 0, NOTE, NOTE);
-  ctx.fillStyle = "rgb(255,255,255)";
+  ctx.fillStyle = ground;
   ctx.fillRect(0, 0, NOTE, NOTE);
   tooth(ctx, NOTE, NOTE, seed);
 
@@ -307,6 +310,12 @@ export interface Press {
   readonly sign: CanvasTexture | null;
   /** Label texture per artifact id, for the paper notes. See paintNote. */
   readonly notes: ReadonlyMap<string, CanvasTexture>;
+  /**
+   * The colour a PRINTED card is cut from. Normally the paper; on a palette
+   * whose line is lighter than its paper it is the line, because a multiply
+   * cannot lay pale ink on dark stock. See the note in `press`.
+   */
+  readonly stock: Color;
   dispose(): void;
 }
 
@@ -397,12 +406,31 @@ export function press(
    * Printing is the one thing on this desk that was never card: it is ink laid
    * on card. So it comes from --stage-line, the same black the outlines are
    * drawn in — one ink, on one paper, for the whole world. */
-  const ink = css(overprint(p.line, p.paper));
-  const muted = css(overprint(blend(p.line, p.paper, 0.42), p.paper));
-  const faint = css(overprint(blend(p.line, p.paper, 0.78), p.paper));
+  /* PRINTING ON DARK STOCK — why there are two cases here.
+   *
+   * A print texture is a field of MULTIPLIERS, so printing can only ever take
+   * light away. That is right for ink on white paper and impossible for a
+   * cyanotype, where the line is paler than the sheet: overprint clamps at 1
+   * and every word comes out blank. The blueprint theme is exactly that.
+   *
+   * So when the palette's line is lighter than its paper, the printing is
+   * inverted: the card is cut from the LINE colour, and the texture lays the
+   * PAPER down everywhere the ink is not. Same shader, same one-ink-one-paper
+   * rule, and the arithmetic stays division of two tokens. `stock` below is
+   * which of the two a printed card is cut from — see objects.ts. */
+  const lum = (c: Color) => c.r * 0.2126 + c.g * 0.7152 + c.b * 0.0722;
+  const inverted = lum(p.line) > lum(p.paper);
+  const card = inverted ? p.line : p.paper;
+
+  // White is "the card, unchanged". On normal stock that is the paper; on
+  // inverted stock the paper has to be printed on like everything else.
+  const ground = inverted ? css(overprint(p.paper, card)) : "rgb(255,255,255)";
+  const ink = css(overprint(p.line, card));
+  const muted = css(overprint(blend(p.line, p.paper, 0.42), card));
+  const faint = css(overprint(blend(p.line, p.paper, 0.78), card));
   // The red pen is gone with the rest of the colour; an accent is now simply a
   // heavier stroke of the same ink.
-  const accent = css(overprint(blend(p.line, p.paper, 0.18), p.paper));
+  const accent = css(overprint(blend(p.line, p.paper, 0.18), card));
 
   const repaint: Array<() => void> = [];
   const sheets: CanvasTexture[] = [];
@@ -410,7 +438,7 @@ export function press(
   outcomes.forEach((outcome, i) => {
     const ctx = pad(W, H);
     if (!ctx) return;
-    const draw = () => paintSheet(ctx, outcome, ink, muted, accent, faint, 0x5eed + i * 977);
+    const draw = () => paintSheet(ctx, outcome, ink, muted, accent, faint, ground, 0x5eed + i * 977);
     draw();
     const t = texture(ctx.canvas);
     sheets.push(t);
@@ -440,7 +468,7 @@ export function press(
     if (!ctx) continue;
     seed += 811;
     const at = seed;
-    const draw = () => paintNote(ctx, label, ink, faint, at);
+    const draw = () => paintNote(ctx, label, ink, faint, ground, at);
     draw();
     const t = texture(ctx.canvas);
     notes.set(id, t);
@@ -478,6 +506,7 @@ export function press(
     chess,
     sign,
     notes,
+    stock: card,
     dispose() {
       disposed = true;
       for (const t of sheets) t.dispose();
