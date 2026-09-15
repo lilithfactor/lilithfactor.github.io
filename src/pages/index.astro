@@ -18,6 +18,8 @@ import {
   beyond,
   links,
   playlist,
+  type CaseStudy,
+  type ProductDive,
 } from "../content/index";
 
 const byNewest = (a: { date: string | null }, b: { date: string | null }) =>
@@ -25,6 +27,38 @@ const byNewest = (a: { date: string | null }, b: { date: string | null }) =>
 
 const madeSorted = [...divesMade].sort(byNewest);
 const studiedSorted = [...divesStudied].sort(byNewest);
+
+// The meta line: what a recruiter wants before the prose — when, who for, what
+// kind. UTC so the build machine's timezone can't push a 1st back a month.
+const monthYear = new Intl.DateTimeFormat("en-GB", {
+  month: "short",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+const diveMeta = (d: ProductDive) =>
+  [
+    d.date && monthYear.format(new Date(d.date)),
+    ...d.gtm,
+    ...d.productType,
+    // Pricing is a Notion *url* property. A 130-character link would overflow
+    // the line, so only the plain answers ("Free") make it in.
+    d.pricing && !d.pricing.startsWith("http") ? d.pricing : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+const caseMeta = (cs: CaseStudy) =>
+  [cs.role, ...cs.domain, ...cs.type].filter(Boolean).join(" · ");
+
+// Notion labels a bare URL "Visit", which put two identical chips on Muretabi.
+// The host says which store it is.
+const linkLabel = ({ url, label }: { url: string; label: string }) => {
+  if (label !== "Visit") return label;
+  if (url.includes("apps.apple.com")) return "App Store";
+  if (url.includes("play.google.com")) return "Play Store";
+  return label;
+};
 
 const bookLine = (b: { name: string; author: string | null }) =>
   b.author ? `${b.name} — ${b.author}` : b.name;
@@ -51,11 +85,15 @@ const bookLine = (b: { name: string; author: string | null }) =>
     <Section id="case-studies" label="Case studies" title="Case studies">
       {
         caseStudies.map((cs) => (
-          <a class="sheet sheet--interactive sheet--lift case-study-card" href={`/case-studies/${cs.slug}/`}>
+          <a
+            class="sheet sheet--interactive sheet--lift card-link"
+            href={`/case-studies/${cs.slug}/`}
+          >
+            <p class="label">{caseMeta(cs)}</p>
             <h3>{cs.name}</h3>
             <p>{cs.summary}</p>
             <Chips items={cs.kpis} />
-            <span class="label case-study-card__cta">Read case study →</span>
+            <span class="label card-cta">Read case study →</span>
           </a>
         ))
       }
@@ -67,19 +105,27 @@ const bookLine = (b: { name: string; author: string | null }) =>
           <p class="label">Things I made</p>
           <div class="card-grid">
             {
-              madeSorted.map((d) => (
-                <article class="sheet sheet--card">
-                  <h3>{d.name}</h3>
-                  <p>{d.summary}</p>
-                  {d.url && (
-                    <p class="link-row">
-                      <a href={d.url} target="_blank" rel="noopener" aria-label={`Visit ${d.name}`}>
-                        Visit
-                      </a>
-                    </p>
-                  )}
-                </article>
-              ))
+              madeSorted.map((d) =>
+                d.url ? (
+                  <a
+                    class="sheet sheet--card sheet--interactive sheet--lift card-link"
+                    href={d.url}
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <p class="label">{diveMeta(d)}</p>
+                    <h3>{d.name}</h3>
+                    <p>{d.summary}</p>
+                    <span class="label card-cta">Open ↗</span>
+                  </a>
+                ) : (
+                  <article class="sheet sheet--card">
+                    <p class="label">{diveMeta(d)}</p>
+                    <h3>{d.name}</h3>
+                    <p>{d.summary}</p>
+                  </article>
+                ),
+              )
             }
           </div>
         </div>
@@ -87,19 +133,27 @@ const bookLine = (b: { name: string; author: string | null }) =>
           <p class="label">Things I studied</p>
           <div class="card-grid">
             {
-              studiedSorted.map((d) => (
-                <article class="sheet sheet--card">
-                  <h3>{d.name}</h3>
-                  <p>{d.summary}</p>
-                  {d.url && (
-                    <p class="link-row">
-                      <a href={d.url} target="_blank" rel="noopener" aria-label={`Visit ${d.name}`}>
-                        Visit
-                      </a>
-                    </p>
-                  )}
-                </article>
-              ))
+              studiedSorted.map((d) =>
+                d.url ? (
+                  <a
+                    class="sheet sheet--card sheet--interactive sheet--lift card-link"
+                    href={d.url}
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <p class="label">{diveMeta(d)}</p>
+                    <h3>{d.name}</h3>
+                    <p>{d.summary}</p>
+                    <span class="label card-cta">Open ↗</span>
+                  </a>
+                ) : (
+                  <article class="sheet sheet--card">
+                    <p class="label">{diveMeta(d)}</p>
+                    <h3>{d.name}</h3>
+                    <p>{d.summary}</p>
+                  </article>
+                ),
+              )
             }
           </div>
         </div>
@@ -113,15 +167,19 @@ const bookLine = (b: { name: string; author: string | null }) =>
             <article class="sheet">
               <h3>{p.name}</h3>
               <p>{p.summary}</p>
+              <Chips items={p.kpis} />
               <p class="link-row">
                 {p.links.map((link) => (
                   <a
+                    class="chip-link"
                     href={link.url}
                     target="_blank"
                     rel="noopener"
-                    aria-label={link.label === "Visit" ? `Visit ${p.name}` : undefined}
+                    aria-label={
+                      linkLabel(link) === "Visit" ? `Visit ${p.name}` : undefined
+                    }
                   >
-                    {link.label}
+                    {linkLabel(link)}
                   </a>
                 ))}
               </p>
@@ -152,19 +210,40 @@ const bookLine = (b: { name: string; author: string | null }) =>
         <div>
           <p class="label">Reading ({shelf.reading.length})</p>
           <ul class="shelf-list">
-            {shelf.reading.map((b) => <li>{bookLine(b)}</li>)}
+            {
+              shelf.reading.map((b) => (
+                <li>
+                  {bookLine(b)}
+                  {b.year && <span class="note"> · {b.year}</span>}
+                </li>
+              ))
+            }
           </ul>
         </div>
         <div>
           <p class="label">Done ({shelf.done.length})</p>
           <ul class="shelf-list shelf-list--dense">
-            {shelf.done.map((b) => <li>{bookLine(b)}</li>)}
+            {
+              shelf.done.map((b) => (
+                <li>
+                  {bookLine(b)}
+                  {b.year && <span class="note"> · {b.year}</span>}
+                </li>
+              ))
+            }
           </ul>
         </div>
         <div>
           <p class="label">Queued ({shelf.queued.length})</p>
           <ul class="shelf-list shelf-list--dense">
-            {shelf.queued.map((b) => <li>{bookLine(b)}</li>)}
+            {
+              shelf.queued.map((b) => (
+                <li>
+                  {bookLine(b)}
+                  {b.year && <span class="note"> · {b.year}</span>}
+                </li>
+              ))
+            }
           </ul>
         </div>
       </div>

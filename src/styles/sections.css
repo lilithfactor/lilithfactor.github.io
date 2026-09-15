@@ -35,27 +35,31 @@
   min-width: 0;
 }
 
-/* --- Case study cards (the whole sheet is the link) ----------------------- */
+/* --- Cards where the whole sheet is the link ------------------------------
+ * Case studies, and the product dives that have somewhere to go. One rule for
+ * both: the card is the target, so nothing inside it needs to be. */
 
-.case-study-card {
+.card-link {
   display: block;
   color: inherit;
   text-decoration: none;
 }
 
-.case-study-card h3 {
-  overflow-wrap: break-word;
-}
-
-.case-study-card__cta {
+.card-cta {
   display: inline-block;
   margin-block-start: var(--s-4);
   color: var(--link);
 }
 
-.case-study-card:hover .case-study-card__cta,
-.case-study-card:focus-visible .case-study-card__cta {
+.card-link:hover .card-cta,
+.card-link:focus-visible .card-cta {
   color: var(--accent);
+}
+
+/* The typed meta line above a heading — date, market, kind — belongs TO the
+ * heading, so it sits tighter than a paragraph would. */
+.sheet .label:first-child {
+  margin-block-end: var(--s-2);
 }
 
 /* --- Sheets used as plain content blocks (not links) ----------------------
@@ -76,8 +80,8 @@
 }
 
 /* --- Link rows -------------------------------------------------------------
- * A row of labelled anchors. Each anchor gets real padding so the tap target
- * clears 44px even though the visible text is small. */
+ * A row of labelled anchors. 2.75rem is the 44px tap target (ux-rules.md), and
+ * no more: at --s-8 the row left a 64px dead band under every card. */
 
 .link-row {
   display: flex;
@@ -90,11 +94,27 @@
 .link-row a {
   display: inline-flex;
   align-items: center;
-  min-height: var(--s-8);
+  min-height: 2.75rem;
   min-width: 0;
   max-width: 100%;
   overflow-wrap: anywhere;
   padding-block: var(--s-1);
+}
+
+/* A link that reads as a chip: the border carries the 44px target, so the
+ * anchor is a visible object rather than a tall invisible band. */
+.chip-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding-inline: var(--s-3);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-chip);
+  font-family: var(--font-mono);
+  font-size: var(--t-label-size);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  text-decoration: none;
 }
 
 .link-row--large a {
