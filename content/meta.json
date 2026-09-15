@@ -1,5 +1,5 @@
 {
-  "syncedAt": "2026-09-14T20:43:01.862Z",
+  "syncedAt": "2026-09-15T02:56:42.294Z",
   "counts": {
     "caseStudies": 8,
     "productDives": 7,
@@ -9,6 +9,7 @@
     "beyond": 5
   },
   "warnings": [
+    "caseStudies \"+24% of GMV, Hiding across funnel steps\": body contains an unrendered \"pdf\" block",
     "caseStudies \"From Search to Licensed API\": body contains an unrendered \"pdf\" block",
     "caseStudies \"Solving Room Mapping and Identity at Scale\": body is only 0 words",
     "caseStudies \"Configurator: Visualize, Customize, Compare, Purchase\": body is only 6 words",

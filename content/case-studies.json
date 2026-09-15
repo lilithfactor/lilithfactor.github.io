@@ -23,6 +23,13 @@
         "heading": "Overview",
         "blocks": [
           {
+            "type": "image",
+            "src": "/case-studies/24-of-gmv-hiding-across-funnel-steps/1.png",
+            "caption": null,
+            "width": 2000,
+            "height": 1091
+          },
+          {
             "type": "list",
             "items": [
               "Tore down 3 quarters of the booking funnel, every confirmed order, matched to the catalogue with no unresolved rows, across every live partner instance, segmented on tier × destination.",
@@ -95,20 +102,18 @@
         ]
       },
       {
-        "heading": "Artifacts",
-        "blocks": [
-          {
-            "type": "quote",
-            "text": "Links/screenshots of:"
-          }
-        ]
-      },
-      {
         "heading": "Learning",
         "blocks": [
           {
-            "type": "quote",
-            "text": "Contents"
+            "type": "list",
+            "items": [
+              "An aggregate is honest only when its segments agree. Ours didn't, the average of a business that works and one that doesn't describes neither.",
+              "\"Worse\" is a segment. \"Where\" is a step. The end-to-end rate located nothing.",
+              "Grain is a product decision. Session grain would have silently discarded tier, and with it every finding.",
+              "Size it small on purpose. Halving two gaps cost headline value and bought the thing that mattered: nobody argued with the number.",
+              "Test what everyone knows. The most valuable finding contradicted the assumption nobody had checked.",
+              "Next: the same teardown on the second vertical, and a re-run once the three screens are fixed, a recoverable number is worth nothing until someone recovers it."
+            ]
           }
         ]
       }
@@ -149,8 +154,8 @@
             "type": "image",
             "src": "/case-studies/from-search-to-licensed-api/2.png",
             "caption": null,
-            "width": 2000,
-            "height": 1085
+            "width": 2752,
+            "height": 1536
           },
           {
             "type": "list",
