@@ -110,24 +110,45 @@ html[data-stage="desk"] [data-artifact][data-open] {
 }
 
 /* A panel opened from an object gets the desk's own margin note treatment:
- * the section's label sits in the corner like a file tab. */
+ * the section's label sits in the corner like a file tab.
+ *
+ * top: 0, not a negative offset. At -s-7 the header stuck s-7 ABOVE the
+ * scrollport, so once scrolled it showed as an empty band with the h2 clipped
+ * off the top and card titles sliding under it. The scrollport is the padding
+ * box, so top: 0 pins the header flush to the panel's visible edge and the
+ * negative margins still let it bleed the full width. The h2 is then whole at
+ * every scroll position.
+ *
+ * Flex because the ✕ lives in here now. The label takes a whole line, so the
+ * h2 and the ✕ share the next one. */
 html[data-stage="desk"] [data-artifact] > header {
   position: sticky;
-  top: calc(var(--s-7) * -1);
+  top: 0;
   margin: calc(var(--s-7) * -1) calc(var(--s-7) * -1) var(--s-5);
   padding: var(--s-5) var(--s-7) var(--s-4);
   background-color: var(--paper-page);
   border-block-end: 1px solid var(--rule);
+
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+
+html[data-stage="desk"] [data-artifact] > header > .label {
+  flex-basis: 100%;
 }
 
 /* --- Close affordance ----------------------------------------------------
  * Injected by panels.ts rather than living in the markup, because it is
  * meaningless without the desk — the document page has nothing to close. */
 html[data-stage="desk"] .panel-close {
-  position: absolute;
-  top: var(--s-4);
-  right: var(--s-4);
-  z-index: 1;
+  /* Static, in the sticky header's flex row. Absolute inside an overflow-y
+   * panel meant it scrolled off with the text. */
+  position: static;
+  flex: none;
+  margin-inline-start: auto;
 
   /* 44px minimum target — ux-rules.md rule 7. */
   width: 2.75rem;
@@ -230,6 +251,14 @@ html[data-stage="desk"] .desk-handles {
 /* An open panel owns the screen — the tags behind it stop competing. */
 html[data-stage="desk"] .desk-handles[data-dimmed] {
   opacity: 0;
+  pointer-events: none;
+}
+
+/* The container going pointer-events: none is not enough: .desk-handle sets
+ * pointer-events: auto and wins on the child, so an invisible button still
+ * took the click. A click meant to close the panel landed on a tag and
+ * switched sections instead. */
+html[data-stage="desk"] .desk-handles[data-dimmed] .desk-handle {
   pointer-events: none;
 }
 
@@ -453,4 +482,14 @@ html[data-panel] .desk-lamp-grip,
 html[data-panel] .desk-hint {
   opacity: 0;
   pointer-events: none;
+}
+
+/* Same problem, the anchor marker. Opening a panel focuses it, so the section
+ * matches :focus-within and stage.css paints its desk marker — a circle
+ * floating over the panel's own text. !important because that rule is
+ * html[data-stage="desk"] [data-artifact]:focus-within::after with
+ * opacity: calc(var(--a) * .85), which outranks this selector, and stage.css
+ * is not ours to edit. */
+html[data-panel] [data-artifact]::after {
+  opacity: 0 !important;
 }

@@ -79,7 +79,7 @@ export function mountPanels(): Panels {
 
   const hint = document.createElement("p");
   hint.className = "desk-hint";
-  hint.textContent = "Click anything on the desk";
+  hint.textContent = "Click anything on the desk · ← → to browse";
   document.body.append(hint);
 
   let openId: string | null = null;
@@ -134,7 +134,13 @@ export function mountPanels(): Panels {
     close.setAttribute("aria-label", `Close ${id.replace(/-/g, " ")}`);
     close.textContent = "✕";
     close.addEventListener("click", () => api.close());
-    section.prepend(close);
+    // Into the sticky header, not the panel. Absolutely positioned in a
+    // scrolling panel it scrolled away with the text, and a visitor 400px down
+    // had no way out but Escape or a reload. The header is the one part that
+    // stays, so the exit lives there.
+    const header = section.querySelector("header");
+    if (header) header.append(close);
+    else section.prepend(close);
 
     const i = order.indexOf(id);
     // Wraps, so there is no dead end at either end of the desk.
@@ -171,8 +177,29 @@ export function mountPanels(): Panels {
     panel.scrollTop = 0;
   }
 
+  /** A modifier means the key belongs to the browser or the OS, not to us. */
+  const bare = (e: KeyboardEvent) => !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey;
+
+  /** Arrows move a caret before they move the desk. */
+  const typing = () => {
+    const el = document.activeElement;
+    return (
+      el instanceof HTMLElement &&
+      (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))
+    );
+  };
+
   function onKeydown(e: KeyboardEvent) {
-    if (!openId) return;
+    // From the desk, with nothing open, the arrows are the way IN. Without
+    // this a keyboard visitor had to tab to a handle first, and the handles
+    // are invisible, so the hint promised a key that did nothing.
+    if (!openId) {
+      if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+      if (!bare(e) || typing() || order.length === 0) return;
+      e.preventDefault();
+      api.open(e.key === "ArrowRight" ? order[0]! : order[order.length - 1]!);
+      return;
+    }
     if (e.key === "Escape") {
       e.preventDefault();
       api.close();
