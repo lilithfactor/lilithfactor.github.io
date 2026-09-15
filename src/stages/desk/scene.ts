@@ -710,6 +710,9 @@ export async function mountDesk(): Promise<DeskHandle | null> {
     key: lighting.key,
     fill: lighting.fill,
     ambient: lighting.ambient,
+    // Built with the window rather than with the other three: it belongs to
+    // the opening it comes through, and the blind drives it.
+    daylight: view.daylight,
     room,
     artifacts: placed,
     notes: noteObjects,

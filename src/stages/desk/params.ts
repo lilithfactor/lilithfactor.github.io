@@ -26,6 +26,8 @@ export interface TunerTargets {
   key: SpotLight;
   fill: DirectionalLight;
   ambient: HemisphereLight;
+  /** The window's own light. Zero until the blind goes up — see desk.ts. */
+  daylight: DirectionalLight;
   /** The whole model, so the desk can be turned as one. */
   room: Object3D;
   /** id → the placed group, for per-object position and yaw. */
@@ -157,6 +159,19 @@ export function specs(t: TunerTargets): Spec[] {
     step: 0.02,
     get: () => t.ambient.intensity,
     set: (v) => (t.ambient.intensity = v),
+  });
+  // The window's contribution, whatever the sky chose. Moving it while the
+  // blind is still rising will be overwritten on the next frame; at rest — the
+  // state anyone tunes in — this is the sky's number, scaled by hand.
+  num({
+    key: "light.day",
+    group: "Light",
+    label: "daylight",
+    min: 0,
+    max: 3,
+    step: 0.02,
+    get: () => t.daylight.intensity,
+    set: (v) => (t.daylight.intensity = v),
   });
   // The cast shadow, live. It is the one thing in the scene that can look
   // "wrong" without anything being wrong, so it gets a knob rather than an

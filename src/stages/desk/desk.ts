@@ -99,6 +99,17 @@ export interface WindowRig {
    * more than one thing along it.
    */
   readonly sill: { readonly centre: Vector3; readonly width: number };
+  /**
+   * The light the window lets in. Lives inside the group, so it stands outside
+   * whatever wall the window is in; published only so the tuner can reach its
+   * intensity. The rig drives it — see update().
+   */
+  readonly daylight: DirectionalLight;
+  /**
+   * The patch of sun it throws. World space, like the lamp's pool and for the
+   * same reason: it lies flat on the desk whatever the window does.
+   */
+  readonly patch: Mesh;
   /** Dress the view and open up. Safe to call with null — then nothing opens. */
   reveal(weather: Weather | null): void;
   /** Eases the curtains. Called from the scene's tick. */
@@ -257,7 +268,9 @@ export function buildRoom(
   room.add(backdrop);
 
   const window = buildWindow(p, m);
-  room.add(window.group);
+  // The patch of sun goes in beside the window rather than inside it, for the
+  // reason the lamp's pool does: it belongs to the desk it lies on.
+  room.add(window.group, window.patch);
 
   const lamp = buildLamp(p, m, models);
   room.add(lamp.group, lamp.pool);
@@ -325,6 +338,36 @@ export function buildRoom(
  * the resting shot crops the backdrop at about y = 1.0, so the pole has to
  * clear the sill and still be under that. */
 const WINDOW = new Vector3(0, 0.47, -1.19);
+
+/* WHAT EACH SKY IS WORTH, in the room rather than on the glass.
+ *
+ * Retinting the pane says what it looks like out there; this says what it does
+ * in here, which is the half a window is actually for. The spread is wide on
+ * purpose — a storm at a fifth of a clear noon — because the alternative is six
+ * forecasts that all produce the same desk, and then the fetch was for nothing.
+ *
+ * Snow sits just under clear: an overcast sky, but a white ground throwing most
+ * of it back up through the window. */
+const DAYLIGHT: Record<Weather["sky"], number> = {
+  clear: 1.5,
+  snow: 1,
+  cloud: 0.8,
+  rain: 0.55,
+  fog: 0.45,
+  storm: 0.3,
+};
+/** And how strong the painted patch is under each. Same order, a tenth the scale. */
+const SUNPATCH: Record<Weather["sky"], number> = {
+  clear: 0.16,
+  snow: 0.12,
+  cloud: 0.06,
+  rain: 0.03,
+  fog: 0.04,
+  storm: 0.03,
+};
+/* Night is ONE number for every sky. A clear midnight and a cloudy one are the
+ * same room: what little comes through the glass is the city, not the weather. */
+const NIGHT_LIGHT = 0.12;
 
 function buildWindow(p: Palette, m: Materials): WindowRig {
   const g = new Group();
@@ -590,8 +633,61 @@ function buildWindow(p: Palette, m: Materials): WindowRig {
   // under its rail, not an absence.
   const RAISED = 0.13;
 
+  /* THE DAYLIGHT. The window used to change colour and nothing else, which
+   * makes it a picture of a window; what makes it a window is that the room
+   * gets brighter when the blind goes up.
+   *
+   * One DirectionalLight standing just outside the glass. Inside the group, so
+   * it is positioned against the window rather than against a number somebody
+   * measured twice, and so it travels if the window ever moves.
+   *
+   * It does NOT cast. The lamp is the single shadow-casting light in this
+   * scene on purpose (see buildLighting), and a second 1024² map is the most
+   * expensive thing anyone could add here for the least. What daylight gets
+   * instead is the patch below — the same painted answer the lamp uses. */
+  const daylight = new DirectionalLight(p.paper, 0);
+  daylight.position.set(0, 0.35, -0.6);
+  // The desk's centre-front, less where the window stands: the group's space.
+  daylight.target.position.copy(new Vector3(0, 0, 0.35).sub(WINDOW));
+  daylight.castShadow = false;
+  g.add(daylight, daylight.target);
+
+  /* And the sun on the desk, painted on — the lamp's pool trick applied to the
+   * other light in the room. A directional light alone brightens every upward
+   * face by the same amount, which is daylight everywhere and a sunlit desk
+   * nowhere; the patch is what says the light came through THAT opening.
+   *
+   * Sheared rather than rotated, because a rotated rectangle is still a
+   * rectangle: the skew is the whole reason it reads as thrown. Four vertices,
+   * so this loop is four passes. */
+  const sunGeometry = new PlaneGeometry(W * 0.96, DESK_SIZE[1] / 2);
+  const corners = sunGeometry.getAttribute("position");
+  for (let i = 0; i < corners.count; i++) {
+    corners.setX(i, corners.getX(i) + corners.getY(i) * 0.38);
+  }
+  // The lamp's own glow material, re-mixed rather than re-invented: additive,
+  // soft-edged from the same ramp, no depth write. Additive is what lets it
+  // only ever ADD light to the card — an opaque overlay would flatten the
+  // desk's shading into a pale slab exactly where the eye is going.
+  const sunMaterial = m.glow.clone();
+  sunMaterial.opacity = 0;
+  // Not tone mapped: this is light being added to a sheet, not a colour that
+  // was lit, and the curve would pull it back down as fast as it is put on.
+  sunMaterial.toneMapped = false;
+  const patch = new Mesh(sunGeometry, sunMaterial);
+  patch.rotation.x = -90 * DEG;
+  // Just clear of the base sheet, and of the lamp's pool at 0.0016.
+  patch.position.set(0, 0.0018, -0.32);
+  patch.renderOrder = 2;
+  // Light, not paper. Outlined, a patch of sun would come back with an ink
+  // border round it, which is the one thing sunlight does not have.
+  patch.userData.noOutline = true;
+
   let openness = 0;
   let target = 0;
+  /** What the sky is worth once the blind is all the way up. Set by reveal(). */
+  let lit = 0;
+  let sun = 0;
 
   return {
     group: g,
@@ -603,6 +699,8 @@ function buildWindow(p: Palette, m: Materials): WindowRig {
       ),
       width: W + bar * 4,
     },
+    daylight,
+    patch,
     reveal(weather) {
       if (!weather) return; // The blind stays down. A covered window is a window.
       // The sky pane is the one unlit surface here, so its tone is a straight
@@ -620,6 +718,30 @@ function buildWindow(p: Palette, m: Materials): WindowRig {
             ? 0.18
             : 0.02;
       (pane.material as MeshBasicMaterial).color.copy(blend(p.backdrop, p.line, w));
+
+      /* What the room gets. Colour first, because it is chosen from the same
+       * answer and only ever arrives at intensity zero — by the time anything
+       * is bright enough to have a colour, this has long since run.
+       *
+       * A clear day is the lamp's warmth pulled halfway to paper: not white,
+       * because sunlight through a window is never quite, and not warm enough
+       * to put back the colour the palette spent its whole argument removing.
+       * Everything else in a day is the cool token, which IS what an overcast
+       * sky is — a big soft blue-grey source. Night is the night token, and at
+       * 0.12 it is barely a source at all. */
+      daylight.color.copy(
+        !weather.day
+          ? p.night
+          : weather.sky === "clear"
+            ? blend(p.keyLight, p.paper, 0.5)
+            : blend(p.fillLight, p.paper, 0.3),
+      );
+      // The patch goes a step further toward paper than the light that made
+      // it. Additive light landing on a white sheet should brighten it, not
+      // tint it, and a tinted patch on white card reads as a stain.
+      sunMaterial.color.copy(blend(daylight.color, p.paper, 0.5));
+      lit = weather.day ? DAYLIGHT[weather.sky] : NIGHT_LIGHT;
+      sun = weather.day ? SUNPATCH[weather.sky] : 0;
       target = 1;
     },
     update(dt) {
@@ -632,6 +754,10 @@ function buildWindow(p: Palette, m: Materials): WindowRig {
       const shown = 1 - (1 - RAISED) * openness;
       blind.scale.y = shown;
       bottom.position.y = headY - drop * shown;
+      // The light rides the cloth. No second ease and no second timer: a blind
+      // half up lets half the sky in, which is both true and free.
+      daylight.intensity = lit * openness;
+      sunMaterial.opacity = sun * openness;
     },
   };
 }
