@@ -270,7 +270,7 @@ function dossier(p: Palette, m: Materials, press: Press): Group {
     const at = spread[i];
     if (!at) return;
     folder.add(
-      printedSheet(stock(p.paper, i + 1), p.cut, map, 0.26, 0.007, 0.35, {
+      printedSheet(stock(press.stock, i + 1), p.cut, map, 0.26, 0.007, 0.35, {
         ...at,
         // Set so the near edge rests on the folder and the far edge on the
         // raised cover, rather than either end floating.
@@ -505,9 +505,25 @@ function shelf(p: Palette, m: Materials, _press: Press, models: ModelKit): Group
  * to up, so the writing arrives facing the room and the right way up, with no
  * second UV convention to keep in anyone's head.
  */
-export const NOTE_SIZE = 0.2;
+/**
+ * How big a note is built, in metres — and the divisor the live `note.size`
+ * knob scales against (params.ts).
+ *
+ * Was 200mm, which made the name-note bigger than the A5 notebook it stands in
+ * front of: the label ate the object it was labelling, which is the one thing a
+ * label cannot do. 120mm still reads at the resting camera because paintNote
+ * fits the type to the sheet rather than setting it at a fixed size, so a
+ * smaller note prints smaller paper with the same relative letterforms.
+ */
+export const NOTE_SIZE = 0.12;
 
-export function buildNote(p: Palette, m: Materials, map: Texture, lean: number): Group {
+export function buildNote(
+  p: Palette,
+  m: Materials,
+  map: Texture,
+  lean: number,
+  base: Color = p.paper,
+): Group {
   const g = new Group();
   /* IT CARRIES ITS OWN INK.
    *
@@ -522,7 +538,7 @@ export function buildNote(p: Palette, m: Materials, map: Texture, lean: number):
    * own steam, it says so here", and it belongs next to the thing that moves
    * rather than in the file that draws the lines. */
   g.userData.ownOutline = true;
-  const paper = stock(p.paper, 1);
+  const paper = stock(base, 1);
 
   const sheet = printedSheet(paper, p.cut, map, NOTE_SIZE, 0.005, NOTE_SIZE, {
     pitch: -90 + lean,
@@ -663,7 +679,7 @@ function props(p: Palette, m: Materials, press: Press, models: ModelKit): Group 
   board.rotation.y = -6 * DEG;
   board.add(
     press.chess
-      ? printedSheet(p.paperAged, p.cut, press.chess, BOARD, 0.016, BOARD, { y: 0.008 })
+      ? printedSheet(press.stock, p.cut, press.chess, BOARD, 0.016, BOARD, { y: 0.008 })
       : card(m, p.paperAged, p.cut, BOARD, 0.016, BOARD, { y: 0.008 }),
     chessmen(p, models, BOARD / 8, 0.016),
   );
