@@ -69,7 +69,12 @@ html[data-stage="desk"] [data-artifact] {
   width: min(46rem, 88vw);
   max-height: 82vh;
   margin: 0;
-  padding: var(--s-7);
+  /* NO padding at the top: the sticky header supplies it. A sticky box cannot
+   * be pushed outside its containing block, which is this panel's CONTENT box
+   * — so a header pulled up into the padding with a negative margin gets
+   * clamped straight back down and paints s-7 lower than the space it reserved,
+   * over whatever follows it. See the header rule below. */
+  padding: 0 var(--s-7) var(--s-7);
   overflow-y: auto;
   overscroll-behavior: contain;
 
@@ -116,15 +121,28 @@ html[data-stage="desk"] [data-artifact][data-open] {
  * scrollport, so once scrolled it showed as an empty band with the h2 clipped
  * off the top and card titles sliding under it. The scrollport is the padding
  * box, so top: 0 pins the header flush to the panel's visible edge and the
- * negative margins still let it bleed the full width. The h2 is then whole at
+ * side margins still let it bleed the full width. The h2 is then whole at
  * every scroll position.
+ *
+ * NO NEGATIVE TOP MARGIN, and this is what `top: 0` costs: a sticky box is
+ * clamped to its containing block, which is the panel's content box. Pulled up
+ * by -s-7 the header reserved its flow space one s-7 above that edge, was
+ * clamped back down to it, and so painted s-7 lower than the gap it left —
+ * eating the s-5 below it and half the first row of content with it. The
+ * panel's top padding is gone instead (see above), so flow and paint agree.
  *
  * Flex because the ✕ lives in here now. The label takes a whole line, so the
  * h2 and the ✕ share the next one. */
 html[data-stage="desk"] [data-artifact] > header {
   position: sticky;
   top: 0;
-  margin: calc(var(--s-7) * -1) calc(var(--s-7) * -1) var(--s-5);
+  /* Above the cards, which is not automatic: .sheet is position: relative, so
+   * every card in the panel is a positioned box later in the document than the
+   * header and painted over it. The band held still and the text scrolled
+   * straight through it — including through the rule that is supposed to be
+   * the bottom of it. */
+  z-index: 1;
+  margin: 0 calc(var(--s-7) * -1) var(--s-5);
   padding: var(--s-5) var(--s-7) var(--s-4);
   background-color: var(--paper-page);
   border-block-end: 1px solid var(--rule);
