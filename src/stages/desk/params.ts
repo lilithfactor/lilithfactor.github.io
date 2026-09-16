@@ -111,7 +111,9 @@ export function specs(t: TunerTargets): Spec[] {
     min: 5,
     max: 80,
     step: 1,
-    get: () => 38,
+    // The live angle, not the default. Hardcoded, Save wrote 38 back over
+    // whatever tuned.json had just replayed, every single time.
+    get: () => t.outlines.threshold,
     set: (v) => t.outlines.setThreshold(v),
   });
   list.push({

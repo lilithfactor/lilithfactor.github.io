@@ -216,7 +216,15 @@ export function mountTuner(t: TunerTargets): { dispose(): void } {
        * reported "no dev server", which sent everyone to restart a dev server
        * that was running perfectly. The status line is on screen now, and the
        * reason is in the terminal. */
-      if (!response.ok) {
+      if (response.status === 404) {
+        /* THE ENDPOINT IS NOT MISSING, THIS BUILD IS. The middleware is
+         * `apply: "serve"`, so it exists in `npm run dev` and nowhere else: a
+         * page served by `npm run preview`, by a static host, or opened out of
+         * dist/ gets a plain 404 rather than a dead socket. Saying "see
+         * terminal" there sends someone to a terminal that has nothing to say,
+         * so this names the actual condition instead. */
+        await toClipboard(text, save, "Not `npm run dev` — copied instead");
+      } else if (!response.ok) {
         await toClipboard(text, save, `Server said ${response.status} — see terminal`);
       } else {
         save.textContent = "Saved — tuned.json";

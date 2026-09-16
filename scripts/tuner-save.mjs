@@ -26,11 +26,37 @@ import { join } from "node:path";
  * identical from a fetch(). A path relative to the file is a path that breaks
  * when the file moves; server.config.root cannot.
  */
+/** Set by configureServer, read by hotUpdate. Both run off the same root. */
+let target = "";
+
 const tunerSave = {
   name: "desk-tuner-save",
   apply: "serve",
+
+  /**
+   * AND NOTHING RELOADS. This is the other half of Save working.
+   *
+   * tuned.json is a plain `import` in scene.ts, so writing it is an ordinary
+   * source change: Vite invalidates the module, finds nobody accepting it, and
+   * full-reloads the page. Which meant the save landed and then the evidence of
+   * it was destroyed — the tuner was torn down and rebuilt about 300ms after
+   * the click, so "Saved — tuned.json" never appeared, every slider snapped
+   * back to a freshly-read scene, and the button looked broken while the file
+   * on disk was perfect.
+   *
+   * Returning no modules says "handled, do nothing". It is the honest answer:
+   * the values in that file are ALREADY in the scene — the sliders put them
+   * there — so replaying them costs a full rebuild to arrive at the frame that
+   * is already on screen. The cost is that editing tuned.json by hand now needs
+   * a manual reload, which is the trade this file was written to make anyway:
+   * the sliders are the way in, and the JSON is their scratchpad.
+   */
+  hotUpdate({ file }) {
+    if (file === target) return [];
+  },
+
   configureServer(server) {
-    const target = join(server.config.root, "src/stages/desk/tuned.json");
+    target = join(server.config.root, "src/stages/desk/tuned.json");
     server.middlewares.use("/__tune", (request, response, next) => {
       if (request.method !== "POST") return next();
       let body = "";
