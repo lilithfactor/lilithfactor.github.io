@@ -48,7 +48,9 @@ html[data-stage="desk"] .masthead {
   left: var(--s-7);
   z-index: 3;
   pointer-events: none;
-  max-width: min(38ch, 42vw);
+  /* Room for the head beside the name; the head's own width is --mascot-size. */
+  --mascot-size: 6rem;
+  max-width: min(calc(38ch + var(--mascot-size) + var(--s-4)), 50vw);
   /* Ink on paper. The backdrop is card stock now, not a dark room, so the old
    * white-on-dark treatment inverted into unreadable pale-on-pale. */
   color: var(--ink);

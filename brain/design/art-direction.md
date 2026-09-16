@@ -90,6 +90,23 @@ The desk should look **used**: the dossier is not square to the edge, there is a
 ring where a cup sat, one pen is uncapped. Perfect alignment reads as a template.
 A 2–4° rotation on the paper stacks does more for believability than any shader.
 
+## The head by the name
+
+A **pen-and-ink sketch of Pranav's head**, beside the name in the masthead.
+It turns to follow the cursor and blinks, or pulls a face, when poked. That is
+the whole behaviour: it answers "whose desk is this" before the text is read,
+and it is the first thing on the page that responds to the visitor.
+
+It is not the figure and it does not navigate. It is drawn in the same ink so
+it belongs to the same drawing — ballpoint, hatching, no colour — and it is
+multiplied onto the paper, so its white is the paper's white.
+
+Built with [page-mascot](https://github.com/nilbuild/page-mascot): two 3×3
+sprite sheets (nine head directions, nine expressions) that a small script
+moves by `background-position`. `Mascot.astro` is the React component ported
+to a plain script, because the site has no React. Redrawing is a pipeline
+command, not an art project; todo.md has it.
+
 ## The figure
 
 An **ink sketch of Pranav** — ballpoint on paper, confident single-weight line,

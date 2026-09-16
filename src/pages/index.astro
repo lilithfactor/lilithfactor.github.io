@@ -3,6 +3,7 @@ import Base from "../layouts/Base.astro";
 import LinkIcon from "../components/LinkIcon.astro";
 import Section from "../components/Section.astro";
 import Chips from "../components/Chips.astro";
+import Mascot from "../components/Mascot.astro";
 // The desk mounts here and only here: it is this page's presentation of the
 // sections below. In the layout it leaked onto every page — a case-study
 // article with a 3D scene painting behind its text (Base.astro has the note).
@@ -72,9 +73,20 @@ const bookLine = (b: { name: string; author: string | null }) =>
     {/* .masthead: on the desk stage this lifts out of the document flow and
         sits on the desk itself, so a visitor knows whose desk they landed on
         before they click anything. In the document page it is just a header. */}
-    <header class="stack masthead">
-      <p class="label">Product Manager</p>
-      <h1 class="display">Pranav Upadhyay</h1>
+    <header class="masthead">
+      {/* A sketched head beside the name, watching the cursor: whose desk this
+          is, answered before the text is read. brain/design/art-direction.md,
+          "The head by the name". Stand-in art until the likeness is drawn —
+          brain/vision/todo.md has the command. */}
+      <Mascot
+        directions="/mascots/fox-ink-directions.webp"
+        reactions="/mascots/fox-ink-reactions.webp"
+        label="Pranav"
+      />
+      <div class="stack">
+        <p class="label">Product Manager</p>
+        <h1 class="display">Pranav Upadhyay</h1>
+      </div>
     </header>
 
     <Section id="about" label="About" title="About">
@@ -278,3 +290,12 @@ const bookLine = (b: { name: string; author: string | null }) =>
   </main>
   <StageMount />
 </Base>
+
+<style>
+  /* Head and name sit on one baseline, the head a touch clear of the text. */
+  .masthead {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--s-4);
+  }
+</style>

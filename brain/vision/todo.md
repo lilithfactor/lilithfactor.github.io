@@ -65,6 +65,21 @@ Content still needed before the two new objects can be wired:
 
 ## Blocked on Pranav
 
+- [ ] **The head by the name** (`src/components/Mascot.astro`) ships with the
+  page-mascot repo's `fox-ink` as stand-in art. Drawing the likeness needs two
+  things: `OPENAI_API_KEY` in `.env`, and a clear head-and-shoulders photo
+  (the 2019 `dump/pp.png` is a silhouette). Then, from the repo root:
+  ```
+  OPENAI_API_KEY=… python3 ~/.claude/skills/page-mascot/scripts/mascot.py pranav \
+    --style ink --reference path/to/photo.jpg \
+    --describe "hair, glasses, facial hair, top colour — only what the photo shows" \
+    --dest public/mascots
+  ```
+  It draws, keys, builds and verifies both sheets, and writes
+  `public/mascots/pranav-{directions,reactions}.webp`; swap the two paths in
+  `index.astro`, delete the fox files, and crop the `left` cell to confirm it
+  faces the viewer's left (a mirrored sheet passes every check). The source
+  PNGs land in `characters/pranav/` — keep or delete, not a build input.
 - [ ] **ZenMux key** — saved correctly (`sk-mg-…`, 73 chars) but the API
   rejects every inference call with the same 403 a fake key gets. Most likely
   unfunded; possibly video not enabled. Until a call succeeds, oil-motion
