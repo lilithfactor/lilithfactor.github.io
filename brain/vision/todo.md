@@ -14,10 +14,11 @@ Everything below the line is what remains.
 
 ## Next session — audit 2026-09-16
 
-- [ ] CASE STUDIES note's second line hidden behind the PROJECTS note (knob: note.case-studies.*)
-- [ ] Blueprint: note text low-contrast because buildLighting blends lights toward p.paper (dark there); light.ambient/light.fill lift it; proper fix is theme-aware light blending
-- [ ] Blueprint: page heading dark-on-blue over the canvas — document tokens (tokens.css) are not themed; decide whether themes reach the DOM page
-- [ ] `?sky=…` debug path always passes day:true, so `?sky=clear&hour=22` cannot preview night daylight
+- [x] CASE STUDIES note's second line hidden behind the PROJECTS note (knob: note.case-studies.*)
+- [x] Blueprint: note text low-contrast because buildLighting blends lights toward p.paper (dark there); light.ambient/light.fill lift it; proper fix is theme-aware light blending
+- [x] Blueprint: page heading dark-on-blue over the canvas — document tokens (tokens.css) are not themed; decide whether themes reach the DOM page (masthead/hint/sound now themed directly in stage.css)
+- [ ] Blueprint: the sketched head has the same contrast problem and no token to remap (it is a bitmap) — whatever fixes the name has to cover it too: a second sheet, or an SVG filter
+- [x] `?sky=…` debug path always passes day:true, so `?sky=clear&hour=22` cannot preview night daylight
 - [ ] `.link-row a` min-height kept at 2.75rem because case-studies/[slug].astro still uses a bare .link-row; move it to chip-link there
 - [ ] IP → city weather lookup (ipwho.is / geojs) privacy trade still needs Pranav's yes/no (weather.ts header)
 - [ ] Window sill contents undefined; WindowRig.sill publishes centre/width
@@ -26,8 +27,10 @@ Everything below the line is what remains.
 - [ ] Legal pad, pencil, post-its, mug open nothing
 - [ ] Theme picker reloads the page; live re-palette would need materials/outline/print to re-read
 - [ ] Themes need a visitor-facing entry point decision (URL only today, plus tuner)
-- [ ] ownOutline: fourth instance of ink left behind; outline.ts should detect subtree matrix changes if it happens again
+- [x] ownOutline: fourth instance of ink left behind; outline.ts should detect subtree matrix changes if it happens again
 - [ ] `dump/` (2019 portfolio) still in repo; README says delete after Phase 4
+- [x] Lamp ink drifted (5th ownOutline case) — fixed by flag; the guard now warns in dev
+- [ ] `.link-row` in case-studies/[slug].astro → chip-link (file has uncommitted user edits; do it when they land)
 
 # Idea Dump
 - should be able to change weather, this would change the sound and also what can be seen outside the window.
