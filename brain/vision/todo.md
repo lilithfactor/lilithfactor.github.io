@@ -67,11 +67,13 @@ Content still needed before the two new objects can be wired:
 
 - [ ] **The head by the name** (`src/components/Mascot.astro`) ships with the
   page-mascot repo's `fox-ink` as stand-in art. Drawing the likeness needs two
-  things: `OPENAI_API_KEY` in `.env`, and a clear head-and-shoulders photo
+  things: credit on the OpenAI account (key added to `.env` 2026-09-16 and
+  valid, but the balance is exhausted — the pipeline makes two to six image
+  calls), and a clear head-and-shoulders photo at `characters/pranav/photo.jpg`
   (the 2019 `dump/pp.png` is a silhouette). Then, from the repo root:
   ```
   OPENAI_API_KEY=… python3 ~/.claude/skills/page-mascot/scripts/mascot.py pranav \
-    --style ink --reference path/to/photo.jpg \
+    --style ink --reference characters/pranav/photo.jpg \
     --describe "hair, glasses, facial hair, top colour — only what the photo shows" \
     --dest public/mascots
   ```
@@ -80,6 +82,9 @@ Content still needed before the two new objects can be wired:
   `index.astro`, delete the fox files, and crop the `left` cell to confirm it
   faces the viewer's left (a mirrored sheet passes every check). The source
   PNGs land in `characters/pranav/` — keep or delete, not a build input.
+  The build saves 1080px sheets at WebP q92 (~290 KB each); the head is at most
+  96px on screen, so re-encode both to 720px q80 (~110 KB each, alpha is
+  lossless either way) before committing — the fox sheets were.
 - [ ] **ZenMux key** — saved correctly (`sk-mg-…`, 73 chars) but the API
   rejects every inference call with the same 403 a fake key gets. Most likely
   unfunded; possibly video not enabled. Until a call succeeds, oil-motion

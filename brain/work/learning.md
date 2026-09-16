@@ -113,6 +113,16 @@ load, but it says nothing at all about the desk. Read it as "the document is
 fast", never as "the desk is fixed" — and check the network table before
 believing any Lighthouse number about this page.
 
+**Amended 2026-09-16.** That is no longer what happens. The idle-deferred
+mount now carries a 2000ms timeout, so the desk *does* load inside the
+window: the network table shows the scene chunk, every model and the weather
+call, and desktop performance scores ~0.2 under swiftshader (TBT ~2.4s, CLS
+1.0 from the swap above). Measured twice on the same day, one commit apart —
+0.20 before a masthead change, 0.18 after — so it is the desk's software
+render, not any one change. The gate in steps.md (≥ 90) cannot be met by
+this harness for the desk; run it on a case-study page for the document
+number, and judge the desk by hand until a real-GPU run exists.
+
 ---
 
 ## The token colour and the rendered colour are not the same colour
