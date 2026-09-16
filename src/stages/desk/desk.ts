@@ -427,6 +427,26 @@ const SUNPATCH: Record<Weather["sky"], number> = {
  * same room: what little comes through the glass is the city, not the weather. */
 const NIGHT_LIGHT = 0.12;
 
+/**
+ * The hour the room is dressed for. `?hour=22` forces one — the only sane way
+ * to look at the night view at eleven in the morning — and the visitor's own
+ * clock answers otherwise.
+ */
+export function hourFromUrl(): number {
+  const forced = Number(new URLSearchParams(location.search).get("hour"));
+  return Number.isFinite(forced) && forced >= 0 && forced <= 23 ? forced : new Date().getHours();
+}
+
+/**
+ * Is it dark out at that hour? Exported so the `?sky=` debug path in scene.ts
+ * decides day and night by the same rule the window dresses itself by, instead
+ * of its own copy of it — which is how `?sky=clear&hour=22` ended up a night
+ * room under a noon sun.
+ */
+export function isNight(hour: number): boolean {
+  return hour < 6 || hour >= 20;
+}
+
 function buildWindow(p: Palette, m: Materials): WindowRig {
   const g = new Group();
   g.name = "window";
@@ -440,16 +460,13 @@ function buildWindow(p: Palette, m: Materials): WindowRig {
    * gradient: paper does not do subtle gradations of daylight, and a sheet that
    * is *one step* lighter than the wall reads as "bright outside" far better
    * than a smooth ramp that just looks like a slightly different white. */
-  // `?hour=22` forces a time, which is the only sane way to look at the night
-  // view at eleven in the morning. Falls back to the visitor's own clock.
   const params = new URLSearchParams(location.search);
-  const forced = Number(params.get("hour"));
-  const hour = Number.isFinite(forced) && forced >= 0 && forced <= 23 ? forced : new Date().getHours();
+  const hour = hourFromUrl();
   // The API knows whether it is light where the desk is, which beats guessing
   // from the visitor's clock. The clock is the fallback, not the first answer.
   // The clock dresses the window at build time; the forecast corrects it in
   // reveal() if it ever turns up.
-  const night = hour < 6 || hour >= 20;
+  const night = isNight(hour);
   const dusk = !night && (hour < 8 || hour >= 18);
   // ?sky=rain forces a condition, so all six can be looked at on a clear day.
   const sky5 = (params.get("sky") as Weather["sky"] | null) ?? "clear";
@@ -855,6 +872,14 @@ function buildLamp(p: Palette, m: Materials, models: ModelKit): LampParts {
   const group = new Group();
   group.name = "lamp";
   group.position.copy(LAMP);
+  /* AND SO DOES THE WHOLE LAMP, for the same reason the head does one level
+   * down. The lamp is a child of `room`, so its stem and foot were baked into
+   * the room's space — correct only while the lamp never moves. It moves: the
+   * tuner drives lamp.x/y/z, yaw and scale, and tuned.json replays them AFTER
+   * the room's ink is baked, so the pole and base stood ~40mm off their own
+   * black drawing on the very first frame. Flagged here, it is baked as its own
+   * root and travels with every one of those knobs. See outline.ts. */
+  group.userData.ownOutline = true;
 
   const kraft = p.kraft;
   const model = models.take("lamp");
@@ -1077,12 +1102,30 @@ function buildLamp(p: Palette, m: Materials, models: ModelKit): LampParts {
   return { group, head, pool, glow, bulb: lampBulb, aim: lampAim };
 }
 
+/* WHAT THE LIGHT IS TINTED TOWARD.
+ *
+ * All three lights below are pulled most of the way to the stock the model is
+ * cut from, which keeps a warm lamp from turning white card cream. On every
+ * paper theme that stock is `paper` — but blueprint inverts the pair, and
+ * blending daylight toward a deep blue sheet lit the room with blue, which is
+ * why the pale ink on the notes was barely there. So the target is the paler
+ * of the two, which is `paper` everywhere except the cyanotype and `line`
+ * there: the room is lit by pale light in every theme.
+ *
+ * Compared as a plain channel sum, in the renderer's linear working space —
+ * the two are far enough apart that a weighted luminance would answer the same.
+ */
+function lightStock(p: Palette): Color {
+  return p.line.r + p.line.g + p.line.b > p.paper.r + p.paper.g + p.paper.b ? p.line : p.paper;
+}
+
 export function buildLighting(p: Palette): Lighting {
+  const lit = lightStock(p);
   // The lamp. Still a SpotLight with a decay, because even flat card wants the
   // near half of the desk brighter than the far half — but far gentler than the
   // photoreal version, which crushed everything outside the cone to black. Here
   // the light shapes the model; the painted pool does the drama.
-  const key = new SpotLight(blend(p.keyLight, p.paper, 0.25), 3.7);
+  const key = new SpotLight(blend(p.keyLight, lit, 0.25), 3.7);
   // Position and target are both written by lamp.ts from the head's transform,
   // every time the head moves. What is set here is only a starting pose so the
   // very first frame is lit even if the lamp rig has not run yet.
@@ -1124,7 +1167,7 @@ export function buildLighting(p: Palette): Lighting {
   // A soft cool wash from the left, for form: it is what keeps the vertical
   // faces of a folded box distinguishable from its top when the lamp is not on
   // them. Deliberately weak — the model must not read as lit from two sides.
-  const fill = new DirectionalLight(blend(p.fillLight, p.paper, 0.45), 0.95);
+  const fill = new DirectionalLight(blend(p.fillLight, lit, 0.45), 0.95);
   fill.position.set(-2.4, 2.1, 1.2);
 
   // Sky/ground rather than a flat ambient: cool daylight from above, warm
@@ -1135,7 +1178,7 @@ export function buildLighting(p: Palette): Lighting {
   // raw 7000K token. Straight --stage-fill-light overhead turned every upward
   // face — which on a desk seen from above is nearly every face there is — a
   // cold grey, and cold grey card is the one thing this direction cannot have.
-  const ambient = new HemisphereLight(blend(p.fillLight, p.paper, 0.76), p.ambient, 2.7);
+  const ambient = new HemisphereLight(blend(p.fillLight, lit, 0.76), p.ambient, 2.7);
 
   return { key, fill, ambient };
 }

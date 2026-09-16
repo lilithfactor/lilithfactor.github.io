@@ -156,6 +156,30 @@ html[data-theme="blueprint"] {
   --stage-night-ambient: #0d1c36;
 }
 
+/* The three bits of DOM that stand ON the cyanotype rather than on a panel:
+ * the masthead, the hint and the sound control. They read --ink and friends,
+ * which are page tokens and stay paper-dark whatever the stage is doing — so
+ * under blueprint the name went dark ink on dark blue and vanished. Scoped to
+ * these three selectors on purpose: the same tokens dress the open panels,
+ * which are paper sheets laid over the world and must keep reading as paper.
+ * Line colour, not white, so the words belong to the same drawing. */
+html[data-theme="blueprint"] .masthead,
+html[data-theme="blueprint"] .desk-hint {
+  --ink: var(--stage-line);
+  --ink-muted: color-mix(in srgb, var(--stage-line) 72%, var(--stage-sheet));
+  --paper-page: var(--stage-line);
+}
+
+/* The sound chip is a filled card, so it inverts instead: the sheet becomes
+ * its ground and the line its ink and border, the way every object in the
+ * scene is drawn. --paper-page also paints the disc's hub. */
+html[data-theme="blueprint"] .desk-sound {
+  --ink: var(--stage-line);
+  --ink-muted: color-mix(in srgb, var(--stage-line) 72%, var(--stage-sheet));
+  --paper-page: var(--stage-sheet);
+  --rule: color-mix(in srgb, var(--stage-line) 55%, var(--stage-sheet));
+}
+
 /* WIRE — the classic three.js examples look. The paper keeps its own colours;
  * what changes is that every material is drawn as a wireframe and the ink is
  * switched off, so the model shows its own construction. The cut tone flattens

@@ -40,6 +40,8 @@ export interface Outlines {
   setWidth(px: number): void;
   setColour(colour: Color): void;
   setThreshold(degrees: number): void;
+  /** The live fold angle. The tuner writes this straight back to disk. */
+  readonly threshold: number;
   /** Every drawn line at once. The "wire" theme turns the ink off. */
   setVisible(on: boolean): void;
   /** THE LINE BOIL. Called every frame; does nothing at amplitude 0. */
@@ -100,6 +102,48 @@ export function createOutlines(line: Color): Outlines {
   let boilClock = 0;
   const roots: Object3D[] = [];
 
+  /* --- THE DEV GUARD: ink left behind ---------------------------------------
+   * `ownOutline` has now been forgotten four times — the lamp head, the blind,
+   * its bottom rail, the notes — and every time it showed up as a black
+   * rectangle floating beside the thing it was drawn around. The cheap way to
+   * catch the fifth is to notice that what gets frozen into a line is each
+   * mesh's transform RELATIVE TO ITS ROOT: the root may be moved, lifted,
+   * dragged by the tuner or boiled without a word, but if that relative matrix
+   * changes after the bake, the ink is standing where the object used to be.
+   *
+   * So the bake keeps a copy per mesh on the root, and the tick compares them
+   * once a second. Dev only, all of it: no snapshots, no walk and no string in
+   * a production build. */
+  interface Baked {
+    readonly mesh: Object3D;
+    readonly at: Float32Array;
+  }
+  const warned = new Set<Object3D>();
+  let watchClock = 0;
+  function checkDrift(dt: number): void {
+    watchClock += dt;
+    if (watchClock < 1) return;
+    watchClock = 0;
+    const now = new Matrix4();
+    const inverse = new Matrix4();
+    for (const root of roots) {
+      const baked = root.userData.baked as Baked[] | undefined;
+      if (!baked) continue;
+      root.updateMatrixWorld(true);
+      inverse.copy(root.matrixWorld).invert();
+      for (const { mesh, at } of baked) {
+        if (warned.has(mesh)) continue;
+        now.copy(inverse).multiply(mesh.matrixWorld);
+        if (now.elements.every((v, i) => Math.abs(v - (at[i] ?? 0)) < 1e-4)) continue;
+        warned.add(mesh);
+        const name = mesh.name || `${mesh.type} under ${root.name || root.type}`;
+        console.warn(
+          `[outline] "${name}" moved after its line was baked, so its ink stayed behind — set userData.ownOutline on ${name}`,
+        );
+      }
+    }
+  }
+
   function bake(root: Object3D): void {
     // A DIRECT child, not a descendant. getObjectByName searches the whole
     // subtree, so on the room it found the lamp head's own line and deleted
@@ -111,6 +155,7 @@ export function createOutlines(line: Color): Outlines {
     }
 
     const positions: number[] = [];
+    const baked: Baked[] = [];
     const matrix = new Matrix4();
     root.updateMatrixWorld(true);
     const inverse = new Matrix4().copy(root.matrixWorld).invert();
@@ -168,6 +213,7 @@ export function createOutlines(line: Color): Outlines {
       // Into the artifact's own space, so the baked lines move, lift and rotate
       // with the object exactly as its meshes do.
       matrix.copy(inverse).multiply(mesh.matrixWorld);
+      if (import.meta.env.DEV) baked.push({ mesh, at: new Float32Array(matrix.elements) });
       edges.applyMatrix4(matrix);
       const array = edges.getAttribute("position").array;
       for (let i = 0; i < array.length; i++) positions.push(array[i] as number);
@@ -176,6 +222,7 @@ export function createOutlines(line: Color): Outlines {
       for (const child of o.children) walk(child);
     };
     walk(root);
+    if (import.meta.env.DEV) root.userData.baked = baked;
 
     if (!positions.length) return;
     const geometry = new LineSegmentsGeometry().setPositions(positions);
@@ -199,6 +246,9 @@ export function createOutlines(line: Color): Outlines {
     get boilRate() {
       return boilRate;
     },
+    get threshold() {
+      return threshold;
+    },
     setVisible(on) {
       material.visible = on;
     },
@@ -213,6 +263,9 @@ export function createOutlines(line: Color): Outlines {
       boilRate = ms;
     },
     boil(dt) {
+      // Not inside the early return below: the guard has to run whether or not
+      // the ink is boiling.
+      if (import.meta.env.DEV) checkDrift(dt);
       if (boilAmount <= 0) return;
       boilClock += dt * 1000;
       if (boilClock < boilRate) return;

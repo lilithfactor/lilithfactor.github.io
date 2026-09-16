@@ -36,6 +36,8 @@ import {
   buildLighting,
   buildRoom,
   DESK_SIZE,
+  hourFromUrl,
+  isNight,
   LAMP,
   matBowAmount,
   matHeightAt,
@@ -249,7 +251,10 @@ export async function mountDesk(): Promise<DeskHandle | null> {
   if (forcedSky) {
     // ?sky=rain opens the curtains on a synthetic forecast, so every condition
     // can be looked at without waiting on — or being lied to by — the network.
-    view.reveal({ sky: forcedSky as Sky, day: true, celsius: 20 });
+    // Day comes from the same hour rule the window dresses itself by, so
+    // ?sky=clear&hour=22 is a night room with a clear night sky and not a
+    // midnight noon.
+    view.reveal({ sky: forcedSky as Sky, day: !isNight(hourFromUrl()), celsius: 20 });
   } else {
     void weather.then((w) => {
       if (!destroyed) view.reveal(w);
