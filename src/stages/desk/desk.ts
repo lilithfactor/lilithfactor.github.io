@@ -28,6 +28,7 @@ import {
   DirectionalLight,
   Group,
   HemisphereLight,
+  Matrix4,
   Mesh,
   PlaneGeometry,
   MeshBasicMaterial,
@@ -119,6 +120,57 @@ export const BULB = new Vector3(-0.127, 0.115, -0.04);
  */
 export const AIM = new Vector3(-0.892, -0.355, 0.6);
 
+/**
+ * WHICH WAY A SHADE IS FACING, measured off the shade itself.
+ *
+ * The lamp model carries no pitch in its transforms — `lamp.glb`'s shade node
+ * is a plain yaw, and the tilt that makes it a desk lamp rather than a pendant
+ * is baked into its vertices. So reading an axis off its matrix answers "up",
+ * every time, whatever the shade is doing; the beam has to come from the mesh.
+ *
+ * A lampshade is a surface of revolution, so its axis is the line through the
+ * centre of its closed end and the centre of its mouth. That is exactly what
+ * this measures: the centroid of the top quarter of the vertices to the
+ * centroid of the bottom quarter, which needs no eigen-solver, no convention
+ * about which local axis a modeller chose, and no hand-tuned number. It
+ * returns the direction the mouth points, in the mesh's own space.
+ *
+ * Banded by local y because a desk lamp's shade points downward-ish in any
+ * model that is not upside down; the bands only have to be on the right ends
+ * of the cone, not perpendicular to its axis.
+ */
+export function shadeAxisOf(mesh: Mesh): Vector3 | null {
+  const pos = mesh.geometry?.getAttribute("position");
+  if (!pos || pos.count < 6) return null;
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i);
+    if (y < lo) lo = y;
+    if (y > hi) hi = y;
+  }
+  if (!(hi > lo)) return null;
+  const band = (hi - lo) * 0.25;
+  const top = new Vector3();
+  const bottom = new Vector3();
+  const v = new Vector3();
+  let nt = 0;
+  let nb = 0;
+  for (let i = 0; i < pos.count; i++) {
+    v.fromBufferAttribute(pos, i);
+    if (v.y >= hi - band) {
+      top.add(v);
+      nt++;
+    } else if (v.y <= lo + band) {
+      bottom.add(v);
+      nb++;
+    }
+  }
+  if (!nt || !nb) return null;
+  const axis = bottom.divideScalar(nb).sub(top.divideScalar(nt));
+  return axis.lengthSq() > 1e-12 ? axis.normalize() : null;
+}
+
 export interface Lighting {
   readonly key: SpotLight;
   readonly fill: DirectionalLight;
@@ -185,6 +237,13 @@ export interface LampParts {
    */
   readonly bulb: Vector3;
   readonly aim: Vector3;
+  /**
+   * The shade mesh, when the lamp came from a model. Published so the beam can
+   * be checked against — and aimed along — the shade's own axis rather than a
+   * world one. Null for the procedural lamp, whose shade is a cone this file
+   * places itself and whose AIM is hand-tuned to match it.
+   */
+  readonly shade: Object3D | null;
 }
 
 /** A painted box. `thin` names the axis its two large faces look along. */
@@ -888,6 +947,8 @@ function buildLamp(p: Palette, m: Materials, models: ModelKit): LampParts {
    * this is a variable and not a bounding box taken at the end. */
   let shadeCentre: Vector3 | null = null;
   let shadeSize = new Vector3();
+  /** The shade mesh itself, so the beam can be aimed along ITS axis. */
+  let shadePart: Mesh | null = null;
 
   const head = new Group();
   head.name = "lamp-head";
@@ -1000,6 +1061,7 @@ function buildLamp(p: Palette, m: Materials, models: ModelKit): LampParts {
       biggest = volume;
       shadeCentre = partExtent.getCenter(new Vector3());
       shadeSize = partSize.clone();
+      shadePart = part;
     }
 
     for (const part of headParts) {
@@ -1092,14 +1154,36 @@ function buildLamp(p: Palette, m: Materials, models: ModelKit): LampParts {
   pool.position.y = 0.0016;
   pool.renderOrder = 2;
 
-  // For the model, the beam starts at the shade and goes straight down with a
-  // slight lean, which lands the pool under the lamp on any lamp geometry. The
-  // procedural lamp keeps its hand-tuned pair.
+  /* WHERE THE BEAM GOES: out of the shade's mouth.
+   *
+   * This used to be `bulb + (0.12, -1, 0.22)` — "straight down with a slight
+   * lean", a lean picked by eye at one lamp yaw and unrelated to anything the
+   * shade was doing. Measured against the shade's own axis it was 19 degrees
+   * out, and out in AZIMUTH: the shade opened toward the viewer and the cone
+   * went the other way. The family of bug this file keeps producing — a value
+   * in one space used as if it belonged to another.
+   *
+   * So the direction is read off the shade mesh (see shadeAxisOf) and brought
+   * into the HEAD's space, which is the space `aim` is declared in and is what
+   * makes the beam follow the head when it pivots and the lamp when it is
+   * yawed. The aim point is a metre along it; only the direction matters.
+   *
+   * The procedural lamp keeps AIM: its shade is a cone this same file places,
+   * so that pair is already matched by construction. */
   const lampBulb = model && shadeCentre ? bulb.clone() : BULB.clone();
-  const lampAim =
-    model && shadeCentre ? bulb.clone().add(new Vector3(0.12, -1, 0.22)) : AIM.clone();
+  const axis = model && shadePart ? shadeAxisOf(shadePart) : null;
+  let lampAim = AIM.clone();
+  if (model && shadeCentre && axis && shadePart) {
+    head.updateMatrixWorld(true);
+    // Shade space → world → head space. Rotation only, which is what
+    // transformDirection does, so the scale the loader applied cannot leak in.
+    axis
+      .transformDirection(shadePart.matrixWorld)
+      .transformDirection(new Matrix4().copy(head.matrixWorld).invert());
+    lampAim = lampBulb.clone().addScaledVector(axis, 1);
+  }
 
-  return { group, head, pool, glow, bulb: lampBulb, aim: lampAim };
+  return { group, head, pool, glow, bulb: lampBulb, aim: lampAim, shade: shadePart };
 }
 
 /* WHAT THE LIGHT IS TINTED TOWARD.

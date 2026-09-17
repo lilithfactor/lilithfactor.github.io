@@ -14,8 +14,8 @@
  * shortcut: ux-rules.md rule 4.
  */
 
-import { Vector3, type Camera, type SpotLight } from "three";
-import type { LampParts } from "./desk";
+import { Vector3, type Camera, type Mesh, type SpotLight } from "three";
+import { shadeAxisOf, type LampParts } from "./desk";
 
 /** Head pitch limits, radians about the joint. Past these the folded shade
  * would intersect its own arm — sane limits, not physics. */
@@ -169,6 +169,8 @@ export function createLampRig(lamp: LampParts, key: SpotLight): LampRig {
     const r3 = (v: number) => Math.round(v * 1000) / 1000;
     const head = new Vector3();
     const pool = new Vector3();
+    const beam = new Vector3();
+    const axis = new Vector3();
     (window as unknown as { __lampProbe?: () => unknown }).__lampProbe = () => {
       lamp.head.getWorldPosition(head);
       lamp.pool.getWorldPosition(pool);
@@ -176,13 +178,34 @@ export function createLampRig(lamp: LampParts, key: SpotLight): LampRig {
       const to = key.target.position;
       const dy = from.y - to.y;
       const t = dy > 0.001 ? from.y / dy : 0;
+      /* DOES THE BEAM AGREE WITH THE SHADE?
+       *
+       * The one number that says whether the cone comes out of the shade's
+       * mouth: the angle between the shade's own axis, measured off its
+       * vertices (desk.ts/shadeAxisOf), and the bulb → aim direction the light
+       * actually uses. It read 18.8 degrees while `aim` was a hand-picked
+       * lean; it should now be 0. */
+      beam.copy(to).sub(from).normalize();
+      let shadeDeg: number | null = null;
+      let shadeWorld: number[] | null = null;
+      if (lamp.shade) {
+        const a = shadeAxisOf(lamp.shade as Mesh);
+        if (a) {
+          axis.copy(a).transformDirection((lamp.shade as Mesh).matrixWorld);
+          shadeWorld = [r3(axis.x), r3(axis.y), r3(axis.z)];
+          shadeDeg = r3((Math.acos(Math.max(-1, Math.min(1, axis.dot(beam)))) * 180) / Math.PI);
+        }
+      }
       return {
+        shadeAxisWorld: shadeWorld,
+        shadeToBeamDeg: shadeDeg,
         keyToHead: r3(from.distanceTo(head)),
         keyPos: [r3(from.x), r3(from.y), r3(from.z)],
         headWorld: [r3(head.x), r3(head.y), r3(head.z)],
         poolWorld: [r3(pool.x), r3(pool.z)],
         beamOnDesk: [r3(from.x + (to.x - from.x) * t), r3(from.z + (to.z - from.z) * t)],
         keyIntensity: r3(key.intensity),
+        beamWorld: [r3(beam.x), r3(beam.y), r3(beam.z)],
       };
     };
   }
