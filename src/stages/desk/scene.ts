@@ -422,6 +422,20 @@ export async function mountDesk(): Promise<DeskHandle | null> {
         extent.max.y * 0.9,
         extent.max.z + 0.006,
       );
+      /* YAW OUTSIDE THE LEAN, which is what "YXZ" buys.
+       *
+       * The tick sets `note.rotation.y` every frame to square the note to the
+       * view. In three's default XYZ order the lean is applied after that yaw,
+       * about the WORLD x-axis — so the further the note has to turn, the more
+       * of the lean arrives as a ROLL, and the card tips over on its corner
+       * with its writing running diagonally. It was invisible while every
+       * object sat within a few degrees of square and became obvious the
+       * moment one was turned side-on: library, product-dives and now
+       * recommendations all stand at ±90°.
+       *
+       * YXZ applies the lean first and the yaw around it, which is how a card
+       * leaning against something actually behaves when you walk round it. */
+      note.rotation.order = "YXZ";
       note.rotation.x = NOTE_LEAN * DEG;
       note.traverse((n) => {
         const mesh = n as Mesh;
@@ -927,6 +941,13 @@ export async function mountDesk(): Promise<DeskHandle | null> {
    * it came from and the file emptied, so nobody has to read JSON to find out
    * where the lamp is. Empty is the normal state. */
   if (Object.keys(tuned).length) applyTuned(tunerTargets, tuned as Tuned);
+
+  /* The lamp settles LAST, and it has to be last: the replay above may have
+   * moved the lamp and reset the key light's intensity, and the rig has to
+   * adopt both as its "on" state rather than the code defaults it was built
+   * with. Where the beam points is re-read every frame (lamp.ts); how bright
+   * it is when lit is only ever read here. */
+  lampRig.settle();
 
   /* The tuner: sliders for every number this scene is made of, so the loop of
    * edit → rebuild → screenshot → squint stops being how the look gets found.
