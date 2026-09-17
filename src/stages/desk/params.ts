@@ -371,14 +371,18 @@ export function specs(t: TunerTargets): Spec[] {
    * that both halves follow the hand at — higher chases harder, the low end is
    * the slow lag of a heavy camera.
    *
-   * Each amplitude is a fraction of the rig's full throw, so 0 is off and 1 is
-   * what the constants in camera.ts were tuned to. */
+   * Each amplitude is a fraction of the rig's full throw, so 0 is off, 1 is
+   * what the constants in camera.ts were tuned to, and the slider runs past it
+   * to 2.5 because "good, but a bit more" is not a thing a ceiling at the
+   * default can answer. Above roughly 1.2 the desk's near corners start to
+   * leave the frame at the current tuned framing; `view.camera.z` or
+   * `view.fov` buys that margin back. */
   num({
     key: "view.parallax",
     group: "View",
     label: "orbit (eye)",
     min: 0,
-    max: 1,
+    max: 2.5,
     step: 0.01,
     get: () => t.parallax.amount.get(),
     set: (v) => t.parallax.amount.set(v),
@@ -388,7 +392,7 @@ export function specs(t: TunerTargets): Spec[] {
     group: "View",
     label: "gaze (regard)",
     min: 0,
-    max: 1,
+    max: 2.5,
     step: 0.01,
     get: () => t.parallax.gaze.get(),
     set: (v) => t.parallax.gaze.set(v),
