@@ -1,5 +1,296 @@
 [
   {
+    "id": "3dbbe508-b291-80f8-a7e2-d5809f1bca52",
+    "slug": "24-of-gmv-hiding-across-funnel-steps",
+    "name": "+24% of GMV, Hiding across funnel steps",
+    "summary": "We were selling more every month and converting less, so we concluded the product was losing and planned a quarter of building. It wasn't the product. We had been watching a single number that turned out to be the average of six different businesses, some healthy, some not, and most of the loss was sitting in three screens we had already shipped.",
+    "type": [
+      "Optimization"
+    ],
+    "role": "Product Manager",
+    "domain": [
+      "Travel"
+    ],
+    "kpis": [
+      "Conversion",
+      "Revenue"
+    ],
+    "association": "Org",
+    "links": [],
+    "order": 0,
+    "body": [
+      {
+        "heading": null,
+        "blocks": [
+          {
+            "type": "image",
+            "src": "/case-studies/24-of-gmv-hiding-across-funnel-steps/1.png",
+            "caption": null,
+            "width": 2000,
+            "height": 1091
+          }
+        ]
+      },
+      {
+        "heading": "What I found",
+        "blocks": [
+          {
+            "type": "callout",
+            "text": "We were selling more hotel rooms every month, but a smaller and smaller share\nof the people who looked at one actually booked it. We concluded\nthe product was falling behind, and were about to spend time and resources building its\nway out."
+          },
+          {
+            "type": "para",
+            "text": "It wasn't the product. Most of the loss was sitting in three screens we had\nalready built, and I could put a number on it: about a quarter of a year's\nbooking revenue, recoverable without building anything, signing anyone new, or\nreopening a single commercial deal."
+          },
+          {
+            "type": "list",
+            "items": [
+              "Room selection, the number moved. What a customer was shown here did not always match what they were charged at checkout. That is not a pricing problem, it is a trust problem: it arrives at the exact moment someone is deciding whether we are worth believing, and it costs us the booking, not just the margin.",
+              "Identification, the one step where conversion could more than double. An identity check only some customers ever reach, and three in four of them never come out the other side. The customers who never see it convert at 2.3× the rate of the ones who do. I sized half of that gap, not all of it.",
+              "Payment, failing worst for our best customers. The most expensive bookings were the most likely to fall over at the very last step, which is the opposite of what everyone assumed."
+            ]
+          },
+          {
+            "type": "para",
+            "text": "None of the three is exotic. That is the point: the expensive problems were\nordinary, and they were already out there."
+          }
+        ]
+      },
+      {
+        "heading": "Why nobody had seen it",
+        "blocks": [
+          {
+            "type": "callout",
+            "text": "Everyone was watching one number: of the people who searched, how many booked. It had been falling subtly, and a falling number against a rising traffic chart reads like a product that is losing."
+          },
+          {
+            "type": "para",
+            "text": "But there was no such thing as \"our conversion rate.\" We sold to six quite different kinds of customer, different budgets, different destinations, different expectations, and we reported them as a single figure. Some of those businesses were healthy and some were not, and averaging them produced a number that described neither."
+          },
+          {
+            "type": "para",
+            "text": "That mattered because it left two explanations that look identical from the outside: either the product had got worse, or we were simply selling to a different mix of people than before. Those have opposite fixes, one is a quarter of engineering, the other is a pricing and marketing decision, and we were about to bet on the expensive one."
+          }
+        ]
+      },
+      {
+        "heading": "How I found it",
+        "blocks": [
+          {
+            "type": "list",
+            "items": [
+              "I rebuilt the foundation instead of noting it was cracked. The field every report depended on was wrong, so I reconstructed it from confirmed orders, matching every booked property against our catalogue, nothing unresolved, nothing quietly dropped.",
+              "I split the customers up before looking at the funnel. Six groups, not one, deciding in advance which differences between customers actually change how they behave. That is a product judgement, not a technical one.",
+              "I measured every step separately, rather than end to end. An e2e number tells you a group is doing badly. Only the individual steps tell you where. Each of the three findings is one step: a group doing better than its counterpart at every stage, then falling off a cliff at exactly one.",
+              "I compared like with like. Where two routes to the same room disagreed, I looked only at the properties available down both of them, so the inventory stopped being a possible explanation, and the only difference left was what the customer was shown.",
+              "I tested the thing everyone was sure of. The house view was that being cheapest wins the booking. I sorted every click by how its price compared to the rest of the page it appeared on, in five bands. Conversion is flat across all five, and at the premium end it reverses: a suspiciously cheap luxury property converts worse, not better.",
+              "I deliberately made my own number smaller. I took half of two of the three opportunities, assumed no knock-on benefit anywhere else, and published four things the analysis could not tell you.",
+              "I ended on decisions, not findings. Four questions to named owners, each answerable yes or no."
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "What happened next",
+        "blocks": [
+          {
+            "type": "list",
+            "items": [
+              "The quarter of build capacity was not spent on the wrong thing. The question changed from what do we build to where do we spend.",
+              "One of the four decisions was answered inside two weeks, not in a meeting, but by someone changing the thing and shipping it twice in six days. It is the only part of this work that banked real money, and it is the part I never bothered to size. The others, in the coming weeks.",
+              "The cheapest-price assumption stayed disproved, but I put it up as a test to run, not a settled answer. The evidence at the premium end is thin, and I said so at the time.",
+              "One habit died. \"Most of our bookings are X\" stopped being a reason to do anything, once it turned out the biggest group by number of bookings was nearly the smallest by money."
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "What I'd tell someone doing this",
+        "blocks": [
+          {
+            "type": "list",
+            "items": [
+              "An average is only honest when the things inside it agree. Ours didn't.",
+              "Go back and check your own findings. A month later, one of mine had quietly moved to a different screen. I would have repeated the old answer with complete confidence.",
+              "Compare like with like before you accuse anyone. Holding the inventory constant, my headline gap fell from about 3× to 1.2×. The problem was real, but it was somewhere else, and that correction was worth more than the original finding.",
+              "The decision that moves is rarely the one you modelled. Three carefully sized fixes sat still; one commercial question in my closing paragraph was settled in a fortnight."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "3dbbe508-b291-808e-8f5e-c91e8efdaf00",
+    "slug": "from-search-to-licensed-api",
+    "name": "From Search to Licensed API",
+    "summary": "Two-thirds of users never touch a sort or a filter, they take the list exactly as we ordered it. So the ranking is not a feature, it is the storefront. This is how we rebuilt it from what people actually type, and how it ended up being sold to other companies.",
+    "type": [
+      "New Feature"
+    ],
+    "role": "Product Manager",
+    "domain": [
+      "Travel"
+    ],
+    "kpis": [
+      "Conversion",
+      "Revenue",
+      "Engagement"
+    ],
+    "association": "Org",
+    "links": [],
+    "order": 1,
+    "body": [
+      {
+        "heading": "Overview",
+        "blocks": [
+          {
+            "type": "image",
+            "src": "/case-studies/from-search-to-licensed-api/1.png",
+            "caption": null,
+            "width": 2000,
+            "height": 915
+          },
+          {
+            "type": "image",
+            "src": "/case-studies/from-search-to-licensed-api/2.png",
+            "caption": null,
+            "width": 2752,
+            "height": 1536
+          },
+          {
+            "type": "list",
+            "items": [
+              "Owned hotel search & discovery e2e, from the question a user is asking to the order they get back.",
+              "87.5% of GMV now flows through the default ranking. Same engine licensed externally as an API, another travel business running its entire hotel operation on it.",
+              "Impact area: Revenue, via decision quality, not traffic."
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Situation",
+        "blocks": [
+          {
+            "type": "list",
+            "items": [
+              "Hero: a traveller booking a hotel, high-stakes, infrequent, no way to inspect before paying.",
+              "Blind spot: we could see what users chose. We could not see what they were asking for.",
+              "Pain: searches returning noise or nothing, the two were indistinguishable in the data, so neither could be fixed.",
+              "Stakes: two-thirds of results-page sessions never touch a sort or a filter. The default order isn't a feature, it's the storefront.",
+              "Constraints: no data scientist, no ranking infra, shared QA, pod of 8 across two products, weekly release train.",
+              "My hypothesis: ranking quality, not filter count, decides GMV, and ranking can't be fixed until the input is understood."
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Tasks",
+        "blocks": [
+          {
+            "type": "list",
+            "items": [
+              "SMART objective: ship a measurable default ranking in a quarter, and prove it beats what users pick for themselves.",
+              "North Star: share of GMV flowing through the default order.",
+              "Primary KPIs: GMV share, conversion by sort, AOV by sort.",
+              "Secondary KPIs: no-result rate, selection depth, sort adoption.",
+              "Owned: the full surface, input, relevance, ranking, filters, geo, and the instrumentation under all of it.",
+              "Process: JTBD on the query → instrument → measure → spec → ship → re-measure. Nothing shipped on an opinion.",
+              "Key players: 1 BE, shared QA."
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Actions",
+        "blocks": [
+          {
+            "type": "list",
+            "items": [
+              "Closed the instrumentation gap: until we could see what was being asked for, relevance was being scored against clicks the system had produced itself, a closed loop that can only confirm itself. Everything below depends on breaking it.",
+              "Made results unambiguous: users could not tell what kind of thing each result referred to. Removing that ambiguity also split two failure modes that had looked identical in the data, and only then could either be fixed.",
+              "Treated empty searches as causes, not screens: the instinct is to design a better no-results state. Instead, repeated investigations, each isolating a different failure class. 6 releases in 6 weeks, each off its own research.",
+              "Specced the ranking rather than requesting it: chose the signal set and how the signals trade against each other. Most PMs file a ticket for \"better ranking\", these are product tradeoffs, not engineering ones.",
+              "Weights as config, not code: retunable without a release. A modest call at the time; it became the reason the engine was portable, then sellable.",
+              "Compared users to themselves: same people's sessions with & without a manual re-sort. Kills the obvious objection, that re-sorters are simply cheaper customers.",
+              "Audited the menu on measured performance, not usage: then argued the effort belonged on the default, 1% better first result beats doubling every other option's usage.",
+              "Productised it: measurable ordering + config weights = no longer an internal feature. Now licensed as an API."
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Results",
+        "blocks": [
+          {
+            "type": "callout",
+            "text": "Five movements, one story: users find it sooner, engage more often, buy\nmore often, buy better, and increasingly stop re-ordering the list at\nall."
+          },
+          {
+            "type": "list",
+            "items": [
+              "Selection depth (average and tail position of the hotel chosen) down ~25%.",
+              "Median order value 1.37× over the same window.",
+              "1.33× AOV within-user, the default against the same users re-sorted sessions.",
+              "The default carries the business, 87.5% of GMV, ~78% of all selections, and two-thirds of users never over-ride with controls.",
+              "Licensed externally as an API, other travel business’ running entire hotel operation on it.",
+              "Long-term: weights are config → retunable without a release, portable to a new vertical or a new buyer."
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Learning",
+        "blocks": [
+          {
+            "type": "list",
+            "items": [
+              "Instrument the input before optimising the output: tuning a ranking against its own clicks only ever confirms itself.",
+              "The default is the product: two-thirds never touch a control. 1% better first result > doubling every other sort's usage.",
+              "Compare people to themselves: turns an interesting correlation into a finding people have to accept.",
+              "The denominator changes the answer: one option read well on a loose denominator, badly on a strict one.",
+              "Config beats clever: making the weights tunable was a small call that made the engine sellable."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "3cebe508-b291-80d2-a1b4-e74648aa4957",
+    "slug": "solving-room-mapping-and-identity-at-scale",
+    "name": "Solving Room Mapping and Identity at Scale",
+    "summary": "String similarity gets the two cases that matter exactly backwards: it merges the rooms that must never merge and splits the ones that must. This is the pipeline we built instead, stage by stage, including the part everyone tries to automate away.",
+    "type": [
+      "New Feature"
+    ],
+    "role": null,
+    "domain": [
+      "B2B"
+    ],
+    "kpis": [
+      "Conversion",
+      "Engagement",
+      "Retention"
+    ],
+    "association": null,
+    "links": [
+      "https://www.onarrival.com/blog/how-we-solved-room-mapping"
+    ],
+    "order": 2,
+    "body": [
+      {
+        "heading": null,
+        "blocks": [
+          {
+            "type": "link",
+            "url": "https://www.onarrival.com/blog/how-we-solved-room-mapping"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "id": "31cbe508-b291-8026-9930-c9ad59e4dbb0",
     "slug": "configurator-visualize-customize-compare-purchase",
     "name": "Configurator: Visualize, Customize, Compare, Purchase",
@@ -23,7 +314,7 @@
       "https://magniteconfigurator.nissan.in/#/presentation?prevPage=homepage",
       "https://www.chevroletarabia.com/sa-en/crossovers-and-suvs/tahoe"
     ],
-    "order": 0,
+    "order": 3,
     "body": [
       {
         "heading": "Case Study",
@@ -109,7 +400,7 @@
     "links": [
       "https://www.metadome.ai/module/brand-led-agent"
     ],
-    "order": 1,
+    "order": 4,
     "body": [
       {
         "heading": "Case Study",
@@ -143,7 +434,7 @@
     ],
     "association": "Org",
     "links": [],
-    "order": 2,
+    "order": 5,
     "body": [
       {
         "heading": "Overview",
@@ -286,7 +577,7 @@
     ],
     "association": "Org",
     "links": [],
-    "order": 3,
+    "order": 6,
     "body": [
       {
         "heading": "Overview",
@@ -410,7 +701,7 @@
     ],
     "association": "Org",
     "links": [],
-    "order": 4,
+    "order": 7,
     "body": [
       {
         "heading": "Overview",
