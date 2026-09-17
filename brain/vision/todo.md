@@ -31,6 +31,12 @@ Everything below the line is what remains.
 - [ ] `dump/` (2019 portfolio) still in repo; README says delete after Phase 4
 - [x] Lamp ink drifted (5th ownOutline case) — fixed by flag; the guard now warns in dev
 - [ ] `.link-row` in case-studies/[slug].astro → chip-link (file has uncommitted user edits; do it when they land)
+- [x] Hit regions/clickability: only a note was clickable, not the object it sits on — `pick.ts`'s raycaster now routes a click anywhere on an artifact's mesh to the same `panels.activate()` the handle button calls; lamp is structurally excluded, picking is disabled while a panel is open (dec1ddc)
+- [x] Lamp beam position AND direction: `apply()` split into `pose()` (every frame, so tuner drags and `applyTuned` can't slide the lamp out from under its own light — bf2a2ac) and a re-aimed cone read off the shade mesh's own axis instead of a picked-by-eye offset (6ea13c4)
+- [x] Note yaw knob: `note.<id>.yaw` in the tuner, stored as an offset added to the per-frame computed yaw since scene.ts squares every note to the view each frame (89adcc3)
+- [x] Parallax/gaze knobs: cursor-follow orbit widened (2.1° → 9°/5.5°) with the look-at point now sliding across the desk instead of staying pinned (dce7705); `view.parallax`/`view.gaze`/`view.parallaxSpeed` tuner sliders raised from a ceiling of 1 to 2.5 (c335dd3)
+- [x] Bookcase top cleared for RECOMMENDATIONS: the downloaded books row/stack that used to sit there is gone, along with their MODEL_SPECS entries (ca6ac1c)
+- [x] Beyond links: Music, Chess and Reading cards in "Beyond the routine" now carry a chip-link to the matching Connect URL (matched by label, not hardcoded) — Films/Series and Speedcubing correctly carry none (a09b08d)
 
 # Idea Dump
 - should be able to change weather, this would change the sound and also what can be seen outside the window.
@@ -98,6 +104,21 @@ Content still needed before the two new objects can be wired:
   a Notion automation POSTing `repository_dispatch` needs a GitHub PAT.
 - [ ] Write STAR bodies for the two sparse case studies (Configurator,
   Brand-led agent) — the other three now render in full.
+- [ ] **Connect's icon set.** `lucide-react` has no brand logos, so six of the
+  seven Connect marks (everything but a generic mail/link glyph) cannot come
+  from it. Decide: `simple-icons` (already a devDependency) for the brand
+  marks + lucide for anything generic, or drop icons entirely and go
+  text-only.
+- [ ] **Where the plant's like count lives.** A small, cheap, always-on
+  counter — Cloudflare Worker + KV, or a Supabase table — needs picking before
+  it's wired to anything on the desk.
+- [ ] **The weather IP → third-party trade**, restated: `weather.ts` sends a
+  visitor's IP to ipwho.is/geojs and then Open-Meteo on every load. Reversible
+  in one line (`locate()`) but still needs a yes/no.
+- [ ] **`recommendations` and `connect` sit off the left edge at rest** in
+  `tuned.json` (`artifact.recommendations.x -1.35`, `artifact.connect.x
+  -0.99`) — both need to be re-centred onto the visible desk, not just
+  reachable via parallax.
 
 ## Next build
 
