@@ -27,3 +27,10 @@ bgm/
 # Hi-fi model downloads of unknown provenance. Superseded by poly.pizza assets,
 # which carry their licence. Kept locally, never shipped.
 models-src/
+
+# Resume & portfolio working files — CONFIDENTIAL, never committed.
+# This repo is public. These hold absolute OnArrival revenue, partner names,
+# take rates, internal reports and the unredacted source PDFs. The published
+# artefacts are the Notion case studies, which are redacted on purpose.
+resume/
+portfolio/

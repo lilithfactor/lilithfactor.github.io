@@ -49,7 +49,10 @@ const BodyBlock = z.discriminatedUnion("type", [
 ]);
 
 const BodySection = z.object({
-  heading: z.string().min(1),
+  /** Null for a lead-in section: anything Notion puts above the first heading
+   * — a hero image, a bookmark, an intro line. A real document shape, not a
+   * malformed one, so it validates and renders without an <h2>. */
+  heading: z.string().min(1).nullable(),
   blocks: z.array(BodyBlock),
 });
 
