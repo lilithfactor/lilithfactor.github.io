@@ -56,6 +56,14 @@ export interface TunerTargets {
     get(): { position: [number, number, number]; target: [number, number, number]; fov: number };
     set(v: { position?: [number, number, number]; target?: [number, number, number]; fov?: number }): void;
   };
+  /**
+   * Cursor parallax: how far the camera leans with the pointer, and how fast
+   * it catches up. Two numbers nobody can pick by reading them. See camera.ts.
+   */
+  parallax: {
+    amount: { get(): number; set(v: number): void };
+    speed: { get(): number; set(v: number): void };
+  };
   materials: {
     contactOpacity(v: number): number;
     glowOpacity(v: number): number;
@@ -335,6 +343,32 @@ export function specs(t: TunerTargets): Spec[] {
     get: () => t.camera.get().fov,
     set: (v) => t.camera.set({ fov: v }),
   });
+  /* --- Cursor parallax -----------------------------------------------------
+   * "How much the camera should move with the movement of the cursor, and also
+   * the speed." Amount is a fraction of the rig's full lean, so 0 switches the
+   * effect off entirely and 1 is the amplitude the rig was designed around;
+   * speed is the ease rate in 1/seconds — higher follows the hand harder, and
+   * the low end is the slow lag of a heavy camera. */
+  num({
+    key: "view.parallax",
+    group: "View",
+    label: "cursor parallax",
+    min: 0,
+    max: 1,
+    step: 0.01,
+    get: () => t.parallax.amount.get(),
+    set: (v) => t.parallax.amount.set(v),
+  });
+  num({
+    key: "view.parallaxSpeed",
+    group: "View",
+    label: "parallax speed",
+    min: 0.5,
+    max: 12,
+    step: 0.1,
+    get: () => t.parallax.speed.get(),
+    set: (v) => t.parallax.speed.set(v),
+  });
   // The desk's own angle, which is the thing a straight-on view needs: turning
   // the model is not the same as moving the camera, and it keeps the framing.
   num({
@@ -413,9 +447,7 @@ export function specs(t: TunerTargets): Spec[] {
     });
     /* --- Its note ---------------------------------------------------------
      * In the OBJECT's space, so these numbers stay true when the object is
-     * moved or turned. There is no yaw here on purpose: the note's yaw is
-     * written every frame to keep it square to the view, so a slider would be
-     * overwritten before the pointer left it.
+     * moved or turned.
      *
      * The step toward the viewer is baked into z at build time, which is why z
      * does not start at zero — pulling it back toward 0 pushes the note into
@@ -433,6 +465,25 @@ export function specs(t: TunerTargets): Spec[] {
           get: () => note.position.getComponent(i),
           set: (v) => note.position.setComponent(i, v),
         });
+      });
+      /* YAW IS AN OFFSET, NOT AN ANGLE, and it has to be.
+       *
+       * scene.ts rewrites `note.rotation.y` on every single frame to keep the
+       * note square to the view — so an absolute slider would be overwritten
+       * between the drag and the next paint, which is why this knob did not
+       * exist. Stored on the note as `userData.yawOffset` and ADDED to that
+       * per-frame value, it survives, and it means something stable: "a few
+       * degrees off square", which stays true from every camera position,
+       * where "facing 30°" would only be true from one. */
+      num({
+        key: `note.${id}.yaw`,
+        group: id,
+        label: "note yaw°",
+        min: -180,
+        max: 180,
+        step: 0.5,
+        get: () => (typeof note.userData.yawOffset === "number" ? note.userData.yawOffset : 0) / DEG,
+        set: (v) => (note.userData.yawOffset = v * DEG),
       });
       num({
         key: `note.${id}.lean`,

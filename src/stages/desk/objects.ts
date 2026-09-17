@@ -540,6 +540,11 @@ export function buildNote(
     y: (NOTE_SIZE / 2) * Math.cos(lean * DEG),
     z: (NOTE_SIZE / 2) * Math.sin(lean * DEG),
   });
+  /* Named, because the hit area is measured off THIS and not off the group:
+   * the folded foot behind it adds ~25mm of depth that would drag the button's
+   * box back into the object. The printed paper is what a visitor aims at. See
+   * anchors.ts. */
+  sheet.name = "note-sheet";
   g.add(sheet);
 
   // The foot: a strip of the same card folded back under the note.

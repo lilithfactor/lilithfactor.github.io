@@ -30,7 +30,13 @@ import {
   type Object3D,
 } from "three";
 import { DESK_MIN_WIDTH } from "../choose";
-import { bindAnchors, clearAnchors, projectAnchors, type Binding } from "./anchors";
+import {
+  bindAnchors,
+  clearAnchors,
+  projectAnchors,
+  type Binding,
+  type NoteExtent,
+} from "./anchors";
 import { createCameraRig } from "./camera";
 import {
   buildLighting,
@@ -332,6 +338,8 @@ export async function mountDesk(): Promise<DeskHandle | null> {
   const placed = new Map<string, Object3D>();
   /** id → its paper note, so the tuner can nudge a label off whatever it hides. */
   const noteObjects = new Map<string, Object3D>();
+  /** id → that note's local box, so its handle is the size of the paper. */
+  const noteExtents = new Map<ArtifactId, NoteExtent>();
 
   /* NOTE SIZING, IN TWO PARTS.
    *
@@ -407,6 +415,15 @@ export async function mountDesk(): Promise<DeskHandle | null> {
     let noteOf: Object3D | null = null;
     if (printedNote) {
       const note = buildNote(palette, materials, printedNote, 8, pressKit.stock);
+      /* The PRINTED SHEET's own box, measured while the note is still
+       * untouched at the origin — so it is local geometry, and everything done
+       * to the note below (position, lean, scale, parenting) lands in its
+       * world matrix instead, where anchors.ts reads it live. This is what
+       * sizes the hit area to the paper rather than to a guess in rem.
+       *
+       * The sheet, not the group: the folded foot behind it adds 25mm of depth
+       * and would pull the button's box back off the paper. */
+      const noteBox = new Box3().setFromObject(note.getObjectByName("note-sheet") ?? note);
       /* STUCK TO THE OBJECT, not standing in front of it.
        *
        * It used to be stepped 150mm along the sightline from the anchor, which
@@ -443,6 +460,14 @@ export async function mountDesk(): Promise<DeskHandle | null> {
       });
       object.add(note);
       noteObjects.set(id, note);
+      noteExtents.set(id, {
+        object: note,
+        centreX: (noteBox.min.x + noteBox.max.x) / 2,
+        centreZ: (noteBox.min.z + noteBox.max.z) / 2,
+        minY: noteBox.min.y,
+        maxY: noteBox.max.y,
+        halfX: (noteBox.max.x - noteBox.min.x) / 2,
+      });
       sizeNote(id);
       noteOf = note;
     }
@@ -522,7 +547,7 @@ export async function mountDesk(): Promise<DeskHandle | null> {
 
   const size = { width: window.innerWidth, height: window.innerHeight };
   const rig = createCameraRig(anchors, size.width, size.height);
-  const bindings: Binding[] = bindAnchors(anchors);
+  const bindings: Binding[] = bindAnchors(anchors, noteExtents);
 
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_DPR));
   renderer.setSize(size.width, size.height, false);
@@ -753,8 +778,20 @@ export async function mountDesk(): Promise<DeskHandle | null> {
        *
        * This is what makes the tuner honest — drag something across the desk
        * and its note, its ink and its hit target all arrive with it. */
-      /* SQUARE TO THE VIEW, not aimed at the camera. See noteYaw above. */
-      if (piece.note) piece.note.rotation.y = noteYaw - piece.object.rotation.y;
+      /* SQUARE TO THE VIEW, not aimed at the camera. See noteYaw above.
+       *
+       * Plus `yawOffset`, which is why `note.<id>.yaw` in the tuner is an
+       * OFFSET and not an angle. This line runs every frame and would win any
+       * argument with an absolute slider — a value dragged to 30° would be
+       * overwritten before the pointer left it, which is exactly why the knob
+       * did not exist. As a delta it survives, and it keeps its meaning while
+       * the camera moves: "this note sits a few degrees off square", not "this
+       * note faces 30°", which would only be true from one camera position. */
+      if (piece.note) {
+        const offset = piece.note.userData.yawOffset;
+        piece.note.rotation.y =
+          noteYaw - piece.object.rotation.y + (typeof offset === "number" ? offset : 0);
+      }
 
       const anchorLocal = anchorLocals.get(piece.id);
       const anchor = anchors.get(piece.id);
@@ -880,6 +917,7 @@ export async function mountDesk(): Promise<DeskHandle | null> {
     notes: noteObjects,
     lamp: lamp.group,
     camera: { get: rig.overview, set: rig.setOverview },
+    parallax: rig.parallaxTuning,
     // The base sheet's bow. Re-bowed from the flat copy desk.ts keeps, and
     // every object re-seats itself on the next frame because `restOf` asks the
     // sheet how high it is rather than remembering.

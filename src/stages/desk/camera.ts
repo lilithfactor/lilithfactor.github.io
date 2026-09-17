@@ -43,6 +43,14 @@ export interface CameraRig {
   /** Cursor position, each axis −1…1. The rig damps it; callers just report. */
   parallax(nx: number, ny: number): void;
   /**
+   * The two knobs behind that: `amount` is 0…1 of the rig's full lean, and
+   * `speed` is the ease rate in 1/seconds. Live, so the tuner can move them.
+   */
+  readonly parallaxTuning: {
+    amount: { get(): number; set(v: number): void };
+    speed: { get(): number; set(v: number): void };
+  };
+  /**
    * The resting shot, live. The rig recomputes the camera every frame from
    * these, so a tuner cannot just move camera.position — it would be
    * overwritten on the next tick. See tuner.ts.
@@ -76,10 +84,20 @@ export function createCameraRig(
    * damped follower, so the scene leans after the hand rather than being
    * dragged by it. Amplitudes sit just above the idle drift — felt, and
    * comfortably below the point where the desk starts to feel like it is
-   * being steered. User-driven motion only: it stops when the hand stops. */
+   * being steered. User-driven motion only: it stops when the hand stops.
+   *
+   * The two numbers a hand can only find by moving them — how far the desk
+   * leans, and how quickly it catches up — are live, via `view.parallax` and
+   * `view.parallaxSpeed` in the tuner. The constants below are the full-throw
+   * amplitudes, so `amount` is a fraction of them and 1 is today's feel;
+   * `speed` is the ease rate in 1/seconds, which is the reciprocal of the
+   * 0.24s time constant this used to hardcode. A rate rather than a tau
+   * because a slider that gets FASTER as you push it right is the one a hand
+   * can read. */
   const PARALLAX_YAW = 2.1 * (Math.PI / 180);
   const PARALLAX_PITCH = 1.2 * (Math.PI / 180);
-  const PARALLAX_TAU = 0.24;
+  let parallaxAmount = 1;
+  let parallaxSpeed = 1 / 0.24;
   let cursorX = 0;
   let cursorY = 0;
   let easeX = 0;
@@ -135,11 +153,13 @@ export function createCameraRig(
       // the subject still and moves the observer, which is what a held camera
       // actually does.
       scratch.copy(position).sub(lookAt);
-      const pk = 1 - Math.exp(-dt / PARALLAX_TAU);
+      const pk = 1 - Math.exp(-dt * parallaxSpeed);
       easeX += (cursorX - easeX) * pk;
       easeY += (cursorY - easeY) * pk;
-      const yaw = Math.sin(elapsed * 0.31) * DRIFT_YAW - easeX * PARALLAX_YAW;
-      const pitch = Math.sin(elapsed * 0.21 + 1.3) * DRIFT_PITCH + easeY * PARALLAX_PITCH;
+      const yaw =
+        Math.sin(elapsed * 0.31) * DRIFT_YAW - easeX * PARALLAX_YAW * parallaxAmount;
+      const pitch =
+        Math.sin(elapsed * 0.21 + 1.3) * DRIFT_PITCH + easeY * PARALLAX_PITCH * parallaxAmount;
       scratch.applyAxisAngle(UP, yaw);
       scratch.y += Math.tan(pitch) * scratch.length();
 
@@ -150,6 +170,20 @@ export function createCameraRig(
     parallax(nx, ny) {
       cursorX = Math.max(-1, Math.min(1, nx));
       cursorY = Math.max(-1, Math.min(1, ny));
+    },
+
+    parallaxTuning: {
+      amount: {
+        get: () => parallaxAmount,
+        set: (v) => (parallaxAmount = v),
+      },
+      speed: {
+        // Floored rather than trusted: a zero rate freezes the follower at
+        // whatever it last held, which reads as a stuck camera, not as "off".
+        // Off is amount 0.
+        get: () => parallaxSpeed,
+        set: (v) => (parallaxSpeed = Math.max(0.01, v)),
+      },
     },
 
     resize(w, h) {
