@@ -63,6 +63,22 @@ const linkLabel = ({ url, label }: { url: string; label: string }) => {
 
 const bookLine = (b: { name: string; author: string | null }) =>
   b.author ? `${b.name} — ${b.author}` : b.name;
+
+/* Beyond the routine carries no URL of its own — the Notion database has no
+ * such property — so the three pastimes with a public profile borrow the one
+ * already in Connect, matched by the link's own label rather than by a URL
+ * written out here. Nothing is hardcoded but the pairing.
+ * If the beyond database ever gains a URL property, this mapping belongs in Notion. */
+const BEYOND_LINK: Record<string, string> = {
+  music: "spotify",
+  chess: "chess.com",
+  reading: "goodreads",
+};
+const linkByLabel = new Map(links.map((l) => [l.label.toLowerCase(), l]));
+const beyondLink = (name: string) => {
+  const label = BEYOND_LINK[name.toLowerCase()];
+  return label ? linkByLabel.get(label) : undefined;
+};
 ---
 
 <Base
@@ -266,12 +282,23 @@ const bookLine = (b: { name: string; author: string | null }) =>
     <Section id="beyond" label="Beyond the routine" title="Beyond the routine">
       <div class="card-grid">
         {
-          beyond.map((i) => (
-            <article class="sheet sheet--card">
-              <h3>{i.name}</h3>
-              <p class="note">{i.desc}</p>
-            </article>
-          ))
+          beyond.map((i) => {
+            const link = beyondLink(i.name);
+            return (
+              <article class="sheet sheet--card">
+                <h3>{i.name}</h3>
+                <p class="note">{i.desc}</p>
+                {link && (
+                  <p class="link-row">
+                    <a class="chip-link" href={link.url} target="_blank" rel="noopener">
+                      <LinkIcon label={link.label} />
+                      {link.label}
+                    </a>
+                  </p>
+                )}
+              </article>
+            );
+          })
         }
       </div>
     </Section>
