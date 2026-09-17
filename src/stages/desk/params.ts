@@ -57,11 +57,20 @@ export interface TunerTargets {
     set(v: { position?: [number, number, number]; target?: [number, number, number]; fov?: number }): void;
   };
   /**
-   * Cursor parallax: how far the camera leans with the pointer, and how fast
-   * it catches up. Two numbers nobody can pick by reading them. See camera.ts.
+   * The cursor as an eye. Three numbers nobody can pick by reading them, and
+   * they are not the same number twice — see camera.ts.
+   *
+   * - `amount` — ORBIT. How far the eye swings on its arc around whatever it
+   *   is looking at. This is the head moving: it is what slides near past far.
+   * - `gaze` — POINT OF REGARD. How far across the desk the thing being looked
+   *   at slides toward the cursor. This is the eye turning in the socket: it
+   *   is what brings the thing under the cursor toward the middle of frame.
+   * - `speed` — EASE RATE, in 1/seconds, shared by both. Not an amplitude at
+   *   all: it is how hard the camera chases the hand once the hand has moved.
    */
   parallax: {
     amount: { get(): number; set(v: number): void };
+    gaze: { get(): number; set(v: number): void };
     speed: { get(): number; set(v: number): void };
   };
   materials: {
@@ -343,21 +352,46 @@ export function specs(t: TunerTargets): Spec[] {
     get: () => t.camera.get().fov,
     set: (v) => t.camera.set({ fov: v }),
   });
-  /* --- Cursor parallax -----------------------------------------------------
-   * "How much the camera should move with the movement of the cursor, and also
-   * the speed." Amount is a fraction of the rig's full lean, so 0 switches the
-   * effect off entirely and 1 is the amplitude the rig was designed around;
-   * speed is the ease rate in 1/seconds — higher follows the hand harder, and
-   * the low end is the slow lag of a heavy camera. */
+  /* --- The cursor as an eye ------------------------------------------------
+   * "I want the cursor to behave like the user's eyes." Three sliders, and the
+   * whole point is that they are three different things — move one at a time
+   * or you cannot tell which one you liked.
+   *
+   * ORBIT (view.parallax) moves the EYE on an arc around whatever it is
+   * looking at. Depth: near objects slide past far ones. Framing is safe at
+   * any setting, because the arc goes around the subject rather than away.
+   *
+   * REGARD (view.gaze) moves the THING BEING LOOKED AT across the desk toward
+   * the cursor. Direction: it is what brings the object under the cursor
+   * toward the middle of frame, and it is the half that reads as intent.
+   * This is the one that can push the far edge of the desk out of shot, so it
+   * is the one to back off if the composition starts to swim.
+   *
+   * SPEED (view.parallaxSpeed) is neither: it is the ease rate in 1/seconds
+   * that both halves follow the hand at — higher chases harder, the low end is
+   * the slow lag of a heavy camera.
+   *
+   * Each amplitude is a fraction of the rig's full throw, so 0 is off and 1 is
+   * what the constants in camera.ts were tuned to. */
   num({
     key: "view.parallax",
     group: "View",
-    label: "cursor parallax",
+    label: "orbit (eye)",
     min: 0,
     max: 1,
     step: 0.01,
     get: () => t.parallax.amount.get(),
     set: (v) => t.parallax.amount.set(v),
+  });
+  num({
+    key: "view.gaze",
+    group: "View",
+    label: "gaze (regard)",
+    min: 0,
+    max: 1,
+    step: 0.01,
+    get: () => t.parallax.gaze.get(),
+    set: (v) => t.parallax.gaze.set(v),
   });
   num({
     key: "view.parallaxSpeed",
