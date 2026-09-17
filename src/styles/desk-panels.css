@@ -309,17 +309,28 @@ html[data-stage="desk"] .desk-handle {
    * -100% on y, not -50%: the anchor is where the note STANDS, so the note is
    * above it and so is the button. transform-origin at the bottom keeps that
    * true when --scale grows as the camera comes in. */
-  transform: translate3d(calc(var(--x, 50vw) - 50%), calc(var(--y, 50vh) - 100%), 0)
-    scale(var(--scale, 1));
+  transform: translate3d(calc(var(--x, 50vw) - 50%), calc(var(--y, 50vh) - 100%), 0);
   transform-origin: 50% 100%;
   opacity: var(--a, 0);
   pointer-events: auto;
 
-  /* Roughly the note's size on screen at the resting camera: a 200mm note on a
-   * 2.4m desk is about 7rem across. Slightly generous, because a hit area that
-   * is a little bigger than the thing it covers has never annoyed anyone. */
-  width: 7rem;
-  height: 6rem;
+  /* THE BOX IS THE NOTE, MEASURED.
+   *
+   * It used to be a fixed 7rem x 6rem — sized for a 200mm note when the notes
+   * are 120mm, and parked at the object's anchor rather than at the paper. So
+   * eight oversized rectangles overlapped, DOM order decided who took the
+   * click, and "I clicked About and Case Studies opened" was the result.
+   *
+   * --w / --h are the note's real projected extent in pixels and --z its depth
+   * (anchors.ts), so the box lands on the paper and the NEARER note wins. No
+   * scale() in the transform any more: the size is already in screen pixels,
+   * and scaling it again would apply the camera distance twice.
+   *
+   * max() keeps the 44px floor of ux-rules.md rule 7 — a note at the back of
+   * the desk projects to about 30px and a hit area that small is a miss. */
+  width: max(44px, var(--w, 44px));
+  height: max(44px, var(--h, 44px));
+  z-index: var(--z, 1);
   padding: 0;
 
   background: none;
