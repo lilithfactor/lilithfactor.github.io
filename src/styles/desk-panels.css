@@ -48,7 +48,9 @@ html[data-stage="desk"] .masthead {
   left: var(--s-7);
   z-index: 3;
   pointer-events: none;
-  max-width: min(38ch, 42vw);
+  /* Room for the head beside the name; the head's own width is --mascot-size. */
+  --mascot-size: 6rem;
+  max-width: min(calc(38ch + var(--mascot-size) + var(--s-4)), 50vw);
   /* Ink on paper. The backdrop is card stock now, not a dark room, so the old
    * white-on-dark treatment inverted into unreadable pale-on-pale. */
   color: var(--ink);
@@ -69,7 +71,12 @@ html[data-stage="desk"] [data-artifact] {
   width: min(46rem, 88vw);
   max-height: 82vh;
   margin: 0;
-  padding: var(--s-7);
+  /* NO padding at the top: the sticky header supplies it. A sticky box cannot
+   * be pushed outside its containing block, which is this panel's CONTENT box
+   * — so a header pulled up into the padding with a negative margin gets
+   * clamped straight back down and paints s-7 lower than the space it reserved,
+   * over whatever follows it. See the header rule below. */
+  padding: 0 var(--s-7) var(--s-7);
   overflow-y: auto;
   overscroll-behavior: contain;
 
@@ -110,24 +117,58 @@ html[data-stage="desk"] [data-artifact][data-open] {
 }
 
 /* A panel opened from an object gets the desk's own margin note treatment:
- * the section's label sits in the corner like a file tab. */
+ * the section's label sits in the corner like a file tab.
+ *
+ * top: 0, not a negative offset. At -s-7 the header stuck s-7 ABOVE the
+ * scrollport, so once scrolled it showed as an empty band with the h2 clipped
+ * off the top and card titles sliding under it. The scrollport is the padding
+ * box, so top: 0 pins the header flush to the panel's visible edge and the
+ * side margins still let it bleed the full width. The h2 is then whole at
+ * every scroll position.
+ *
+ * NO NEGATIVE TOP MARGIN, and this is what `top: 0` costs: a sticky box is
+ * clamped to its containing block, which is the panel's content box. Pulled up
+ * by -s-7 the header reserved its flow space one s-7 above that edge, was
+ * clamped back down to it, and so painted s-7 lower than the gap it left —
+ * eating the s-5 below it and half the first row of content with it. The
+ * panel's top padding is gone instead (see above), so flow and paint agree.
+ *
+ * Flex because the ✕ lives in here now. The label takes a whole line, so the
+ * h2 and the ✕ share the next one. */
 html[data-stage="desk"] [data-artifact] > header {
   position: sticky;
-  top: calc(var(--s-7) * -1);
-  margin: calc(var(--s-7) * -1) calc(var(--s-7) * -1) var(--s-5);
+  top: 0;
+  /* Above the cards, which is not automatic: .sheet is position: relative, so
+   * every card in the panel is a positioned box later in the document than the
+   * header and painted over it. The band held still and the text scrolled
+   * straight through it — including through the rule that is supposed to be
+   * the bottom of it. */
+  z-index: 1;
+  margin: 0 calc(var(--s-7) * -1) var(--s-5);
   padding: var(--s-5) var(--s-7) var(--s-4);
   background-color: var(--paper-page);
   border-block-end: 1px solid var(--rule);
+
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+
+html[data-stage="desk"] [data-artifact] > header > .label {
+  flex-basis: 100%;
 }
 
 /* --- Close affordance ----------------------------------------------------
  * Injected by panels.ts rather than living in the markup, because it is
  * meaningless without the desk — the document page has nothing to close. */
 html[data-stage="desk"] .panel-close {
-  position: absolute;
-  top: var(--s-4);
-  right: var(--s-4);
-  z-index: 1;
+  /* Static, in the sticky header's flex row. Absolute inside an overflow-y
+   * panel meant it scrolled off with the text. */
+  position: static;
+  flex: none;
+  margin-inline-start: auto;
 
   /* 44px minimum target — ux-rules.md rule 7. */
   width: 2.75rem;
@@ -233,44 +274,85 @@ html[data-stage="desk"] .desk-handles[data-dimmed] {
   pointer-events: none;
 }
 
+/* The container going pointer-events: none is not enough: .desk-handle sets
+ * pointer-events: auto and wins on the child, so an invisible button still
+ * took the click. A click meant to close the panel landed on a tag and
+ * switched sections instead. */
+html[data-stage="desk"] .desk-handles[data-dimmed] .desk-handle {
+  pointer-events: none;
+}
+
+/* THE HANDLE IS NOW INVISIBLE, and that is the point.
+ *
+ * It used to be the label: a rounded chip with the section's name in it,
+ * floating over the desk in screen space. Eight of those is a navigation bar
+ * hovering in front of a paper world, which is the one thing the whole model
+ * exists not to be. The name is written on a real square of paper standing on
+ * the object now (print.ts/paintNote, objects.ts/buildNote).
+ *
+ * What did NOT move is this button. It still carries the words, still takes
+ * tab and Enter, still announces itself, and it still sits exactly over its
+ * note — which is why the desk needs no raycaster and why clicking the paper
+ * works. Deleting it would trade a keyboard for a picture.
+ *
+ * So: no paint, no shadow, no visible text, and a box sized to cover the note
+ * behind it. `color: transparent` rather than `visibility: hidden` or a
+ * clip-path — the text has to stay in the accessible name and in Cmd-F.
+ */
 html[data-stage="desk"] .desk-handle {
   position: fixed;
   top: 0;
   left: 0;
   /* --x/--y are written by anchors.ts every frame; --a is 0 when the object is
-   * off-frame, which is also when the tag must not be clickable. */
-  transform: translate3d(calc(var(--x, 50vw) - 50%), calc(var(--y, 50vh) - 50%), 0);
+   * off-frame, which is also when the tag must not be clickable.
+   *
+   * -100% on y, not -50%: the anchor is where the note STANDS, so the note is
+   * above it and so is the button. transform-origin at the bottom keeps that
+   * true when --scale grows as the camera comes in. */
+  transform: translate3d(calc(var(--x, 50vw) - 50%), calc(var(--y, 50vh) - 100%), 0);
+  transform-origin: 50% 100%;
   opacity: var(--a, 0);
   pointer-events: auto;
 
-  /* 44px minimum target even though the tag reads small. */
-  min-height: 2.75rem;
-  padding: var(--s-2) var(--s-4);
+  /* THE BOX IS THE NOTE, MEASURED.
+   *
+   * It used to be a fixed 7rem x 6rem — sized for a 200mm note when the notes
+   * are 120mm, and parked at the object's anchor rather than at the paper. So
+   * eight oversized rectangles overlapped, DOM order decided who took the
+   * click, and "I clicked About and Case Studies opened" was the result.
+   *
+   * --w / --h are the note's real projected extent in pixels and --z its depth
+   * (anchors.ts), so the box lands on the paper and the NEARER note wins. No
+   * scale() in the transform any more: the size is already in screen pixels,
+   * and scaling it again would apply the camera distance twice.
+   *
+   * max() keeps the 44px floor of ux-rules.md rule 7 — a note at the back of
+   * the desk projects to about 30px and a hit area that small is a miss. */
+  width: max(44px, var(--w, 44px));
+  height: max(44px, var(--h, 44px));
+  z-index: var(--z, 1);
+  padding: 0;
 
-  background-color: var(--paper-page);
-  color: var(--ink);
+  background: none;
   border: 0;
-  border-radius: var(--r-chip);
-  box-shadow:
-    0 1px 2px rgb(0 0 0 / 0.3),
-    0 8px 18px -10px rgb(0 0 0 / 0.5);
+  box-shadow: none;
+  color: transparent;
+  overflow: hidden;
 
   font-family: var(--font-mono);
   font-size: var(--t-label-size);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  white-space: nowrap;
   cursor: pointer;
-  transition:
-    opacity var(--m-quick),
-    background-color var(--m-quick),
-    color var(--m-quick);
+  transition: opacity var(--m-quick);
 }
 
-html[data-stage="desk"] .desk-handle:hover,
+/* Hover has no styling here on purpose — the answer to a hover is the note
+ * itself lifting, in the scene (see scene.ts). Focus is different: a keyboard
+ * user needs to know where they are, and an outline on an invisible button
+ * draws a ring exactly around the note it belongs to. */
 html[data-stage="desk"] .desk-handle:focus-visible {
-  background-color: var(--red-pen);
-  color: var(--paper-page);
+  outline: 3px solid var(--red-pen);
+  outline-offset: 3px;
+  border-radius: 2px;
 }
 
 /* --- Sound ----------------------------------------------------------------
@@ -431,4 +513,14 @@ html[data-panel] .desk-lamp-grip,
 html[data-panel] .desk-hint {
   opacity: 0;
   pointer-events: none;
+}
+
+/* Same problem, the anchor marker. Opening a panel focuses it, so the section
+ * matches :focus-within and stage.css paints its desk marker — a circle
+ * floating over the panel's own text. !important because that rule is
+ * html[data-stage="desk"] [data-artifact]:focus-within::after with
+ * opacity: calc(var(--a) * .85), which outranks this selector, and stage.css
+ * is not ours to edit. */
+html[data-panel] [data-artifact]::after {
+  opacity: 0 !important;
 }

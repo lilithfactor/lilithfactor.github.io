@@ -18,7 +18,10 @@ import {
   BufferGeometry,
   Float32BufferAttribute,
   Mesh,
+  MeshBasicMaterial,
   NeutralToneMapping,
+  PCFSoftShadowMap,
+  PlaneGeometry,
   Scene,
   SRGBColorSpace,
   Vector3,
@@ -27,20 +30,39 @@ import {
   type Object3D,
 } from "three";
 import { DESK_MIN_WIDTH } from "../choose";
-import { bindAnchors, clearAnchors, projectAnchors, type Binding } from "./anchors";
+import {
+  bindAnchors,
+  clearAnchors,
+  projectAnchors,
+  type Binding,
+  type NoteExtent,
+} from "./anchors";
 import { createCameraRig } from "./camera";
-import { buildLighting, buildRoom, DESK_SIZE, LAMP } from "./desk";
+import {
+  buildLighting,
+  buildRoom,
+  DESK_SIZE,
+  hourFromUrl,
+  isNight,
+  LAMP,
+  matBowAmount,
+  matHeightAt,
+  setMatBow,
+} from "./desk";
 import { createLampRig } from "./lamp";
 import { press } from "./print";
 import { ARTIFACT_IDS, ARTIFACT_LABELS, PLACEMENTS, type ArtifactId } from "./layout";
 import { createMaterials } from "./materials";
 import { loadModels } from "./models";
-import { buildArtifact, MODEL_SPECS } from "./objects";
+import { buildArtifact, buildNote, MODEL_SPECS, NOTE_SIZE } from "./objects";
 import { createOutlines } from "./outline";
+import { createPicker } from "./pick";
 import { blend, readPalette } from "./palette";
+import { applyTuned, type Tuned, type TunerTargets } from "./params";
+import tuned from "./tuned.json";
 import { createGovernor, type Degradation } from "./quality";
 import { createTextures } from "./texture";
-import { tuningRequested } from "./tuner";
+import { startWeather, type Sky } from "./weather";
 
 const DEG = Math.PI / 180;
 /** How far an object rises when its section is hovered or focused. 18mm. */
@@ -51,11 +73,72 @@ export interface DeskHandle {
   destroy(): void;
 }
 
+/**
+ * What the page hands the desk. One function, and deliberately only one: the
+ * desk raycasts the pointer (pick.ts) but it does not own navigation, so when
+ * an object is clicked it calls back out to whoever does. panels.ts owns
+ * `open`, StageMount.astro introduces them, and neither module imports the
+ * other — the desk still mounts, and still lifts its objects, with no panels
+ * at all.
+ */
+export interface DeskOptions {
+  /** Opens a section, exactly as its .desk-handle button does. */
+  open?(artifact: string): void;
+}
+
 interface Piece {
   readonly id: ArtifactId;
   readonly object: Object3D;
-  readonly restY: number;
+  /**
+   * Height ABOVE THE BASE SHEET, not world y.
+   *
+   * The sheet is bowed, so "on the desk" is a different y at every point on it
+   * — and an object seated at a fixed y disappears into the hump wherever the
+   * hump is taller than the object. This is the number the tuner moves and the
+   * number every placement in layout.ts meant; `restOf` adds the sheet.
+   */
+  base: number;
+  /** Its paper name-note, a child of the object. Absent if the press failed. */
+  readonly note?: Object3D;
+  /** Its section is hovered or focused in the DOM — a handle, or the panel. */
   raised: boolean;
+  /** The pointer is on the OBJECT itself, per the raycaster. See pick.ts. */
+  picked: boolean;
+}
+
+/** Where a piece sits when nothing is hovering it: its own height, plus the sheet's. */
+function restOf(piece: Piece): number {
+  return piece.base + matHeightAt(piece.object.position.x, piece.object.position.z);
+}
+
+/** How far a note leans back onto the object it is stuck to. Degrees. */
+const NOTE_LEAN = -25;
+
+/* --- THEMES ----------------------------------------------------------------
+ * A theme is a set of --stage-* tokens (see stage.css) plus, for two of them, a
+ * switch in here. It is read once, at mount, from ?theme= or from the last one
+ * picked — which is why the tuner's picker reloads the page rather than
+ * rebuilding a scene whose colours, textures and print were all resolved on the
+ * way up. A reload is two hundred milliseconds; live re-theming is a second
+ * copy of every builder in this directory.
+ */
+export const THEMES = ["paper", "kraft", "blueprint", "wire", "sketch"] as const;
+export type ThemeName = (typeof THEMES)[number];
+const THEME_STORE = "desk-theme";
+
+/** Resolves the theme and stamps it on <html>. MUST run before readPalette. */
+function applyTheme(): ThemeName {
+  let name = "paper";
+  try {
+    const asked = new URLSearchParams(location.search).get("theme");
+    if (asked) localStorage.setItem(THEME_STORE, asked);
+    name = asked ?? localStorage.getItem(THEME_STORE) ?? "paper";
+  } catch {
+    /* No storage — a private window, or blocked. The URL still decides. */
+  }
+  const theme = (THEMES as readonly string[]).includes(name) ? (name as ThemeName) : "paper";
+  document.documentElement.dataset.theme = theme;
+  return theme;
 }
 
 function isMesh(o: Object3D): o is Mesh {
@@ -70,12 +153,43 @@ interface Footprint {
   readonly halfZ: number;
 }
 
-export async function mountDesk(): Promise<DeskHandle | null> {
+/**
+ * Is the tuner wanted? Inlined here rather than imported from tuner.ts, because
+ * a static import of that module — even of one tiny function — pulls the whole
+ * panel into the desk chunk for every visitor, which is exactly what the
+ * dynamic import below exists to prevent.
+ */
+function wantsTuner(): boolean {
+  const KEY = "desk-tune";
+  try {
+    const flag = new URLSearchParams(location.search).get("tune");
+    if (flag === "off") {
+      localStorage.removeItem(KEY);
+      return false;
+    }
+    if (flag !== null) localStorage.setItem(KEY, "1");
+    return localStorage.getItem(KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export async function mountDesk(options: DeskOptions = {}): Promise<DeskHandle | null> {
+  // BEFORE the palette: the theme is a set of tokens on <html>, and the palette
+  // is those tokens resolved. Read in the other order, every theme is paper.
+  const theme = applyTheme();
+
   // Colours come from the stylesheet, never from a literal in here. If the
   // stage stylesheet did not load, the honest outcome is no desk — not a desk
   // in whatever grey Three.js defaults to.
   const palette = readPalette();
   if (!palette) return null;
+
+  // Kicked off before anything else so the round trip overlaps the model
+  // loading below. By the time the window is built the answer is usually
+  // already here; if it is not, its own deadline passes and the window falls
+  // back to the clock. The desk never waits on the sky. See weather.ts.
+  const weather = startWeather();
 
   const canvas = document.createElement("canvas");
   canvas.className = "desk-stage";
@@ -117,6 +231,12 @@ export async function mountDesk(): Promise<DeskHandle | null> {
    * anyway, because the default is the kind of thing that changes between major
    * versions and this is the line whose absence is impossible to diagnose from
    * a screenshot. */
+  /* One shadow-casting light, softly filtered. The scene ran on painted
+   * contact ellipses alone, which ground an object but cannot show something
+   * standing between the lamp and the desk — and interrupting the pool is the
+   * entire reward for aiming an adjustable lamp. See buildLighting. */
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = PCFSoftShadowMap;
   renderer.outputColorSpace = SRGBColorSpace;
   renderer.toneMapping = NeutralToneMapping;
   renderer.toneMappingExposure = 1.08;
@@ -141,7 +261,34 @@ export async function mountDesk(): Promise<DeskHandle | null> {
   // version in place.
   const models = await loadModels(MODEL_SPECS(palette), textures);
 
-  const { room, lamp } = buildRoom(palette, materials, models);
+  const { room, lamp, window: view } = buildRoom(palette, materials, models);
+
+  /* The scene NO LONGER WAITS for the sky.
+   *
+   * It used to await two chained network round trips — locate, then forecast —
+   * in front of the entire desk, for scenery. Now the window is built with its
+   * curtains shut and opens when the answer arrives, whenever that is. If it
+   * never arrives the curtains stay closed, which is a normal state for a
+   * window rather than an error state for a page. */
+  const forcedSky = new URLSearchParams(location.search).get("sky");
+  if (forcedSky) {
+    // ?sky=rain opens the curtains on a synthetic forecast, so every condition
+    // can be looked at without waiting on — or being lied to by — the network.
+    // Day comes from the same hour rule the window dresses itself by, so
+    // ?sky=clear&hour=22 is a night room with a clear night sky and not a
+    // midnight noon.
+    view.reveal({ sky: forcedSky as Sky, day: !isNight(hourFromUrl()), celsius: 20 });
+  } else {
+    void weather.then((w) => {
+      if (!destroyed) view.reveal(w);
+    });
+  }
+  // The desk and the wall take shadow but never throw it; nothing is behind
+  // them to catch one, and a caster costs a second draw.
+  room.traverse((node) => {
+    const mesh = node as Mesh;
+    if (mesh.isMesh) mesh.receiveShadow = true;
+  });
   scene.add(room);
 
   const lighting = buildLighting(palette);
@@ -149,7 +296,47 @@ export async function mountDesk(): Promise<DeskHandle | null> {
 
   // The printed sheets: real outcome numbers, typeset onto the top papers so
   // the desk reads as a portfolio at rest, before any click.
-  const pressKit = press(palette, ARTIFACT_LABELS);
+  /* The note text comes from the DOCUMENT, not from a table in here.
+   *
+   * Each note is a picture of that section's <h2>, which is the same string the
+   * invisible button announces and the same string the open panel is titled
+   * with. One source: rename a section and its note follows, and there is no
+   * way for the paper to disagree with the page. */
+  const noteLabels = new Map<string, string>();
+  for (const id of ARTIFACT_IDS) {
+    const heading = document
+      .querySelector(`[data-artifact="${id}"] h2`)
+      ?.textContent?.trim();
+    if (heading) noteLabels.set(id, heading);
+  }
+  const pressKit = press(palette, ARTIFACT_LABELS, noteLabels);
+
+  /* THE SIGN BEHIND THE SET.
+   *
+   * The camera is on rails — createCameraRig owns it and nothing on the page
+   * can move it off them. But anyone who opens a console can reach into the
+   * scene graph and fly it wherever they like, and the first place they will go
+   * is straight through the back wall, because that is what you do.
+   *
+   * There is no lock worth building here: it is their machine, their renderer,
+   * and any guard is thirty seconds of work to remove. So instead of pretending
+   * the room has walls, there is a sign on the other side of this one. It faces
+   * the way that visitor is travelling, which is why it is turned to look back
+   * at the camera's approach rather than into the room.
+   *
+   * Unlit, so it reads at full contrast out there where the lamp does not
+   * reach, and never outlined — it is printing, not paper. */
+  if (pressKit.sign) {
+    const sign = new Mesh(
+      new PlaneGeometry(3.6, 1.8),
+      new MeshBasicMaterial({ map: pressKit.sign, toneMapped: false }),
+    );
+    sign.position.set(0, 1.2, -2.7);
+    sign.rotation.y = Math.PI;
+    sign.userData.noOutline = true;
+    sign.receiveShadow = false;
+    room.add(sign);
+  }
   // The rig owns the head angle and drives the key light from it.
   const lampRig = createLampRig(lamp, lighting.key);
 
@@ -166,7 +353,31 @@ export async function mountDesk(): Promise<DeskHandle | null> {
   // --- Objects and their anchors ------------------------------------------
   const anchors = new Map<ArtifactId, Vector3>();
   const placed = new Map<string, Object3D>();
+  /** id → its paper note, so the tuner can nudge a label off whatever it hides. */
+  const noteObjects = new Map<string, Object3D>();
+  /** id → that note's local box, so its handle is the size of the paper. */
+  const noteExtents = new Map<ArtifactId, NoteExtent>();
+
+  /* NOTE SIZING, IN TWO PARTS.
+   *
+   * One world size for every note — a label set is a set, and eight labels at
+   * eight sizes is eight different voices — times a per-note fudge for the one
+   * that has to be smaller because of what it stands on. Both land on the same
+   * `scale`, because the alternative (a wrapper group carrying one of them)
+   * would multiply the note's saved position by the size and move every label
+   * the moment the slider did. */
+  let noteSize = NOTE_SIZE;
+  const noteFudge = new Map<string, number>();
+  const sizeNote = (id: string): void => {
+    noteObjects.get(id)?.scale.setScalar((noteSize / NOTE_SIZE) * (noteFudge.get(id) ?? 1));
+  };
+  const sizeAllNotes = (): void => {
+    for (const id of noteObjects.keys()) sizeNote(id);
+  };
   const pieces: Piece[] = [];
+  const viewDirection = new Vector3();
+  /** Each artifact's anchor in its OWN space, for re-projecting every frame. */
+  const anchorLocals = new Map<ArtifactId, Vector3>();
   // The lamp base is not an artifact, so it declares its own footprint; the
   // eight artifacts measure theirs below.
   const feet: Footprint[] = [{ x: LAMP.x, z: LAMP.z, halfX: 0.094, halfZ: 0.094 }];
@@ -177,37 +388,139 @@ export async function mountDesk(): Promise<DeskHandle | null> {
     const object = buildArtifact(id, palette, materials, pressKit, models);
     // Before placing: the line mesh is baked in the object's own space, so it
     // travels with every later move, lift and rotation for free.
-    outlines.apply(object);
-    object.position.set(...placement.position);
+    // Casts and receives, so the lamp can throw one object's shape across
+    // another. Set before the outline is baked so the line mesh — which is not
+    // a Mesh and must never cast — is untouched.
+    object.traverse((node) => {
+      const mesh = node as Mesh;
+      if (!mesh.isMesh) return;
+      const material = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+      if (material && (material as { transparent?: boolean }).transparent) return;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+    });
+    /* The object's own extent, measured while it is still at the origin and
+     * unturned — so this box IS its local space, with no world→local inverse
+     * to get wrong. The note below is hung off its front-top edge from it. */
+    const extent = new Box3().setFromObject(object);
+
+    object.position.set(
+      placement.position[0],
+      // ON the sheet, not on the plane the sheet used to be. See desk.ts.
+      placement.position[1] + matHeightAt(placement.position[0], placement.position[2]),
+      placement.position[2],
+    );
     object.rotation.y = placement.yaw * DEG;
-    scene.add(object);
 
-    // World space, resolved once. The hover lift moves the object by 18mm; if
-    // the anchor moved with it, every section on the page would twitch
-    // whenever the mouse crossed it.
-    object.updateWorldMatrix(true, false);
-    anchors.set(id, object.localToWorld(new Vector3(...placement.anchor)));
-
-    // Where this object touches the base sheet. Measured off the built object
-    // rather than tabulated, so moving something in layout.ts moves its shadow
-    // with it and there is no second table to forget.
-    bounds.setFromObject(object);
-    const onDesk =
-      bounds.min.y < 0.08 &&
-      Math.abs(bounds.max.x + bounds.min.x) / 2 < DESK_SIZE[0] / 2 &&
-      Math.abs(bounds.max.z + bounds.min.z) / 2 < DESK_SIZE[1] / 2;
-    if (onDesk) {
-      feet.push({
-        x: (bounds.max.x + bounds.min.x) / 2,
-        z: (bounds.max.z + bounds.min.z) / 2,
-        halfX: (bounds.max.x - bounds.min.x) / 2,
-        halfZ: (bounds.max.z - bounds.min.z) / 2,
+    /* THE NOTE IS PART OF THE OBJECT.
+     *
+     * It was a sibling, added to the scene at a world position worked out once
+     * — which was wrong, and wrong in a way that only shows up with the tuner
+     * open: drag an object across the desk and its name stays behind, because
+     * nothing told the label the thing it names had moved. The invisible button
+     * stayed behind with it, since both were pinned to an anchor resolved at
+     * build time.
+     *
+     * A piece of paper standing on a thing is part of that thing. So the note
+     * is a child now, the anchor is re-read from the live matrix every frame
+     * (see the tick), and moving, turning or rescaling an object carries its
+     * name, its ink and its hit target along with it.
+     *
+     * Added BEFORE the outline is baked so the note's own ink is baked as its
+     * own root and pruned from the object's — see outline.ts/ownOutline. */
+    const printedNote = pressKit.notes.get(id);
+    let noteOf: Object3D | null = null;
+    if (printedNote) {
+      const note = buildNote(palette, materials, printedNote, 8, pressKit.stock);
+      /* The PRINTED SHEET's own box, measured while the note is still
+       * untouched at the origin — so it is local geometry, and everything done
+       * to the note below (position, lean, scale, parenting) lands in its
+       * world matrix instead, where anchors.ts reads it live. This is what
+       * sizes the hit area to the paper rather than to a guess in rem.
+       *
+       * The sheet, not the group: the folded foot behind it adds 25mm of depth
+       * and would pull the button's box back off the paper. */
+      const noteBox = new Box3().setFromObject(note.getObjectByName("note-sheet") ?? note);
+      /* STUCK TO THE OBJECT, not standing in front of it.
+       *
+       * It used to be stepped 150mm along the sightline from the anchor, which
+       * put a 200mm square of paper on the desk BETWEEN the viewer and the
+       * thing it names — the about note covered most of the notebook. A label
+       * that hides its subject has inverted its own job.
+       *
+       * So it goes on the object's front-top edge: the front face of its own
+       * bounding box, near the top of it, leaning back onto the object the way
+       * a card tucked against something leans. Nothing is behind it to hide. */
+      note.position.set(
+        (extent.min.x + extent.max.x) / 2,
+        extent.max.y * 0.9,
+        extent.max.z + 0.006,
+      );
+      /* YAW OUTSIDE THE LEAN, which is what "YXZ" buys.
+       *
+       * The tick sets `note.rotation.y` every frame to square the note to the
+       * view. In three's default XYZ order the lean is applied after that yaw,
+       * about the WORLD x-axis — so the further the note has to turn, the more
+       * of the lean arrives as a ROLL, and the card tips over on its corner
+       * with its writing running diagonally. It was invisible while every
+       * object sat within a few degrees of square and became obvious the
+       * moment one was turned side-on: library, product-dives and now
+       * recommendations all stand at ±90°.
+       *
+       * YXZ applies the lean first and the yaw around it, which is how a card
+       * leaning against something actually behaves when you walk round it. */
+      note.rotation.order = "YXZ";
+      note.rotation.x = NOTE_LEAN * DEG;
+      note.traverse((n) => {
+        const mesh = n as Mesh;
+        if (mesh.isMesh) mesh.castShadow = true;
       });
+      // Named so it can be told apart from the thing it names: the DEV pick
+      // probe measures an object's silhouette with its label left out.
+      note.name = "note";
+      object.add(note);
+      noteObjects.set(id, note);
+      noteExtents.set(id, {
+        object: note,
+        centreX: (noteBox.min.x + noteBox.max.x) / 2,
+        centreZ: (noteBox.min.z + noteBox.max.z) / 2,
+        minY: noteBox.min.y,
+        maxY: noteBox.max.y,
+        halfX: (noteBox.max.x - noteBox.min.x) / 2,
+      });
+      sizeNote(id);
+      noteOf = note;
     }
 
-    pieces.push({ id, object, restY: object.position.y, raised: false });
+    outlines.apply(object);
+    scene.add(object);
+
+    /* The anchor: a live world point, not a resolved one.
+     *
+     * Kept as one Vector3 per artifact and MUTATED IN PLACE each frame, because
+     * bindAnchors holds the reference and projectAnchors reads it — so writing
+     * into it is what makes the button follow. The hover lift is subtracted
+     * there rather than here, so a mouse crossing an object does not make its
+     * section marker twitch 18mm up the page. */
+    object.updateWorldMatrix(true, false);
+    const anchorLocal = new Vector3(...placement.anchor);
+    const anchor = object.localToWorld(anchorLocal.clone());
+    anchors.set(id, anchor);
+    anchorLocals.set(id, anchorLocal);
+
+    pieces.push({
+      id,
+      object,
+      base: placement.position[1],
+      note: noteOf ?? undefined,
+      raised: false,
+      picked: false,
+    });
     placed.set(id, object);
   }
+
+  /** id → its piece, for the tuner's per-object height. */
+  const byId = new Map<string, Piece>(pieces.map((piece) => [piece.id as string, piece]));
 
   /* --- Contact shadows ----------------------------------------------------
    * One darkened quad per object, lying a millimetre above the base sheet, and
@@ -261,7 +574,7 @@ export async function mountDesk(): Promise<DeskHandle | null> {
 
   const size = { width: window.innerWidth, height: window.innerHeight };
   const rig = createCameraRig(anchors, size.width, size.height);
-  const bindings: Binding[] = bindAnchors(anchors);
+  const bindings: Binding[] = bindAnchors(anchors, noteExtents);
 
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_DPR));
   renderer.setSize(size.width, size.height, false);
@@ -293,6 +606,24 @@ export async function mountDesk(): Promise<DeskHandle | null> {
   const onPointerOver = (e: PointerEvent) => setRaised(sectionOf(e.target), true);
   const onPointerOut = (e: PointerEvent) => setRaised(sectionOf(e.target), false);
 
+  /* --- ...AND SO DOES THE OBJECT ------------------------------------------
+   * The four listeners above only ever hear about the DOM: a handle, a panel,
+   * a focus ring. They are what makes the NOTE clickable. This makes the
+   * OBJECT clickable, with a ray, for the pointer only — the handles are
+   * untouched and remain the whole keyboard story. pick.ts has the argument.
+   *
+   * `picked` is kept apart from `raised` on purpose: the two can disagree for
+   * a frame (the pointer leaves the handle while the ray still finds the
+   * object under it) and a single flag would drop the object mid-hover. */
+  const picker = createPicker(
+    placed,
+    (id) => {
+      for (const piece of pieces) piece.picked = piece.id === id;
+    },
+    // Not our call to make. panels.ts owns open(); the desk only knocks.
+    (id) => options.open?.(id),
+  );
+
   const onFocusIn = (e: FocusEvent) => {
     const id = sectionOf(e.target);
     setRaised(id, true);
@@ -303,6 +634,31 @@ export async function mountDesk(): Promise<DeskHandle | null> {
     const id = sectionOf(e.target);
     if (id && sectionOf(e.relatedTarget) !== id) setRaised(id, false);
   };
+
+  /* --- WHAT IS OPEN DECIDES WHAT IS FRAMED --------------------------------
+   * Focus alone could not answer this, and the reason is worth keeping: what
+   * framed the object on the way in was the HANDLE taking focus when it was
+   * clicked. Closing hands focus back to that same handle — which never lost
+   * it — so no focusin fires, nothing calls frame(null), and the camera simply
+   * stays where the last focus put it. The ✕, Escape, the scrim, "Back to the
+   * desk" and Back all ended there, and fixing them one at a time would be five
+   * callbacks that have to agree.
+   *
+   * panels.ts already writes the one fact behind all five: `data-panel` on
+   * <html>, set on open and deleted on close. So the framing reads that instead
+   * of guessing from focus. Observer callbacks land after the click handler
+   * that moved focus, so this is what the rig is left holding. panels.ts stays
+   * ignorant of the camera, and the desk stays mountable without it. */
+  const onPanelChange = () => {
+    const id = document.documentElement.dataset.panel;
+    const known = id && (ARTIFACT_IDS as readonly string[]).includes(id);
+    rig.frame(known ? (id as ArtifactId) : null);
+  };
+  const panelWatch = new MutationObserver(onPanelChange);
+  panelWatch.observe(document.documentElement, { attributeFilter: ["data-panel"] });
+  // Panels mount before the desk does, so a shared link like /#library has
+  // already opened one by the time there is a camera to point at it.
+  onPanelChange();
 
   const onPointerMove = (e: PointerEvent) => {
     rig.parallax((e.clientX / size.width) * 2 - 1, (e.clientY / size.height) * 2 - 1);
@@ -337,12 +693,14 @@ export async function mountDesk(): Promise<DeskHandle | null> {
     document.removeEventListener("pointerout", onPointerOut);
     document.removeEventListener("focusin", onFocusIn);
     document.removeEventListener("focusout", onFocusOut);
+    panelWatch.disconnect();
     document.removeEventListener("visibilitychange", onVisibility);
     window.removeEventListener("resize", onResize);
     canvas.removeEventListener("webglcontextlost", onContextLost);
     viewport.removeEventListener("change", onViewportChange);
 
     tuner?.dispose();
+    picker.dispose();
     lampRig.dispose();
     pressKit.dispose();
     clearAnchors(bindings);
@@ -429,15 +787,78 @@ export async function mountDesk(): Promise<DeskHandle | null> {
     last = now;
     elapsed += dt;
 
+    /* WHICH WAY THE NOTES FACE.
+     *
+     * One angle for all eight, taken from the direction the camera is LOOKING
+     * rather than from where each note is relative to it. The two differ, and
+     * the difference is the whole point: aiming each note at the camera's
+     * position turns every one of them by a slightly different amount, so a
+     * note at the edge of the desk is seen at a slant and its writing skews,
+     * while a note in the middle is square on. Facing them all along the view
+     * direction makes every note parallel to the screen — the same reading
+     * angle wherever it stands on the desk, and whatever angle the desk is
+     * being looked at from.
+     *
+     * The note's printed face looks down its own +Z, so it wants to point back
+     * against the way the camera is pointing: hence the negated direction.
+     *
+     * Yaw ONLY. Matching the camera's downward tilt as well would make them
+     * perfectly face-on and would also make them sprites hanging in the air;
+     * the small lean keeps them standing on a desk. */
+    rig.camera.getWorldDirection(viewDirection);
+    const noteYaw = Math.atan2(-viewDirection.x, -viewDirection.z);
+
     for (const piece of pieces) {
-      const goal = piece.restY + (piece.raised ? LIFT : 0);
+      // Re-read every frame rather than cached: the sheet's height under an
+      // object changes when the object is dragged across the desk and when the
+      // bow itself is tuned, and two cosines times eight is nothing.
+      const rest = restOf(piece);
+      const goal = rest + (piece.raised || piece.picked ? LIFT : 0);
       piece.object.position.y += (goal - piece.object.position.y) * Math.min(dt * 9, 1);
+
+      /* Re-read the anchor from where the object actually IS.
+       *
+       * Written into the existing Vector3 rather than replacing it, because
+       * bindAnchors captured that object. Minus the hover lift: the object
+       * rises 18mm under the pointer and its section marker must not.
+       *
+       * This is what makes the tuner honest — drag something across the desk
+       * and its note, its ink and its hit target all arrive with it. */
+      /* SQUARE TO THE VIEW, not aimed at the camera. See noteYaw above.
+       *
+       * Plus `yawOffset`, which is why `note.<id>.yaw` in the tuner is an
+       * OFFSET and not an angle. This line runs every frame and would win any
+       * argument with an absolute slider — a value dragged to 30° would be
+       * overwritten before the pointer left it, which is exactly why the knob
+       * did not exist. As a delta it survives, and it keeps its meaning while
+       * the camera moves: "this note sits a few degrees off square", not "this
+       * note faces 30°", which would only be true from one camera position. */
+      if (piece.note) {
+        const offset = piece.note.userData.yawOffset;
+        piece.note.rotation.y =
+          noteYaw - piece.object.rotation.y + (typeof offset === "number" ? offset : 0);
+      }
+
+      const anchorLocal = anchorLocals.get(piece.id);
+      const anchor = anchors.get(piece.id);
+      if (anchorLocal && anchor) {
+        piece.object.updateWorldMatrix(true, false);
+        anchor.copy(piece.object.localToWorld(anchorLocal.clone()));
+        anchor.y -= piece.object.position.y - rest;
+      }
     }
 
+    // The ink shivers; the paper does not. Free at amplitude 0. See outline.ts.
+    outlines.boil(dt);
+
+    view.update(dt);
     rig.update(elapsed, dt);
     renderer.render(scene, rig.camera);
     projectAnchors(bindings, rig.camera, size.width, size.height, rig.reference);
     lampRig.update(rig.camera, size.width, size.height);
+    // One raycast per frame at most, and only if the pointer has moved since
+    // the last one. Never per event. See pick.ts.
+    picker.update(rig.camera);
 
     if (!ready) {
       ready = true;
@@ -503,34 +924,127 @@ export async function mountDesk(): Promise<DeskHandle | null> {
   viewport.addEventListener("change", onViewportChange);
   window.addEventListener("pagehide", destroy, { once: true });
 
+  /* --- What a theme does beyond its tokens --------------------------------
+   * Three of the five are nothing but --stage-* values and are already applied
+   * by the time the palette was read. Two are a switch:
+   *
+   *   wire    every material drawn as a wireframe and the ink turned off — the
+   *           three.js examples look, which is what this model is underneath.
+   *           Materials are shared, so this is four flags, not four hundred.
+   *   sketch  paper tokens with the line boiling: the same drawing re-drawn by
+   *           a hand five times a second, on a heavier line. See outline.ts.
+   *
+   * Set BEFORE the saved tuning replays, so a number moved on a slider still
+   * wins over a theme's opinion of it. */
+  if (theme === "wire") {
+    scene.traverse((node) => {
+      if (!isMesh(node)) return;
+      const list = Array.isArray(node.material) ? node.material : [node.material];
+      for (const m of list) (m as Material & { wireframe?: boolean }).wireframe = true;
+    });
+    outlines.setVisible(false);
+  }
+  if (theme === "sketch") {
+    outlines.setWidth(2.6);
+    outlines.setBoil(1);
+  }
+
+  /* The tuner: sliders for every number this scene is made of, so the loop of
+   * edit → rebuild → screenshot → squint stops being how the look gets found.
+   * Dynamically imported and opt-in via ?tune, so a visitor never pays for it.
+   * See tuner.ts. */
+  const tunerTargets: TunerTargets = {
+    outlines,
+    key: lighting.key,
+    fill: lighting.fill,
+    ambient: lighting.ambient,
+    // Built with the window rather than with the other three: it belongs to
+    // the opening it comes through, and the blind drives it.
+    daylight: view.daylight,
+    room,
+    artifacts: placed,
+    notes: noteObjects,
+    lamp: lamp.group,
+    camera: { get: rig.overview, set: rig.setOverview },
+    parallax: rig.parallaxTuning,
+    // The base sheet's bow. Re-bowed from the flat copy desk.ts keeps, and
+    // every object re-seats itself on the next frame because `restOf` asks the
+    // sheet how high it is rather than remembering.
+    deskBow: { get: matBowAmount, set: setMatBow },
+    /* An object's height ABOVE the sheet. This is what `artifact.<id>.y` has
+     * always meant and what every saved value in tuned.json is: a 0 there means
+     * "on the desk", which is only position.y = 0 on a desk that is flat. */
+    height: {
+      get: (id) => byId.get(id)?.base ?? 0,
+      set: (id, v) => {
+        const piece = byId.get(id);
+        if (piece) piece.base = v;
+      },
+    },
+    noteSize: { get: () => noteSize, set: (v) => ((noteSize = v), sizeAllNotes()) },
+    noteScale: {
+      get: (id) => noteFudge.get(id) ?? 1,
+      set: (id, v) => {
+        noteFudge.set(id, v);
+        sizeNote(id);
+      },
+    },
+    theme: {
+      options: THEMES,
+      get: () => theme,
+      /* A RELOAD, deliberately. The palette, the print, the textures and every
+       * vertex colour in the model were resolved from the tokens on the way up;
+       * re-theming live means a second path through all of it that nobody would
+       * exercise except by picking a theme. Guarded against the theme it is
+       * already on, because applyTuned replays every setter at mount and a
+       * setter that reloads unconditionally is a reload loop. */
+      set: (name) => {
+        if (name === theme) return;
+        try {
+          localStorage.setItem(THEME_STORE, name);
+        } catch {
+          /* No storage. The reload still lands on the ?theme= in the URL. */
+        }
+        location.reload();
+      },
+    },
+    materials: {
+      contactOpacity: (v) => (v < 0 ? materials.contact.opacity : (materials.contact.opacity = v)),
+      glowOpacity: (v) => (v < 0 ? materials.glow.opacity : (materials.glow.opacity = v)),
+      paper: (hex) => {
+        materials.card.color.set(hex);
+        scene.background = new Color(hex);
+      },
+      surface: (name) => textures.setSurface(name),
+      surfaces: textures.surfaces,
+    },
+  };
+
+  /* Saved tuning, replayed through the same setters the sliders use.
+   *
+   * This runs for everyone, which is the point: a number moved with a slider
+   * and saved is the number the site is built with. It is a scratchpad, not the
+   * source of truth — anything that settles gets folded back into the constant
+   * it came from and the file emptied, so nobody has to read JSON to find out
+   * where the lamp is. Empty is the normal state. */
+  if (Object.keys(tuned).length) applyTuned(tunerTargets, tuned as Tuned);
+
+  /* The lamp settles LAST, and it has to be last: the replay above may have
+   * moved the lamp and reset the key light's intensity, and the rig has to
+   * adopt both as its "on" state rather than the code defaults it was built
+   * with. Where the beam points is re-read every frame (lamp.ts); how bright
+   * it is when lit is only ever read here. */
+  lampRig.settle();
+
   /* The tuner: sliders for every number this scene is made of, so the loop of
    * edit → rebuild → screenshot → squint stops being how the look gets found.
    * Dynamically imported and opt-in via ?tune, so a visitor never pays for it.
    * See tuner.ts. */
   let tuner: { dispose(): void } | null = null;
-  if (tuningRequested()) {
+  if (wantsTuner()) {
     void import("./tuner").then(({ mountTuner }) => {
       if (destroyed) return;
-      tuner = mountTuner({
-        outlines,
-        key: lighting.key,
-        fill: lighting.fill,
-        ambient: lighting.ambient,
-        room,
-        artifacts: placed,
-        lamp: lamp.group,
-        camera: { get: rig.overview, set: rig.setOverview },
-        materials: {
-          contactOpacity: (v) => (v < 0 ? materials.contact.opacity : (materials.contact.opacity = v)),
-          glowOpacity: (v) => (v < 0 ? materials.glow.opacity : (materials.glow.opacity = v)),
-          paper: (hex) => {
-            materials.card.color.set(hex);
-            scene.background = new Color(hex);
-          },
-          surface: (name) => textures.setSurface(name),
-          surfaces: textures.surfaces,
-        },
-      });
+      tuner = mountTuner(tunerTargets);
     });
   }
 

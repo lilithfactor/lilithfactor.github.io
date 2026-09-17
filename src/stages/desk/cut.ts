@@ -111,6 +111,21 @@ function wobble(a: number, b: number): number {
 }
 
 /**
+ * THE BOW'S PROFILE, at normalised (u, v) across a sheet. Result in [-1, 1].
+ *
+ * Exported because a bowed sheet is a sheet things have to STAND ON, and every
+ * model in this scene is seated base-at-y=0. A 5.5mm hump under a 4mm pencil
+ * swallows the pencil. So desk.ts asks this how high the base sheet is at a
+ * point and seats each object on the answer — the same arithmetic the vertices
+ * got, rather than a second copy of it or a raycast against the geometry.
+ */
+export function bowLift(pu: number, pv: number): number {
+  return (
+    Math.cos((pu - 0.38) * Math.PI * 1.7) * 0.62 + Math.cos((pv - 0.55) * Math.PI * 1.3) * 0.38
+  );
+}
+
+/**
  * Bows a geometry along `axis`, as a function of the other two.
  *
  * Two cosine humps at right angles, plus a half-period phase offset, so the
@@ -136,9 +151,7 @@ export function bow(geometry: BufferGeometry, amount: number, axis: 0 | 1 | 2 = 
   for (let i = 0; i < position.count; i++) {
     const pu = (position.getComponent(i, u) - box.min.getComponent(u)) / su;
     const pv = (position.getComponent(i, v) - box.min.getComponent(v)) / sv;
-    const lift =
-      Math.cos((pu - 0.38) * Math.PI * 1.7) * 0.62 + Math.cos((pv - 0.55) * Math.PI * 1.3) * 0.38;
-    position.setComponent(i, axis, position.getComponent(i, axis) + lift * amount);
+    position.setComponent(i, axis, position.getComponent(i, axis) + bowLift(pu, pv) * amount);
   }
 
   position.needsUpdate = true;

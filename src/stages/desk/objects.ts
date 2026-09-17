@@ -29,12 +29,13 @@ import {
   type Color,
   type Object3D,
   type Texture,
+  MeshLambertMaterial,
 } from "three";
 import { bow, edgeOf, facet, paint } from "./cut";
 import type { ArtifactId } from "./layout";
 import { printed, type Materials } from "./materials";
-import { stock, type Palette } from "./palette";
-import type { Press } from "./print";
+import { blend, stock, type Palette } from "./palette";
+import { IMMORTAL, type Press } from "./print";
 import type { ModelKit, ModelSpec } from "./models";
 
 const DEG = Math.PI / 180;
@@ -166,20 +167,33 @@ export const MODEL_SPECS = (p: Palette): readonly ModelSpec[] => [
   { name: "crate", size: 0.3, tone: p.kraft },
   { name: "envelope", size: 0.19, tone: p.paperAged },
   { name: "letter", size: 0.16, tone: stock(p.paper, 3) },
-  { name: "bookcase", size: 0.95, tone: p.kraft },
-  { name: "books", size: 0.32, tone: p.cool },
-  { name: "book-stack", size: 0.19, tone: p.accent },
   { name: "rubiks", size: 0.075, tone: p.accent },
+  // The one prop on this desk that opens nothing. A coaster with a ring on it
+  // and no mug is a conspicuous absence — every reference desk in
+  // brain/storyboard has a cup on it — and 95mm is what a mug is.
+  { name: "mug", size: 0.095, tone: stock(p.paper, 2) },
+  /* The chess set. Five files, one author, so the pieces match — there is no
+   * queen among them, and the position needs one, so the queen borrows the
+   * king. At 35mm squares nobody is going to challenge the ruling.
+   *
+   * These were left out for a long time on the grounds that a 200-triangle
+   * faceted piece 30 pixels tall, ringed in ink at every facet, collapses into
+   * a black blob. That reasoning was sound and the conclusion was wrong: the
+   * answer is to drop the ink on the pieces (see `chessmen`), not to drop the
+   * pieces. Sizes are proportioned to the square, the way a real set is —
+   * a king is about one and a half squares tall. */
+  { name: "chess-pawn", size: 0.034, tone: stock(p.paper, 1) },
+  { name: "chess-rook", size: 0.038, tone: stock(p.paper, 1) },
+  { name: "chess-knight", size: 0.044, tone: stock(p.paper, 1) },
+  { name: "chess-bishop", size: 0.048, tone: stock(p.paper, 1) },
+  { name: "chess-king", size: 0.056, tone: stock(p.paper, 1) },
 ];
-// Not the chess knights, though they are fetched and credited. At 62mm on a
-// paper board they are ~30 screen pixels of a 200-triangle faceted mesh, and
-// the ink outline round every facet collapses into a solid black blob — the one
-// thing on a white desk that reads as a bug. The printed position IS the chess
-// entry (art-direction.md); a diagram is also the more paper answer.
-// Deliberately NOT loaded: folder, clipboard, mug, postit. They are fetched and
-// ready, but nothing places them yet — the desk's rule is that every object
-// opens something, and downloading four objects to decorate with would break
-// it and cost bytes at the same time. See brain/vision/todo.md.
+// Deliberately NOT loaded: folder, clipboard, pinboard, turntable, books,
+// book-stack. They are fetched and ready, but nothing places them yet — the
+// desk's rule is that every object opens something, and downloading objects to
+// decorate with would break it and cost bytes at the same time. The last two
+// were placed, on top of the bookcase, until RECOMMENDATIONS took that
+// surface. See brain/vision/todo.md.
 
 /* --- About: an open notebook, always open — this is the landing state ------ */
 function notebook(p: Palette, m: Materials, _press: Press, models: ModelKit): Group {
@@ -256,7 +270,7 @@ function dossier(p: Palette, m: Materials, press: Press): Group {
     const at = spread[i];
     if (!at) return;
     folder.add(
-      printedSheet(stock(p.paper, i + 1), p.cut, map, 0.26, 0.007, 0.35, {
+      printedSheet(stock(press.stock, i + 1), p.cut, map, 0.26, 0.007, 0.35, {
         ...at,
         // Set so the near edge rests on the folder and the far edge on the
         // raised cover, rather than either end floating.
@@ -342,59 +356,285 @@ function letters(p: Palette, m: Materials, _press: Press, models: ModelKit): Gro
   );
 }
 
-/* --- Library: a shelf behind the desk, visibly read ----------------------- */
-function shelf(p: Palette, m: Materials, _press: Press, models: ModelKit): Group {
-  const row = models.take("books");
-  const stack = models.take("book-stack");
-  const carcass = models.take("bookcase");
+/* --- Library: a bookcase, built rather than downloaded ---------------------
+ * The downloaded carcass was an open frame — four uprights and some rails —
+ * and at this angle, in one colour, that is a ladder. It never mattered how
+ * many books were put on it: an object nobody can name is not helped by
+ * decorating it.
+ *
+ * What makes a bookcase legible is not the frame, it is the SHADOW BOX. A
+ * bookcase is a stack of dark rectangular openings with rows of vertical
+ * spines set back inside them, and that silhouette is unmistakable at any size
+ * and from any angle. So this one is closed: two solid sides, a back, and
+ * shelf boards that read as horizontal bands right across it.
+ *
+ * Which is also why it is built here rather than fetched. Every dimension is
+ * one this file can choose — the sides run past the boards, the boards are
+ * thick enough to see, the books stand back from the front edge — and none of
+ * those is negotiable with a .glb someone else authored for a different scene.
+ *
+ * The origin is the TOP SURFACE, because that is what layout.ts places (the
+ * carcass hangs below it and most of it is behind the desk).
+ */
+const CASE = { width: 0.92, depth: 0.26, bay: 0.34, board: 0.026, side: 0.022 };
 
-  // A real bookcase with open shelves. What was here — a plank on a tall blank
-  // slab — was unreadable: at this angle it was a white wall with two books on
-  // top, and "library" is not a thing anyone would have guessed from it.
-  if (carcass) {
-    const g = group(place(carcass, { y: -0.62, yaw: 1 }));
-    if (row) g.add(place(row, { x: -0.16, y: 0.02, yaw: 2 }));
-    if (stack) g.add(place(stack, { x: 0.2, y: 0.02, yaw: 4 }));
-    return g;
+/**
+ * A row of books standing on a shelf.
+ *
+ * Varied on every axis that costs nothing: height, width, and a lean for the
+ * last one into the gap. A shelf where every spine is the same size is a
+ * texture of a bookshelf; a shelf where they are not is a bookshelf.
+ *
+ * Deterministic from `seed`, so a shelf does not reshuffle between renders and
+ * two shelves are never the same shelf twice.
+ */
+function spines(
+  p: Palette,
+  m: Materials,
+  x0: number,
+  span: number,
+  y: number,
+  seed: number,
+): Object3D[] {
+  const out: Object3D[] = [];
+  let s = seed >>> 0;
+  const rand = () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+
+  let x = x0;
+  while (x < x0 + span - 0.02) {
+    const w = 0.016 + rand() * 0.022;
+    const h = 0.17 + rand() * 0.08;
+    const d = 0.13 + rand() * 0.05;
+    if (x + w > x0 + span) break;
+    // Every fifth book or so is off the vertical, resting on its neighbour.
+    const lean = rand() > 0.82 ? (rand() - 0.5) * 16 : 0;
+    out.push(
+      card(m, stock(p.paper, Math.floor(rand() * 5)), p.cut, w, h, d, {
+        x: x + w / 2,
+        y: y + h / 2,
+        // Back from the front edge, which is where books actually sit and what
+        // puts the shelf board's own edge in front of them.
+        z: -0.02,
+        roll: lean,
+      }),
+    );
+    x += w + 0.002;
+  }
+  return out;
+}
+
+function shelf(p: Palette, m: Materials, _press: Press, _models: ModelKit): Group {
+  const { width, depth, bay, board, side } = CASE;
+  const bays = 3;
+  const height = bays * bay + board;
+  const g = new Group();
+
+  // Two solid sides, running the full height and standing proud of the boards.
+  for (const end of [-1, 1] as const) {
+    g.add(
+      card(m, p.kraft, p.cut, side, height, depth, {
+        x: (end * (width - side)) / 2,
+        y: -height / 2,
+      }),
+    );
   }
 
-  const g = group(
-    card(m, p.deskDeep, p.cut, 0.86, 0.03, 0.2, {}),
-    // The carcass. It runs down to the floor and is almost entirely hidden by
-    // the desk, which is the point: a shelf board with nothing under it reads
-    // as a missing mesh rather than as a shelf.
-    card(m, p.backdrop, p.cut, 0.82, 0.9, 0.18, { y: -0.46 }),
+  // The back. Thin, and set behind the boards so each opening reads as a box
+  // with a floor and a wall rather than as a gap you can see the room through.
+  g.add(
+    card(m, stock(p.kraft, 2), p.cut, width - side * 2, height, 0.01, {
+      y: -height / 2,
+      z: -depth / 2 + 0.006,
+    }),
   );
 
-  // Five spines, uneven — a shelf where every book is the same height is a
-  // prop shelf. Two are cut from the one cool card in the model, which is what
-  // stops a row of warm rectangles reading as five copies of the same book.
-  // The sixth leans into the gap the read one left.
-  if (row) {
-    // A leaning row of real books, which is a shape five extruded rectangles
-    // cannot make: the lean is the whole read of a shelf someone uses.
-    g.add(place(row, { x: -0.24, y: 0.015, yaw: 2 }));
-  } else {
-    const spines: ReadonlyArray<readonly [number, number, number, Color]> = [
-      [-0.36, 0.046, 0.22, p.cool],
-      [-0.305, 0.04, 0.19, p.kraft],
-      [-0.255, 0.054, 0.235, p.accent],
-      [-0.195, 0.042, 0.2, p.paperAged],
-      [-0.14, 0.048, 0.185, p.cool],
-    ];
-    for (const [x, w, h, colour] of spines) {
-      g.add(card(m, colour, p.cut, w, h, 0.15, { x, y: 0.015 + h / 2 }));
-    }
-    g.add(card(m, p.paperEdge, p.cut, 0.05, 0.2, 0.15, { x: -0.085, y: 0.115, roll: -9 }));
+  // The boards, including the top one the origin sits on.
+  for (let i = 0; i <= bays; i++) {
+    g.add(
+      card(m, p.kraft, p.cut, width, board, depth, {
+        y: -i * bay - board / 2,
+      }),
+    );
   }
 
-  // The ones currently being read, laid flat on the shelf.
+  /* The books. The top TWO bays are filled, and the rest is left empty on
+   * purpose: layout.ts stands this thing so that only its upper part clears
+   * the desk, and filling shelves nobody can see is triangles spent on nothing.
+   */
+  const inner = width - side * 2 - 0.03;
+  for (let i = 0; i < 2; i++) {
+    g.add(...spines(p, m, -inner / 2, inner, -(i + 1) * bay + board / 2, 0x51f3 + i * 977));
+  }
+
+  /* THE TOP IS LEFT BARE, deliberately.
+   *
+   * It used to carry a leaning row and a flat stack — the two things that said
+   * the shelf belonged to somebody. They were good and they lost to a better
+   * claimant: RECOMMENDATIONS now stands up there, and a section object has to
+   * be the only thing on the surface it stands on or it reads as part of the
+   * clutter rather than as a thing you can click. The bookcase is still a
+   * bookcase; what makes it one is the spines inside the bays, not the props.
+   */
+  return g;
+}
+
+/* --- The notes -------------------------------------------------------------
+ * The paper label standing on each object, in place of the HTML chip that used
+ * to float over it. See print.ts/paintNote for what is written on it and why
+ * the words still live in the DOM.
+ *
+ * A note is a square of card pitched back a few degrees with a tab folded out
+ * behind it. The tab is not decoration: a card standing bolt upright in mid-air
+ * with nothing holding it is the one thing in this model that could not be made
+ * out of paper, and a folded foot is exactly how a paper model stands a sign
+ * up. It costs one box.
+ *
+ * The map goes on the +Y face — the same face `printedSheet` prints and the
+ * same reason (BoxGeometry lays u along +X and v = 1 at -Z there) — and then
+ * the whole thing is pitched up. Rotating -90° about X carries +Y to +Z and -Z
+ * to up, so the writing arrives facing the room and the right way up, with no
+ * second UV convention to keep in anyone's head.
+ */
+/**
+ * How big a note is built, in metres — and the divisor the live `note.size`
+ * knob scales against (params.ts).
+ *
+ * Was 200mm, which made the name-note bigger than the A5 notebook it stands in
+ * front of: the label ate the object it was labelling, which is the one thing a
+ * label cannot do. 120mm still reads at the resting camera because paintNote
+ * fits the type to the sheet rather than setting it at a fixed size, so a
+ * smaller note prints smaller paper with the same relative letterforms.
+ */
+export const NOTE_SIZE = 0.12;
+
+export function buildNote(
+  p: Palette,
+  m: Materials,
+  map: Texture,
+  lean: number,
+  base: Color = p.paper,
+): Group {
+  const g = new Group();
+  /* IT CARRIES ITS OWN INK.
+   *
+   * The note turns to face the camera every frame, which means it is a moving
+   * part inside a parent — and outline.ts bakes a parent's whole subtree into
+   * one line object in the PARENT's space. Without this flag the border stays
+   * pointing where the note used to point, and you get a paper square with a
+   * black rectangle floating beside it at the wrong angle.
+   *
+   * Fourth thing in this model to need it: the lamp head, the blind, the
+   * blind's bottom rail, now this. The rule is simply "if it moves under its
+   * own steam, it says so here", and it belongs next to the thing that moves
+   * rather than in the file that draws the lines. */
+  g.userData.ownOutline = true;
+  const paper = stock(base, 1);
+
+  const sheet = printedSheet(paper, p.cut, map, NOTE_SIZE, 0.005, NOTE_SIZE, {
+    pitch: -90 + lean,
+    // Half a note above its own origin, so the origin is the bottom edge and
+    // the anchor it is placed at reads as "where the note stands".
+    y: (NOTE_SIZE / 2) * Math.cos(lean * DEG),
+    z: (NOTE_SIZE / 2) * Math.sin(lean * DEG),
+  });
+  /* Named, because the hit area is measured off THIS and not off the group:
+   * the folded foot behind it adds ~25mm of depth that would drag the button's
+   * box back into the object. The printed paper is what a visitor aims at. See
+   * anchors.ts. */
+  sheet.name = "note-sheet";
+  g.add(sheet);
+
+  // The foot: a strip of the same card folded back under the note.
   g.add(
-    stack
-      ? place(stack, { x: 0.28, y: 0.015, yaw: 4 })
-      : card(m, p.paperAged, p.cut, 0.15, 0.032, 0.11, { x: 0.28, y: 0.031, yaw: 4 }),
+    card(m, paper, p.cut, NOTE_SIZE * 0.42, 0.004, 0.05, {
+      pitch: -34,
+      y: 0.012,
+      z: -0.022,
+    }),
   );
   return g;
+}
+
+/* --- The chess set ---------------------------------------------------------
+ * Twenty-three carved men in the final position of the Immortal Game, standing
+ * on the printed board. The position is the one thing art-direction.md is most
+ * explicit about, and reading it off a diagram was always the compromise.
+ *
+ * NO INK ON THE MEN, and this is the whole reason they are here at all. Every
+ * other object in the model is outlined, because on one white paper the drawn
+ * line is what separates one object from the next. A chess piece is the case
+ * where that rule inverts: it is 40mm of turned, faceted geometry about thirty
+ * pixels tall on screen, so an edge at every facet is not a contour, it is a
+ * fill — the piece arrives as a solid black lozenge. Left unlined they read as
+ * what they are, small pale carvings, and the thing that separates them from
+ * the board is the board: printed dark squares and a real cast shadow.
+ *
+ * The dark side gets its own material rather than its own model. `take` clones
+ * share a material, so recolouring one piece would recolour all of them.
+ */
+function chessmen(p: Palette, models: ModelKit, square: number, top: number): Group {
+  const set = new Group();
+  const OF: Record<string, string> = {
+    p: "chess-pawn",
+    r: "chess-rook",
+    n: "chess-knight",
+    b: "chess-bishop",
+    k: "chess-king",
+    // No queen in the set, so she takes the king's shape. At this size the
+    // silhouette difference is under a pixel.
+    q: "chess-king",
+  };
+
+  let dark: MeshLambertMaterial | null = null;
+  let rank = 0;
+  let file = 0;
+  for (const ch of IMMORTAL) {
+    if (ch === "/") {
+      rank += 1;
+      file = 0;
+      continue;
+    }
+    const skip = Number(ch);
+    if (!Number.isNaN(skip)) {
+      file += skip;
+      continue;
+    }
+
+    const black = ch === ch.toLowerCase();
+    const piece = models.take(OF[ch.toLowerCase()] ?? "chess-pawn");
+    file += 1;
+    if (!piece) continue;
+
+    piece.traverse((o) => {
+      const mesh = o as Mesh;
+      if (!mesh.isMesh) return;
+      mesh.userData.noOutline = true;
+      if (!black) return;
+      const base = mesh.material as MeshLambertMaterial;
+      // One dark material for the whole side, cloned off whatever the loader
+      // built so it keeps the fibre map and the lighting model.
+      dark ??= Object.assign(base.clone(), { color: blend(p.paper, p.line, 0.74) });
+      mesh.material = dark;
+    });
+
+    /* Files run left to right and rank 0 is the FAR rank, matching the order
+     * the FEN is drawn onto the board in print.ts. Getting this backwards
+     * mirrors the position, which is the kind of error a chess player spots
+     * instantly and nobody else ever does. */
+    set.add(
+      place(piece, {
+        x: (file - 1 - 3.5) * square,
+        y: top,
+        z: (rank - 3.5) * square,
+        // A hand set these down, so no two face quite the same way.
+        yaw: ((file * 37 + rank * 61) % 24) - 12,
+      }),
+    );
+  }
+  return set;
 }
 
 /* --- Beyond the routine: the props are the content ------------------------
@@ -429,16 +669,19 @@ function props(p: Palette, m: Materials, press: Press, models: ModelKit): Group 
   // Chess entry, and it is set to a real position") the emptiest thing on the
   // desk. Printed rather than built: see print.ts for what twenty-four carved
   // pieces would have cost and why a diagram is the more paper answer anyway.
-  g.add(
+  // Grown from 200mm to 280mm, because 23 men on a 200mm board is a 25mm
+  // square and a piece narrower than the line drawn round the board.
+  const BOARD = 0.28;
+  const board = new Group();
+  board.position.set(0.06, 0, 0.32);
+  board.rotation.y = -6 * DEG;
+  board.add(
     press.chess
-      ? printedSheet(p.paperAged, p.cut, press.chess, 0.2, 0.016, 0.2, {
-          x: 0.02,
-          y: 0.008,
-          z: 0.3,
-          yaw: -6,
-        })
-      : card(m, p.paperAged, p.cut, 0.2, 0.016, 0.2, { x: 0.02, y: 0.008, z: 0.3, yaw: -6 }),
+      ? printedSheet(press.stock, p.cut, press.chess, BOARD, 0.016, BOARD, { y: 0.008 })
+      : card(m, p.paperAged, p.cut, BOARD, 0.016, BOARD, { y: 0.008 }),
+    chessmen(p, models, BOARD / 8, 0.016),
   );
+  g.add(board);
   return g;
 }
 

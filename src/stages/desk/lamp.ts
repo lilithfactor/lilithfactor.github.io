@@ -14,8 +14,8 @@
  * shortcut: ux-rules.md rule 4.
  */
 
-import { Vector3, type Camera, type SpotLight } from "three";
-import type { LampParts } from "./desk";
+import { Vector3, type Camera, type Mesh, type SpotLight } from "three";
+import { shadeAxisOf, type LampParts } from "./desk";
 
 /** Head pitch limits, radians about the joint. Past these the folded shade
  * would intersect its own arm — sane limits, not physics. */
@@ -29,11 +29,21 @@ const OFF_INTENSITY = 0.22;
 
 export interface LampRig {
   update(camera: Camera, width: number, height: number): void;
+  /**
+   * Adopts the scene's settled lighting as this lamp's "on".
+   *
+   * Call it once, AFTER tuned.json has been replayed. The lit intensity cannot
+   * be read at construction: `applyTuned` sets `light.key` afterwards, so a
+   * value captured here would be the code default, and the first toggle would
+   * yank the brightness back to it.
+   */
+  settle(): void;
   dispose(): void;
 }
 
 export function createLampRig(lamp: LampParts, key: SpotLight): LampRig {
-  const onIntensity = key.intensity;
+  /** The lit intensity. Not read until `settle` — see the interface. */
+  let onIntensity = key.intensity;
   let angle = 0;
   let lit = localStorage.getItem(STORE) !== "off";
 
@@ -50,7 +60,21 @@ export function createLampRig(lamp: LampParts, key: SpotLight): LampRig {
   /* --- Light follows head ------------------------------------------------ */
   const world = new Vector3();
 
-  function apply(): void {
+  /* WHERE THE LIGHT IS, run EVERY FRAME.
+   *
+   * This used to be event-driven — recomputed on a drag, a key press or a
+   * toggle — and that was a standing bug rather than an optimisation. The lamp
+   * is moved by things that are not this file: `applyTuned` replays
+   * `lamp.x/y/z/yaw/scale` from tuned.json at mount, and the tuner's sliders
+   * move it live. None of them can be expected to know that a spotlight is
+   * hanging off the shade, so the beam and the painted pool stayed at whatever
+   * pose the lamp had when this rig was built, until the first drag snapped
+   * them into place.
+   *
+   * Reading the transform every frame ends the whole class: two localToWorld
+   * calls and one ray/plane intersect, which is nothing beside the render they
+   * sit next to, and whatever moves the lamp is followed for free. */
+  function pose(): void {
     lamp.head.rotation.z = angle;
     lamp.head.updateMatrixWorld();
 
@@ -70,17 +94,24 @@ export function createLampRig(lamp: LampParts, key: SpotLight): LampRig {
       lamp.pool.position.x = from.x + (to.x - from.x) * t;
       lamp.pool.position.z = from.z + (to.z - from.z) * t;
     }
+  }
 
+  /** On or off. Nothing here changes per frame, so it stays event-driven. */
+  function power(): void {
     key.intensity = lit ? onIntensity : OFF_INTENSITY;
     lamp.pool.visible = lit;
     lamp.glow.visible = lit;
-    grip.dataset.lit = lit ? "" : undefined as unknown as string;
+    if (lit) grip.dataset.lit = "";
+    else delete grip.dataset.lit;
   }
 
   function toggle(): void {
+    // Going dark: whatever the key light is at right now IS "on", so a
+    // `light.key` moved on the tuner survives being switched off and back on.
+    if (lit) onIntensity = key.intensity;
     lit = !lit;
     localStorage.setItem(STORE, lit ? "on" : "off");
-    apply();
+    power();
   }
 
   /* --- Drag ---------------------------------------------------------------
@@ -103,7 +134,6 @@ export function createLampRig(lamp: LampParts, key: SpotLight): LampRig {
     const delta = (startY - e.clientY) / 160;
     if (Math.abs(delta) > 0.02) dragged = true;
     angle = Math.min(MAX, Math.max(MIN, startAngle + delta));
-    apply();
   };
   const onUp = () => {
     dragging = false;
@@ -121,7 +151,6 @@ export function createLampRig(lamp: LampParts, key: SpotLight): LampRig {
       return; // Enter/Space fall through to click = toggle
     }
     e.preventDefault();
-    apply();
   };
 
   grip.addEventListener("pointerdown", onDown);
@@ -131,11 +160,61 @@ export function createLampRig(lamp: LampParts, key: SpotLight): LampRig {
   grip.addEventListener("click", onClick);
   grip.addEventListener("keydown", onKey);
 
-  apply();
+  pose();
+
+  /* --- DEV probe ----------------------------------------------------------
+   * The beam is invisible: the only way to see whether the light agrees with
+   * the lamp is to read both out. Dev only — nothing ships this. */
+  if (import.meta.env.DEV) {
+    const r3 = (v: number) => Math.round(v * 1000) / 1000;
+    const head = new Vector3();
+    const pool = new Vector3();
+    const beam = new Vector3();
+    const axis = new Vector3();
+    (window as unknown as { __lampProbe?: () => unknown }).__lampProbe = () => {
+      lamp.head.getWorldPosition(head);
+      lamp.pool.getWorldPosition(pool);
+      const from = key.position;
+      const to = key.target.position;
+      const dy = from.y - to.y;
+      const t = dy > 0.001 ? from.y / dy : 0;
+      /* DOES THE BEAM AGREE WITH THE SHADE?
+       *
+       * The one number that says whether the cone comes out of the shade's
+       * mouth: the angle between the shade's own axis, measured off its
+       * vertices (desk.ts/shadeAxisOf), and the bulb → aim direction the light
+       * actually uses. It read 18.8 degrees while `aim` was a hand-picked
+       * lean; it should now be 0. */
+      beam.copy(to).sub(from).normalize();
+      let shadeDeg: number | null = null;
+      let shadeWorld: number[] | null = null;
+      if (lamp.shade) {
+        const a = shadeAxisOf(lamp.shade as Mesh);
+        if (a) {
+          axis.copy(a).transformDirection((lamp.shade as Mesh).matrixWorld);
+          shadeWorld = [r3(axis.x), r3(axis.y), r3(axis.z)];
+          shadeDeg = r3((Math.acos(Math.max(-1, Math.min(1, axis.dot(beam)))) * 180) / Math.PI);
+        }
+      }
+      return {
+        shadeAxisWorld: shadeWorld,
+        shadeToBeamDeg: shadeDeg,
+        keyToHead: r3(from.distanceTo(head)),
+        keyPos: [r3(from.x), r3(from.y), r3(from.z)],
+        headWorld: [r3(head.x), r3(head.y), r3(head.z)],
+        poolWorld: [r3(pool.x), r3(pool.z)],
+        beamOnDesk: [r3(from.x + (to.x - from.x) * t), r3(from.z + (to.z - from.z) * t)],
+        keyIntensity: r3(key.intensity),
+        beamWorld: [r3(beam.x), r3(beam.y), r3(beam.z)],
+      };
+    };
+  }
 
   return {
-    /** Pins the grip to the shade — same projection the section handles use. */
+    /** Re-aims the light at wherever the lamp now is, then pins the grip to
+     * the shade — same projection the section handles use. */
     update(camera, width, height) {
+      pose();
       lamp.head.getWorldPosition(world);
       world.project(camera);
       const visible = world.z > -1 && world.z < 1;
@@ -146,6 +225,13 @@ export function createLampRig(lamp: LampParts, key: SpotLight): LampRig {
         const y = (-world.y * 0.5 + 0.5) * height;
         grip.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%)`;
       }
+    },
+    settle() {
+      // Whatever the scene ended up at — code default or tuned.json — IS the
+      // lit brightness. Read it before `power` overwrites it.
+      onIntensity = key.intensity;
+      pose();
+      power();
     },
     dispose() {
       grip.remove();

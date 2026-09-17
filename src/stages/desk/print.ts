@@ -37,7 +37,7 @@
  * with a visible border, which is the exact opposite of the thing being built.
  * ========================================================================== */
 
-import { CanvasTexture, ClampToEdgeWrapping, SRGBColorSpace } from "three";
+import { CanvasTexture, ClampToEdgeWrapping, Color, SRGBColorSpace } from "three";
 import type { Outcome } from "./layout";
 import { blend, css, overprint, type Palette } from "./palette";
 
@@ -120,12 +120,14 @@ function paintSheet(
   muted: string,
   accent: string,
   faint: string,
+  ground: string,
   seed: number,
 ): void {
   ctx.clearRect(0, 0, W, H);
-  // White multiplies to "the card, unchanged" — so the sheet starts as whatever
-  // stock it was cut from and the drawing only ever takes light away.
-  ctx.fillStyle = "rgb(255,255,255)";
+  // The card, unchanged: white multiplies to whatever stock the sheet was cut
+  // from, and the drawing only ever takes light away. On inverted stock the
+  // ground is the paper itself — see `press`.
+  ctx.fillStyle = ground;
   ctx.fillRect(0, 0, W, H);
   tooth(ctx, W, H, seed);
 
@@ -186,15 +188,16 @@ function paintSheet(
  * Immortal Game, mate on move 23). A real game, and the most famous one there
  * is, which is the point: a board set to nothing in particular is set dressing.
  */
-const IMMORTAL = "r1bk3r/p2pBpNp/n4n2/1p1NP2P/6P1/3P4/P1P1K3/q5b1";
+/**
+ * The final position of the Immortal Game, Anderssen–Kieseritzky 1851, as a
+ * FEN board field. Exported because the board is printed here and the men are
+ * carved in objects.ts, and the two have to agree about which corner is a1:
+ * rank 1 of this string is the FAR rank, file 1 is the LEFT file, which is the
+ * orientation the canvas is drawn in.
+ */
+export const IMMORTAL = "r1bk3r/p2pBpNp/n4n2/1p1NP2P/6P1/3P4/P1P1K3/q5b1";
 
-function paintChess(
-  ctx: CanvasRenderingContext2D,
-  size: number,
-  ink: string,
-  muted: string,
-  faint: string,
-): void {
+function paintChess(ctx: CanvasRenderingContext2D, size: number, muted: string): void {
   const cell = size / 8;
   ctx.clearRect(0, 0, size, size);
   ctx.fillStyle = "rgb(255,255,255)";
@@ -215,51 +218,160 @@ function paintChess(
   ctx.lineWidth = Math.max(1, size / 128);
   ctx.strokeRect(ctx.lineWidth / 2, ctx.lineWidth / 2, size - ctx.lineWidth, size - ctx.lineWidth);
 
+  /* THE MEN ARE NO LONGER PRINTED.
+   *
+   * They used to be — a disc and a letter per square, the way a position is set
+   * in a book — because twenty-three carved pieces looked like a lot of model
+   * for one square of desk. They are carved now (see objects.ts), and printing
+   * them as well would set the same position twice, once flat and once
+   * standing.
+   *
+   * The FEN stays here rather than moving, because this file is where the board
+   * is drawn and the two have to agree about which corner is a1. */
+}
+
+/* --- The notes -------------------------------------------------------------
+ * One post-it per object, with that object's name written on it.
+ *
+ * These replace the floating HTML chips, and the reason is the whole premise:
+ * a paper world with eight rounded rectangles hovering over it in screen space
+ * is a paper world with a navigation bar in front of it. The name of a thing
+ * on a desk belongs on a piece of paper stuck to that thing.
+ *
+ * What does NOT change is where the accessible name lives. The <button> is
+ * still there, still carries the words, still takes tab and Enter — it is just
+ * invisible, sitting exactly over the note it labels. So nothing here is the
+ * only copy of anything: the same rule that lets print.ts exist at all.
+ *
+ * SIZE IS A LEGIBILITY PROBLEM, not a realism one. A real post-it is 76mm; on
+ * a 2.4m desk at the resting camera that is about forty screen pixels, and
+ * "RECOMMENDATIONS" across forty pixels is a grey smear. These are drawn at
+ * 200mm — a big square note — and the long names break onto two lines, which
+ * is what anyone writing on a note does anyway.
+ */
+const NOTE = 256;
+
+function paintNote(
+  ctx: CanvasRenderingContext2D,
+  label: string,
+  ink: string,
+  faint: string,
+  ground: string,
+  seed: number,
+): void {
+  ctx.clearRect(0, 0, NOTE, NOTE);
+  ctx.fillStyle = ground;
+  ctx.fillRect(0, 0, NOTE, NOTE);
+  tooth(ctx, NOTE, NOTE, seed);
+
+  // The gummed strip across the top, the one piece of a post-it that says
+  // post-it rather than square. Faint, because it is a shade of the same paper.
+  ctx.fillStyle = faint;
+  ctx.fillRect(0, 0, NOTE, 34);
+
+  /* Two lines at most, broken at the space nearest the middle — "BEYOND THE
+   * ROUTINE" wants to break after THE, not after BEYOND, and a plain greedy
+   * wrap gets that wrong for exactly the labels that need it most. */
+  const words = label.toUpperCase().split(/\s+/);
+  let lines = [label.toUpperCase()];
+  if (words.length > 1) {
+    let best = 1;
+    let bestGap = Infinity;
+    for (let i = 1; i < words.length; i++) {
+      const left = words.slice(0, i).join(" ").length;
+      const right = words.slice(i).join(" ").length;
+      if (Math.abs(left - right) < bestGap) {
+        bestGap = Math.abs(left - right);
+        best = i;
+      }
+    }
+    lines = [words.slice(0, best).join(" "), words.slice(best).join(" ")];
+  }
+
+  // Fitted rather than fixed: one size that suits "ABOUT" leaves
+  // "RECOMMENDATIONS" hanging off both edges of the paper.
+  const longest = Math.max(...lines.map((l) => l.length));
+  const size = Math.min(46, Math.floor((NOTE - 44) / (longest * 0.62)));
+
+  ctx.fillStyle = ink;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.font = `500 ${Math.round(cell * 0.62)}px ${MONO}`;
-
-  let rank = 0;
-  let file = 0;
-  for (const ch of IMMORTAL) {
-    if (ch === "/") {
-      rank += 1;
-      file = 0;
-      continue;
-    }
-    const skip = Number(ch);
-    if (!Number.isNaN(skip)) {
-      file += skip;
-      continue;
-    }
-
-    const cx = (file + 0.5) * cell;
-    const cy = (rank + 0.5) * cell;
-    const black = ch === ch.toLowerCase();
-
-    // A disc and a letter, which is how a position is set in a book. The disc
-    // is doing the real work: at this size the letters are below the threshold
-    // of reading and the pattern of light and dark men is not, so the board
-    // reads as a game in progress from across the desk.
-    ctx.beginPath();
-    ctx.arc(cx, cy, cell * 0.36, 0, Math.PI * 2);
-    ctx.fillStyle = black ? ink : "rgb(255,255,255)";
-    ctx.fill();
-    ctx.strokeStyle = ink;
-    ctx.lineWidth = Math.max(1, size / 200);
-    ctx.stroke();
-
-    ctx.fillStyle = black ? "rgb(255,255,255)" : ink;
-    ctx.fillText(ch.toUpperCase(), cx, cy + cell * 0.02);
-    file += 1;
-  }
+  ctx.font = `500 ${size}px ${MONO}`;
+  const step = size * 1.35;
+  const start = NOTE / 2 + 14 - ((lines.length - 1) * step) / 2;
+  lines.forEach((line, i) => ctx.fillText(line, NOTE / 2, start + i * step));
 }
 
 export interface Press {
   /** One texture per outcome, in the order given. */
   readonly sheets: readonly CanvasTexture[];
   readonly chess: CanvasTexture | null;
+  /** The sign nobody is meant to read. See paintSign. */
+  readonly sign: CanvasTexture | null;
+  /** Label texture per artifact id, for the paper notes. See paintNote. */
+  readonly notes: ReadonlyMap<string, CanvasTexture>;
+  /**
+   * The colour a PRINTED card is cut from. Normally the paper; on a palette
+   * whose line is lighter than its paper it is the line, because a multiply
+   * cannot lay pale ink on dark stock. See the note in `press`.
+   */
+  readonly stock: Color;
   dispose(): void;
+}
+
+/* --- The sign behind the set -----------------------------------------------
+ * For whoever opens the console, grabs the camera and flies out of the room.
+ *
+ * That person is not a problem to be locked out. They are the one visitor who
+ * has demonstrated, without being asked, that they can read a stranger's scene
+ * graph and drive it — which is a hiring signal, not a violation. Every other
+ * site's answer here is an invisible wall. This one puts up a sign and makes an
+ * offer.
+ *
+ * Deliberately NOT reachable by the ordinary camera: the whole joke is that
+ * finding it costs something. It hangs outside the back wall facing the room,
+ * so it is only ever read by someone who has already left. */
+const SIGN = [
+  "OH — YOU ARE NOT SUPPOSED TO BE HERE.",
+  "",
+  "But you got the camera out of the room, which is more",
+  "than the brief asked of anyone. So: if you build things",
+  "like this, drop me a line and let us make something.",
+  "",
+  "pranav.upadhyay.p@gmail.com",
+] as const;
+
+function paintSign(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  ink: string,
+  muted: string,
+  paper: string,
+): void {
+  ctx.fillStyle = paper;
+  ctx.fillRect(0, 0, w, h);
+  tooth(ctx, w, h, 0x51a1);
+
+  // A drawn border, so it reads as a hand-lettered card rather than a modal.
+  ctx.strokeStyle = ink;
+  ctx.lineWidth = 5;
+  ctx.strokeRect(18, 18, w - 36, h - 36);
+
+  ctx.textAlign = "center";
+  let y = 92;
+  SIGN.forEach((line, i) => {
+    if (!line) {
+      y += 26;
+      return;
+    }
+    const heading = i === 0;
+    const address = line.includes("@");
+    ctx.font = `${heading || address ? 700 : 400} ${heading ? 46 : 28}px ${MONO}`;
+    ctx.fillStyle = heading || address ? ink : muted;
+    ctx.fillText(line, w / 2, y);
+    y += heading ? 74 : 42;
+  });
 }
 
 /**
@@ -277,7 +389,11 @@ export interface Press {
  * belt: if fonts.ready never settles the sheets are still printed, just in the
  * fallback. A blank sheet is the one outcome this file exists to prevent.
  */
-export function press(p: Palette, outcomes: readonly Outcome[]): Press {
+export function press(
+  p: Palette,
+  outcomes: readonly Outcome[],
+  labels: ReadonlyMap<string, string> = new Map(),
+): Press {
   /* INK, NOT CARD.
    *
    * These four used to derive from p.ink and p.accent, which were dark card
@@ -290,12 +406,31 @@ export function press(p: Palette, outcomes: readonly Outcome[]): Press {
    * Printing is the one thing on this desk that was never card: it is ink laid
    * on card. So it comes from --stage-line, the same black the outlines are
    * drawn in — one ink, on one paper, for the whole world. */
-  const ink = css(overprint(p.line, p.paper));
-  const muted = css(overprint(blend(p.line, p.paper, 0.42), p.paper));
-  const faint = css(overprint(blend(p.line, p.paper, 0.78), p.paper));
+  /* PRINTING ON DARK STOCK — why there are two cases here.
+   *
+   * A print texture is a field of MULTIPLIERS, so printing can only ever take
+   * light away. That is right for ink on white paper and impossible for a
+   * cyanotype, where the line is paler than the sheet: overprint clamps at 1
+   * and every word comes out blank. The blueprint theme is exactly that.
+   *
+   * So when the palette's line is lighter than its paper, the printing is
+   * inverted: the card is cut from the LINE colour, and the texture lays the
+   * PAPER down everywhere the ink is not. Same shader, same one-ink-one-paper
+   * rule, and the arithmetic stays division of two tokens. `stock` below is
+   * which of the two a printed card is cut from — see objects.ts. */
+  const lum = (c: Color) => c.r * 0.2126 + c.g * 0.7152 + c.b * 0.0722;
+  const inverted = lum(p.line) > lum(p.paper);
+  const card = inverted ? p.line : p.paper;
+
+  // White is "the card, unchanged". On normal stock that is the paper; on
+  // inverted stock the paper has to be printed on like everything else.
+  const ground = inverted ? css(overprint(p.paper, card)) : "rgb(255,255,255)";
+  const ink = css(overprint(p.line, card));
+  const muted = css(overprint(blend(p.line, p.paper, 0.42), card));
+  const faint = css(overprint(blend(p.line, p.paper, 0.78), card));
   // The red pen is gone with the rest of the colour; an accent is now simply a
   // heavier stroke of the same ink.
-  const accent = css(overprint(blend(p.line, p.paper, 0.18), p.paper));
+  const accent = css(overprint(blend(p.line, p.paper, 0.18), card));
 
   const repaint: Array<() => void> = [];
   const sheets: CanvasTexture[] = [];
@@ -303,7 +438,7 @@ export function press(p: Palette, outcomes: readonly Outcome[]): Press {
   outcomes.forEach((outcome, i) => {
     const ctx = pad(W, H);
     if (!ctx) return;
-    const draw = () => paintSheet(ctx, outcome, ink, muted, accent, faint, 0x5eed + i * 977);
+    const draw = () => paintSheet(ctx, outcome, ink, muted, accent, faint, ground, 0x5eed + i * 977);
     draw();
     const t = texture(ctx.canvas);
     sheets.push(t);
@@ -316,10 +451,40 @@ export function press(p: Palette, outcomes: readonly Outcome[]): Press {
   let chess: CanvasTexture | null = null;
   const chessCtx = pad(256, 256);
   if (chessCtx) {
-    const draw = () => paintChess(chessCtx, 256, ink, muted, faint);
+    const draw = () => paintChess(chessCtx, 256, muted);
     draw();
     chess = texture(chessCtx.canvas);
     const t = chess;
+    repaint.push(() => {
+      draw();
+      t.needsUpdate = true;
+    });
+  }
+
+  const notes = new Map<string, CanvasTexture>();
+  let seed = 0x2f1b;
+  for (const [id, label] of labels) {
+    const ctx = pad(NOTE, NOTE);
+    if (!ctx) continue;
+    seed += 811;
+    const at = seed;
+    const draw = () => paintNote(ctx, label, ink, faint, ground, at);
+    draw();
+    const t = texture(ctx.canvas);
+    notes.set(id, t);
+    repaint.push(() => {
+      draw();
+      t.needsUpdate = true;
+    });
+  }
+
+  let sign: CanvasTexture | null = null;
+  const signCtx = pad(1024, 512);
+  if (signCtx) {
+    const draw = () => paintSign(signCtx, 1024, 512, ink, muted, css(p.paper));
+    draw();
+    sign = texture(signCtx.canvas);
+    const t = sign;
     repaint.push(() => {
       draw();
       t.needsUpdate = true;
@@ -339,10 +504,15 @@ export function press(p: Palette, outcomes: readonly Outcome[]): Press {
   return {
     sheets,
     chess,
+    sign,
+    notes,
+    stock: card,
     dispose() {
       disposed = true;
       for (const t of sheets) t.dispose();
       chess?.dispose();
+      sign?.dispose();
+      for (const t of notes.values()) t.dispose();
     },
   };
 }

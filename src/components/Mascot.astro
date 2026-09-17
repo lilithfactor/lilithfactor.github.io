@@ -1,0 +1,207 @@
+---
+/**
+ * A head that watches the cursor and reacts when poked.
+ *
+ * A port of nilbuild/page-mascot (MIT, Kamran Ahmed) from React to a plain
+ * script — the site has no React, and the whole trick is two 3×3 sprite
+ * sheets moved by background-position: nine head directions on one, nine
+ * expressions on the other. The pointer's angle picks a cell; a click shows
+ * an expression for half a second. The sheets are built and verified by the
+ * page-mascot skill (~/.claude/skills/page-mascot), which measures that the
+ * two line up so the head does not jump when it blinks.
+ *
+ * Tracking switches off without a fine pointer; the click squash honours
+ * prefers-reduced-motion. The ink is multiplied onto whatever paper it sits
+ * on, so the drawing's white fill takes the desk's colour instead of reading
+ * as a sticker. It is a bitmap, so it cannot read --ink the way the name does
+ * under blueprint; that theme's masthead is an open question in todo.md.
+ */
+interface Props {
+  /** The 3×3 sheet of head directions, as a served path. */
+  directions: string;
+  /** The 3×3 sheet of expressions. */
+  reactions: string;
+  /** What a screen reader calls it. */
+  label?: string;
+}
+
+const { directions, reactions, label = "the mascot" } = Astro.props;
+---
+
+<button type="button" class="mascot" aria-label={`Poke ${label}`} data-mascot>
+  <span class="mascot-body">
+    <span
+      class="mascot-sheet"
+      data-directions
+      style={`background-image:url(${directions})`}></span>
+    {
+      /* Mounted from the start so the sheet is fetched up front, not on the first click. */
+    }
+    <span class="mascot-sheet" data-reactions style={`background-image:url(${reactions})`}
+    ></span>
+  </span>
+</button>
+
+<style>
+  .mascot {
+    position: relative;
+    display: block;
+    flex-shrink: 0;
+    width: var(--mascot-size, 5rem);
+    aspect-ratio: 1;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    appearance: none;
+    cursor: pointer;
+    user-select: none;
+    mix-blend-mode: multiply;
+    /* The masthead is click-through on the desk; the head is the one part of it that is not. */
+    pointer-events: auto;
+  }
+
+  .mascot-body {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 100%;
+    transform-origin: 50% 78%;
+  }
+
+  .mascot-sheet {
+    position: absolute;
+    inset: 0;
+    /* 300% makes each cell a clean 0 / 50 / 100% step on both axes. */
+    background-size: 300% 300%;
+    background-repeat: no-repeat;
+    background-position: 50% 50%;
+  }
+
+  [data-reactions] {
+    opacity: 0;
+  }
+  .mascot[data-reacting] [data-directions] {
+    opacity: 0;
+  }
+  .mascot[data-reacting] [data-reactions] {
+    opacity: 1;
+  }
+</style>
+
+<script>
+  // Cells are numbered across then down, 0–8.
+  // Directions: up-left, up, up-right / left, centre, right / down-left, down, down-right.
+  // Reactions: blink, heart, sparkle / surprised, wink, bashful / sleepy, dizzy, delighted.
+  const CLOCKWISE = [5, 8, 7, 6, 3, 0, 1, 2]; // from the right, matching atan2 with y down
+  const CENTRE = 4;
+  const BLINK = 0;
+  const DIZZY = 7;
+  const PAYOFFS = [1, 2, 8]; // heart, sparkle, delighted
+  const SECTOR = (Math.PI * 2) / CLOCKWISE.length;
+  const HYSTERESIS = 0.12;
+  const DEAD_ZONE = 70;
+  const BOOP_PAYOFF = 120;
+  const BOOP_END = 560;
+  const SQUASH_MS = 420;
+  const DIZZY_AFTER = 4;
+  const DIZZY_WINDOW = 1600;
+  const DIZZY_END = 1100;
+  const SQUASH: Keyframe[] = [
+    { transform: "scale(1, 1)", easing: "ease-in" },
+    { transform: "scale(1.10, 0.86)", offset: 0.18, easing: "ease-out" },
+    { transform: "scale(0.95, 1.08)", offset: 0.45, easing: "ease-in-out" },
+    { transform: "scale(1.03, 0.97)", offset: 0.72, easing: "ease-in-out" },
+    { transform: "scale(1, 1)" },
+  ];
+
+  const cell = (el: HTMLElement, index: number) => {
+    el.style.backgroundPosition = `${(index % 3) * 50}% ${Math.floor(index / 3) * 50}%`;
+  };
+  const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
+
+  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-mascot]")) {
+    const body = button.querySelector<HTMLElement>(".mascot-body")!;
+    const directions = button.querySelector<HTMLElement>("[data-directions]")!;
+    const reactions = button.querySelector<HTMLElement>("[data-reactions]")!;
+
+    // --- Look at the pointer ---------------------------------------------
+    if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+      let sector = -1;
+      let pointer: { x: number; y: number } | null = null;
+
+      const aim = () => {
+        if (!pointer) return;
+        const box = button.getBoundingClientRect();
+        const dx = pointer.x - (box.left + box.width / 2);
+        const dy = pointer.y - (box.top + box.height / 2);
+
+        if (Math.hypot(dx, dy) < DEAD_ZONE) {
+          sector = -1;
+          cell(directions, CENTRE);
+          return;
+        }
+
+        // Hold the current sector until the pointer is well past its edge.
+        const angle = Math.atan2(dy, dx);
+        if (
+          sector !== -1 &&
+          Math.abs(wrap(angle - sector * SECTOR)) < SECTOR / 2 + HYSTERESIS
+        ) {
+          return;
+        }
+        sector = (Math.round(angle / SECTOR) + CLOCKWISE.length) % CLOCKWISE.length;
+        cell(directions, CLOCKWISE[sector]!);
+      };
+
+      window.addEventListener(
+        "pointermove",
+        (e) => {
+          pointer = { x: e.clientX, y: e.clientY };
+          aim();
+        },
+        { passive: true },
+      );
+      window.addEventListener("scroll", aim, { passive: true });
+    }
+
+    // --- React to a poke -------------------------------------------------
+    let timers: number[] = [];
+    const boops = { count: 0, at: 0 };
+
+    const show = (index: number | null) => {
+      if (index === null) {
+        button.removeAttribute("data-reacting");
+      } else {
+        cell(reactions, index);
+        button.setAttribute("data-reacting", "");
+      }
+    };
+    const later = (ms: number, index: number | null) => {
+      timers.push(window.setTimeout(() => show(index), ms));
+    };
+
+    button.addEventListener("click", () => {
+      timers.forEach(window.clearTimeout);
+      timers = [];
+
+      const now = Date.now();
+      boops.count = now - boops.at < DIZZY_WINDOW ? boops.count + 1 : 1;
+      boops.at = now;
+
+      if (boops.count >= DIZZY_AFTER) {
+        boops.count = 0;
+        show(DIZZY);
+        later(DIZZY_END, null);
+      } else {
+        show(BLINK);
+        later(BOOP_PAYOFF, PAYOFFS[(boops.count - 1) % PAYOFFS.length]!);
+        later(BOOP_END, null);
+      }
+
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      // Per-keyframe easing with the effect itself linear: an easing on the
+      // effect would reinterpret every offset and front-load the whole bounce.
+      body.animate(SQUASH, { duration: SQUASH_MS, easing: "linear" });
+    });
+  }
+</script>

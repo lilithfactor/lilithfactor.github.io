@@ -28,25 +28,84 @@ import {
   DirectionalLight,
   Group,
   HemisphereLight,
+  Matrix4,
   Mesh,
   PlaneGeometry,
+  MeshBasicMaterial,
   SpotLight,
   Vector3,
   type BufferGeometry,
   type Object3D,
 } from "three";
-import { bow, deckle, edgeOf, facet, paint } from "./cut";
+import { bow, bowLift, edgeOf, facet, paint } from "./cut";
 import type { Materials } from "./materials";
 import { blend, stock, type Palette } from "./palette";
 import type { ModelKit } from "./models";
+import type { Weather } from "./weather";
 
 const DEG = Math.PI / 180;
 
-/** The base sheet, in metres. */
-export const DESK_SIZE = [2.7, 1.5] as const;
+/**
+ * The base sheet, in metres.
+ *
+ * Shortened from 2.7 when the window took the middle of the wall: a 2.7m slab
+ * ran wider than the opening behind it, so the desk read as a counter that
+ * happened to have a window near one end. At 2.4 the window overhangs it
+ * slightly at both ends, which is the proportion that says "desk under a
+ * window" without anyone thinking about it.
+ */
+export const DESK_SIZE = [2.4, 1.45] as const;
+
+/* --- THE BOW, AND WHAT STANDS ON IT ---------------------------------------
+ * The base sheet is bowed so a 2.4m plane does not read as computed. Every
+ * model in this scene, though, is seated base-at-y=0 (models.ts) — so at the
+ * top of the hump the sheet came UP through the pencil, the keyboard and the
+ * near corner of the notebook, and things looked like they were sinking into
+ * the desk. They were not: the desk was rising through them.
+ *
+ * Two halves to the fix, and both live here because the bow does:
+ *   - the amount is tunable (params.ts, "mat.bow"), re-bowed from a kept flat
+ *     copy of the vertices so it can be moved back and forth without drift;
+ *   - `matHeightAt` answers how high the sheet is at a point, so a caller can
+ *     seat an object on it instead of on the plane the sheet used to be.
+ */
+const MAT_BOW = 0.0055;
+let bowAmount = MAT_BOW;
+let matGeometry: PlaneGeometry | null = null;
+let matFlat: Float32Array | null = null;
+
+/** How far the base sheet is bowed right now, in metres. */
+export function matBowAmount(): number {
+  return bowAmount;
+}
+
+/** Re-bows the base sheet. Metres of lift at the crown. */
+export function setMatBow(amount: number): void {
+  bowAmount = amount;
+  if (!matGeometry || !matFlat) return;
+  const position = matGeometry.getAttribute("position");
+  (position.array as Float32Array).set(matFlat);
+  bow(matGeometry, amount, 2);
+}
+
+/**
+ * How high the base sheet stands at a point on the desk, in metres.
+ *
+ * The plane is built in its own space and laid down with rotation.x = -90°,
+ * which carries local +z (the bowed axis) to world +y and local +y to world
+ * -z. So the sheet's own (u, v) is (world x, -world z), normalised over
+ * DESK_SIZE and clamped — an object past the edge of the mat is seated at the
+ * edge's height rather than on an extrapolated cosine.
+ */
+export function matHeightAt(x: number, z: number): number {
+  const clamp = (v: number) => Math.min(Math.max(v, 0), 1);
+  const pu = clamp((x + DESK_SIZE[0] / 2) / DESK_SIZE[0]);
+  const pv = clamp((-z + DESK_SIZE[1] / 2) / DESK_SIZE[1]);
+  return bowLift(pu, pv) * bowAmount;
+}
 
 /** Where the lamp stands. */
-export const LAMP = new Vector3(1.16, 0, -0.5);
+export const LAMP = new Vector3(1.0, 0, -0.48);
 /** The arm's joint, in the lamp's own space. Everything above this pivots. */
 export const JOINT = new Vector3(0.012, 0.355, 0);
 /** The bulb, in the HEAD's space — so it follows the head when the head turns. */
@@ -61,10 +120,100 @@ export const BULB = new Vector3(-0.127, 0.115, -0.04);
  */
 export const AIM = new Vector3(-0.892, -0.355, 0.6);
 
+/**
+ * WHICH WAY A SHADE IS FACING, measured off the shade itself.
+ *
+ * The lamp model carries no pitch in its transforms — `lamp.glb`'s shade node
+ * is a plain yaw, and the tilt that makes it a desk lamp rather than a pendant
+ * is baked into its vertices. So reading an axis off its matrix answers "up",
+ * every time, whatever the shade is doing; the beam has to come from the mesh.
+ *
+ * A lampshade is a surface of revolution, so its axis is the line through the
+ * centre of its closed end and the centre of its mouth. That is exactly what
+ * this measures: the centroid of the top quarter of the vertices to the
+ * centroid of the bottom quarter, which needs no eigen-solver, no convention
+ * about which local axis a modeller chose, and no hand-tuned number. It
+ * returns the direction the mouth points, in the mesh's own space.
+ *
+ * Banded by local y because a desk lamp's shade points downward-ish in any
+ * model that is not upside down; the bands only have to be on the right ends
+ * of the cone, not perpendicular to its axis.
+ */
+export function shadeAxisOf(mesh: Mesh): Vector3 | null {
+  const pos = mesh.geometry?.getAttribute("position");
+  if (!pos || pos.count < 6) return null;
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i);
+    if (y < lo) lo = y;
+    if (y > hi) hi = y;
+  }
+  if (!(hi > lo)) return null;
+  const band = (hi - lo) * 0.25;
+  const top = new Vector3();
+  const bottom = new Vector3();
+  const v = new Vector3();
+  let nt = 0;
+  let nb = 0;
+  for (let i = 0; i < pos.count; i++) {
+    v.fromBufferAttribute(pos, i);
+    if (v.y >= hi - band) {
+      top.add(v);
+      nt++;
+    } else if (v.y <= lo + band) {
+      bottom.add(v);
+      nb++;
+    }
+  }
+  if (!nt || !nb) return null;
+  const axis = bottom.divideScalar(nb).sub(top.divideScalar(nt));
+  return axis.lengthSq() > 1e-12 ? axis.normalize() : null;
+}
+
 export interface Lighting {
   readonly key: SpotLight;
   readonly fill: DirectionalLight;
   readonly ambient: HemisphereLight;
+}
+
+/**
+ * The window, and the curtains that hide it until the weather lands.
+ *
+ * This is what let the desk stop waiting. It used to await the forecast before
+ * building anything — two network round trips in front of the whole scene, for
+ * scenery. Now the window is built shut, and the sky is dressed and the
+ * curtains drawn back the moment the answer arrives.
+ *
+ * The good part is the failure: if the weather never comes, the curtains
+ * simply stay closed, which is an entirely normal thing for a window to be.
+ * No spinner, no fallback state, no code that says "if it broke". The state we
+ * cannot avoid is the one we would have chosen anyway.
+ */
+export interface WindowRig {
+  readonly group: Group;
+  /**
+   * The centre of the sill's top surface, in the ROOM's space — so anything
+   * meant to stand on the ledge can be positioned against a published number
+   * instead of one measured off a screenshot. Width is the sill's, for spacing
+   * more than one thing along it.
+   */
+  readonly sill: { readonly centre: Vector3; readonly width: number };
+  /**
+   * The light the window lets in. Lives inside the group, so it stands outside
+   * whatever wall the window is in; published only so the tuner can reach its
+   * intensity. The rig drives it — see update().
+   */
+  readonly daylight: DirectionalLight;
+  /**
+   * The patch of sun it throws. World space, like the lamp's pool and for the
+   * same reason: it lies flat on the desk whatever the window does.
+   */
+  readonly patch: Mesh;
+  /** Dress the view and open up. Safe to call with null — then nothing opens. */
+  reveal(weather: Weather | null): void;
+  /** Eases the curtains. Called from the scene's tick. */
+  update(dt: number): void;
 }
 
 /** The movable parts of the lamp. See lamp.ts for what moves them. */
@@ -88,6 +237,13 @@ export interface LampParts {
    */
   readonly bulb: Vector3;
   readonly aim: Vector3;
+  /**
+   * The shade mesh, when the lamp came from a model. Published so the beam can
+   * be checked against — and aimed along — the shade's own axis rather than a
+   * world one. Null for the procedural lamp, whose shade is a cone this file
+   * places itself and whose AIM is hand-tuned to match it.
+   */
+  readonly shade: Object3D | null;
 }
 
 /** A painted box. `thin` names the axis its two large faces look along. */
@@ -102,6 +258,50 @@ function sheet(
   const geometry = new BoxGeometry(w, h, d);
   paint(geometry, face, edgeOf(face, cut), thin);
   return geometry;
+}
+
+/**
+ * A hanging blind: ONE sheet, creased into horizontal folds, hung from its top
+ * edge so that raising it is a single scale about y = 0.
+ *
+ * ONE MESH, NOT A STACK OF STRIPS. The first version of this was separate
+ * folds stepped back and forth in z, which shades like cloth and inks like a
+ * portcullis: every strip is a closed box, EdgesGeometry draws every boundary,
+ * and the window came out barred with black rectangles. One mesh has one
+ * boundary, so the ink traces the blind's silhouette and nothing else.
+ *
+ * The folds are a TRIANGLE wave rather than a sine on purpose. A sine is
+ * smooth: every facet meets its neighbour under the 38° threshold, no crease is
+ * drawn at all, and the blind reads as a bent board. A triangle wave puts a
+ * real ~75° fold at each crest, which is exactly one ink line along each
+ * pleat — cloth drawn the way an illustrator draws cloth.
+ *
+ * The geometry is translated so the HEAD EDGE sits at the origin. That is what
+ * makes raising it free: scale.y from 1 to a little above nothing, and the
+ * folds crowd into a stack under the head rail exactly as a Roman blind does,
+ * with no second geometry and no animation of vertices.
+ */
+function pleat(
+  w: number,
+  h: number,
+  folds: number,
+  depth: number,
+  face: Color,
+  cut: Color,
+): BufferGeometry {
+  const geometry = new PlaneGeometry(w, h, 6, folds * 2);
+  const position = geometry.getAttribute("position");
+  for (let i = 0; i < position.count; i++) {
+    const v = (position.getY(i) + h / 2) / h;
+    const wave = Math.abs(((v * folds * 2) % 2) - 1) * 2 - 1;
+    // Slacker toward the hem, tight under the rail — a blind is held flat where
+    // it is fixed and bellies out as it hangs.
+    position.setZ(i, wave * depth * (0.55 + 0.45 * (1 - v)));
+  }
+  geometry.translate(0, -h / 2, 0);
+  // facet() before paint(): it rebuilds the vertex list, and the colours are
+  // written per vertex.
+  return paint(facet(geometry), face, edgeOf(face, cut), 2);
 }
 
 /** A rolled tube of card: the curved side is paper, the two ends are cuts. */
@@ -120,33 +320,35 @@ function roll(
 }
 
 /** The base sheet, the backdrop it stands against, and the lamp. */
-export function buildRoom(p: Palette, m: Materials, models: ModelKit): { room: Group; lamp: LampParts } {
+export function buildRoom(
+  p: Palette,
+  m: Materials,
+  models: ModelKit,
+): { room: Group; lamp: LampParts; window: WindowRig } {
   const room = new Group();
   room.name = "room";
 
-  /* The base sheet, INSET by 4cm on every side from the board beneath it.
+  /* The base sheet: the surface everything stands on, matched to the board
+   * beneath it so the desk has one clean edge rather than two.
    *
-   * That inset is the single most paper-craft thing in the model. A real
-   * cut-paper build is stacked: a heavier board underneath, a lighter sheet
-   * laid on top, and a margin where you can see both. Making them the same size
-   * — which is what this was — hides the join and leaves one slab with a line
-   * round it. Making them different sizes turns the desk into two pieces of
-   * card that someone put one on top of the other.
+   * NO TORN EDGE. There was one, along the two sides the camera can see, on the
+   * argument that every other edge in the model is ruled straight and one
+   * hand-torn edge is the proof a person made it. It is a real argument and it
+   * lost: a wobble is only read as "torn" when there is a torn thing to attach
+   * it to, and on a desk cut from the same paper as the board under it, the
+   * wobble is just a line that is not straight. Pranav called it a random
+   * squiggle, which is the only verdict that matters — a detail nobody can
+   * name is not a detail, it is a defect with a rationale.
    *
-   * TORN, not cut, along the two edges the camera can see. This is the single
-   * highest-value detail in the whole repaint and it is worth saying why: every
-   * other edge in the model is a straight line, because a straight line is what
-   * a blade and a steel rule produce, and a model made entirely of them still
-   * reads as something a machine laid out. One torn edge is the proof of a
-   * hand. It goes on the mat because the mat is the largest object in frame and
-   * its front edge runs right across the bottom of the shot — the one place a
-   * 4mm irregularity is a full centimetre of screen.
-   *
-   * And it is bowed, because a 2.6-metre sheet of card that is mathematically
-   * planar is the loudest "computed" signal available. See cut.ts. */
-  const mat = new PlaneGeometry(DESK_SIZE[0] - 0.08, DESK_SIZE[1] - 0.08, 34, 20);
-  deckle(mat, 0.014, { bottom: true, right: true }, 7);
-  bow(mat, 0.0055, 2);
+   * It is still BOWED, and that stays: a 2.4-metre sheet of card that is
+   * mathematically planar is the loudest "computed" signal available. The
+   * difference is that the bow works on the SHADING across the sheet, which
+   * needs no edge to land on and cannot be mistaken for a stray mark. See
+   * cut.ts. */
+  const mat = new PlaneGeometry(DESK_SIZE[0], DESK_SIZE[1], 34, 20);
+  matGeometry = mat;
+  matFlat = Float32Array.from(mat.getAttribute("position").array);
+  setMatBow(bowAmount);
   const top = new Mesh(mat, m.card);
   paint(top.geometry, p.desk, p.desk, 2);
   top.rotation.x = -90 * DEG;
@@ -174,18 +376,524 @@ export function buildRoom(p: Palette, m: Materials, models: ModelKit): { room: G
   backdrop.position.set(0, 1.3, -1.25);
   room.add(backdrop);
 
+  const window = buildWindow(p, m);
+  // The patch of sun goes in beside the window rather than inside it, for the
+  // reason the lamp's pool does: it belongs to the desk it lies on.
+  room.add(window.group, window.patch);
+
   const lamp = buildLamp(p, m, models);
+  // Seated on the sheet, like everything else that stands on it. The lamp's
+  // painted pool goes up with it or it lights the underside of the hump.
+  const lampLift = matHeightAt(lamp.group.position.x, lamp.group.position.z);
+  lamp.group.position.y += lampLift;
+  lamp.pool.position.y += lampLift;
   room.add(lamp.group, lamp.pool);
+
+  // The patch of sun lies ON the sheet too.
+  window.patch.position.y += matHeightAt(window.patch.position.x, window.patch.position.z);
 
   // A paper coaster where a cup sat, because the desk should look used and this
   // costs one disc. Aged card, one shade off the base sheet.
   const coaster = new Mesh(new CircleGeometry(0.045, 20), m.card);
   paint(coaster.geometry, stock(p.paperAged, 3), p.paperAged, 2);
   coaster.rotation.x = -90 * DEG;
-  coaster.position.set(-0.72, 0.0012, -0.28);
+  coaster.position.set(-0.72, 0.0012 + matHeightAt(-0.72, -0.28), -0.28);
   room.add(coaster);
 
-  return { room, lamp };
+  // And the mug that made the ring. It stands ON the coaster, which is the
+  // whole point of a coaster and the difference between "a desk someone uses"
+  // and "a desk someone tidied before the photograph".
+  const mug = models.take("mug");
+  if (mug) {
+    mug.position.set(-0.72, 0.0024 + matHeightAt(-0.72, -0.28), -0.28);
+    mug.rotation.y = 128 * DEG;
+    room.add(mug);
+  }
+
+  return { room, lamp, window };
+}
+
+/* --- The window ------------------------------------------------------------
+ * A hole cut in the backdrop with a city behind it, in layers, like every
+ * paper-craft diorama ever made.
+ *
+ * "Live" here means the visitor's own clock, not a network call. That is a
+ * deliberate limit rather than a shortcut:
+ *
+ *   - architecture.md Directive 1 says content comes through the proxy at build
+ *     time. A weather API would be the first runtime fetch this site has ever
+ *     made, and it would need a key, a failure state and a privacy answer about
+ *     asking for someone's location.
+ *   - The clock is free, offline, instant, and already correct for whoever is
+ *     looking. A desk that is dark at midnight and bright at noon is the part
+ *     of "outside" that actually lands.
+ *
+ * Weather is the obvious next step and it is genuinely nice — rain on the glass
+ * changing the soundscape is in vision.md. It should be a decision made on
+ * purpose, with a key and a fallback, not smuggled in behind a window.
+ *
+ * The view is cut from the same paper as everything else, so what separates the
+ * skyline from the sky is the ink line and one step of tone — which is exactly
+ * how a paper diorama does distance.
+ *
+ * Z MATTERS HERE. Every layer of the view sits BEHIND the frame in the group's
+ * own space, so the group has to stand far enough in front of the backdrop
+ * (z = -1.25) that the furthest layer still clears it. It did not, first time:
+ * the sky landed at -1.265, behind the wall, and the window was a frame around
+ * a blank piece of backdrop. */
+/* CENTRED, AND THE WIDEST THING ON THE WALL.
+ *
+ * It used to be tucked to the right, sized to fit the one gap left over between
+ * the bookcase and the lamp — which is how you get a window that reads as a
+ * picture someone hung rather than the thing the desk is placed in front of. A
+ * desk under a window is the arrangement every desk on earth is in, and it only
+ * says that if the window is behind the MIDDLE of the desk.
+ *
+ * So the window was given the wall and everything else moved: the desk is
+ * shorter (see DESK_SIZE), the pinboard has gone left off the glass and the
+ * bookcase further left again. Height is still set by what the camera sees —
+ * the resting shot crops the backdrop at about y = 1.0, so the pole has to
+ * clear the sill and still be under that. */
+const WINDOW = new Vector3(0, 0.47, -1.19);
+
+/* WHAT EACH SKY IS WORTH, in the room rather than on the glass.
+ *
+ * Retinting the pane says what it looks like out there; this says what it does
+ * in here, which is the half a window is actually for. The spread is wide on
+ * purpose — a storm at a fifth of a clear noon — because the alternative is six
+ * forecasts that all produce the same desk, and then the fetch was for nothing.
+ *
+ * Snow sits just under clear: an overcast sky, but a white ground throwing most
+ * of it back up through the window. */
+const DAYLIGHT: Record<Weather["sky"], number> = {
+  clear: 1.5,
+  snow: 1,
+  cloud: 0.8,
+  rain: 0.55,
+  fog: 0.45,
+  storm: 0.3,
+};
+/** And how strong the painted patch is under each. Same order, a tenth the scale. */
+const SUNPATCH: Record<Weather["sky"], number> = {
+  clear: 0.16,
+  snow: 0.12,
+  cloud: 0.06,
+  rain: 0.03,
+  fog: 0.04,
+  storm: 0.03,
+};
+/* Night is ONE number for every sky. A clear midnight and a cloudy one are the
+ * same room: what little comes through the glass is the city, not the weather. */
+const NIGHT_LIGHT = 0.12;
+
+/**
+ * The hour the room is dressed for. `?hour=22` forces one — the only sane way
+ * to look at the night view at eleven in the morning — and the visitor's own
+ * clock answers otherwise.
+ */
+export function hourFromUrl(): number {
+  const forced = Number(new URLSearchParams(location.search).get("hour"));
+  return Number.isFinite(forced) && forced >= 0 && forced <= 23 ? forced : new Date().getHours();
+}
+
+/**
+ * Is it dark out at that hour? Exported so the `?sky=` debug path in scene.ts
+ * decides day and night by the same rule the window dresses itself by, instead
+ * of its own copy of it — which is how `?sky=clear&hour=22` ended up a night
+ * room under a noon sun.
+ */
+export function isNight(hour: number): boolean {
+  return hour < 6 || hour >= 20;
+}
+
+function buildWindow(p: Palette, m: Materials): WindowRig {
+  const g = new Group();
+  g.name = "window";
+  g.position.copy(WINDOW);
+
+  const W = 2.05;
+  const H = 0.54;
+  const bar = 0.035;
+
+  /* Time of day, from the machine looking at it. Three states rather than a
+   * gradient: paper does not do subtle gradations of daylight, and a sheet that
+   * is *one step* lighter than the wall reads as "bright outside" far better
+   * than a smooth ramp that just looks like a slightly different white. */
+  const params = new URLSearchParams(location.search);
+  const hour = hourFromUrl();
+  // The API knows whether it is light where the desk is, which beats guessing
+  // from the visitor's clock. The clock is the fallback, not the first answer.
+  // The clock dresses the window at build time; the forecast corrects it in
+  // reveal() if it ever turns up.
+  const night = isNight(hour);
+  const dusk = !night && (hour < 8 || hour >= 18);
+  // ?sky=rain forces a condition, so all six can be looked at on a clear day.
+  const sky5 = (params.get("sky") as Weather["sky"] | null) ?? "clear";
+  const overcast = sky5 === "cloud" || sky5 === "rain" || sky5 === "storm" || sky5 === "fog";
+  const wet = sky5 === "rain" || sky5 === "storm";
+
+  // Sky: lighter than the wall by day, darker at night. Still the same stock —
+  // this is a tone step, not a colour.
+  // Toward p.line, NOT p.ink: --stage-ink is the paper now (the whole scene is
+  // one stock), so blending toward it does nothing at all. Exactly the mistake
+  // that printed the outcome numbers white on white. Black lives in --stage-line.
+  /* Overcast is a step toward the ink whatever the hour, which is the only
+   * move available: this window has one sheet of card and no colour, so
+   * "grey day" has to be literally that. Fog goes furthest and flattens the
+   * skyline behind it. */
+  const weight = night
+    ? overcast
+      ? 0.72
+      : 0.62
+    : sky5 === "fog"
+      ? 0.3
+      : overcast
+        ? 0.18
+        : dusk
+          ? 0.12
+          : 0.02;
+  const sky = blend(p.backdrop, p.line, weight);
+  /* The sky is UNLIT, and that is not a shortcut.
+   *
+   * As lit card it came out white at midnight: the hemisphere alone runs at
+   * 2.7, so any tone this side of black is multiplied back up to paper. Sky is
+   * not a surface in the room catching the room's light — it is distance, and
+   * distance has no normal to shade. An unlit material gives exactly the tone
+   * asked for, which is also how a paper diorama does a sky: you choose the
+   * card and that IS the colour. */
+  const pane = new Mesh(
+    new BoxGeometry(W, H, 0.006),
+    new MeshBasicMaterial({ color: sky, toneMapped: false }),
+  );
+  pane.position.z = -0.03;
+  // Sky is not a surface anything lands on; a shadow falling on it would be a
+  // shadow cast onto the horizon.
+  pane.receiveShadow = false;
+  g.add(pane);
+
+  /* The city, in two layers. The far one is closer to the sky's tone and the
+   * near one closer to the wall's, which is the whole trick of paper distance:
+   * every layer you step forward gets one step darker and one step sharper. */
+  const skyline = (
+    depth: number,
+    tone: Color,
+    heights: readonly number[],
+    width: number,
+  ): void => {
+    /* THE CITY STANDS ON A HORIZON, not on the bottom of the glass.
+     *
+     * Two reasons, and the second is the one that actually forced it. A distant
+     * skyline seen from a desk never shows its own feet — the ground it stands
+     * on is below the sill line, which is why every real window shows buildings
+     * cut off. And practically: the blind hangs 45mm in front of the glass, so
+     * from a camera above there is a thin band at the bottom of the pane that
+     * the blind cannot cover no matter how far it drops. With buildings sitting
+     * on the glass bottom that band was a strip of dark rooftops showing under a
+     * closed blind. With a horizon, the same band is plain sky — the same paper
+     * as the frame around it, so there is nothing left to see. */
+    const base = -H / 2 + H * 0.26;
+    let x = -W / 2 + width / 2;
+    for (const h of heights) {
+      const block = new Mesh(sheet(width, h, 0.006, tone, p.cut, 2), m.card);
+      block.position.set(x, base + h / 2, depth);
+      block.receiveShadow = false;
+      g.add(block);
+      // A lit window or two, at night only, so the city is somewhere people are.
+      if (night && h > 0.12) {
+        const lit = new Mesh(sheet(width * 0.24, 0.026, 0.004, p.paper, p.paper, 2), m.card);
+        lit.position.set(x - width * 0.16, base + h - 0.06, depth + 0.005);
+        g.add(lit);
+      }
+      x += width;
+    }
+  };
+
+  // Fog is distance you cannot see through, so the layers close up toward the
+  // sky's own tone rather than stepping away from it.
+  const haze = sky5 === "fog" ? 0.35 : 1;
+  const far = blend(sky, p.line, (night ? 0.16 : 0.1) * haze);
+  const near = blend(sky, p.line, (night ? 0.3 : 0.2) * haze);
+  // More blocks than before, because the window is twice as wide now and the
+  // same seven towers stretched into seven slabs. Roughly 120mm each, which is
+  // the width that still reads as a building at this distance.
+  skyline(
+    -0.022,
+    far,
+    [0.16, 0.28, 0.2, 0.34, 0.22, 0.3, 0.18, 0.26, 0.36, 0.21, 0.29, 0.17, 0.31, 0.23],
+    W / 14,
+  );
+  skyline(
+    -0.012,
+    near,
+    [0.12, 0.22, 0.14, 0.18, 0.26, 0.15, 0.24, 0.13, 0.2, 0.28, 0.16, 0.19],
+    W / 12,
+  );
+
+  /* Rain, as strokes on the glass rather than falling drops.
+   *
+   * Static and slightly slanted: this is a paper model of a rainy window, and
+   * what says "rain" in that idiom is streaks on the pane, not simulated
+   * particles. Cheap, and it holds up at rest — which is the state the desk is
+   * in almost all the time. */
+  if (wet) {
+    const streaks = sky5 === "storm" ? 26 : 16;
+    for (let i = 0; i < streaks; i++) {
+      // Deterministic, so the rain does not reshuffle on every re-render.
+      const t = (i * 9301 + 49297) % 233280;
+      const x = (t / 233280 - 0.5) * W;
+      const len = 0.03 + ((t >> 5) % 100) / 100 * 0.07;
+      const streak = new Mesh(
+        new BoxGeometry(0.0022, len, 0.002),
+        new MeshBasicMaterial({ color: blend(sky, p.paper, 0.8), toneMapped: false }),
+      );
+      streak.position.set(x, ((t >> 9) % 100) / 100 * H - H / 2, -0.008);
+      streak.rotation.z = 0.22;
+      // Rain is not paper and gets no ink line. Outlined, each streak came out
+      // as a little hatched ladder rather than water on glass.
+      streak.userData.noOutline = true;
+      g.add(streak);
+    }
+  }
+
+  /* The frame. Four bars and two glazing bars, because a rectangle of sky with
+   * no frame is a poster, and the muntins are what make it a window at a
+   * glance. */
+  const frame = (w: number, h: number, x: number, y: number, thick = 0.05) => {
+    const piece = new Mesh(sheet(w, h, thick, p.kraft, p.cut), m.card);
+    piece.position.set(x, y, 0);
+    piece.castShadow = true;
+    g.add(piece);
+  };
+  /* THE BOTTOM RAIL IS DEEP, and that is load-bearing rather than decorative.
+   *
+   * The blind hangs 45mm in front of the glass, and the camera looks down at
+   * about 23°, so the blind's hem PROJECTS higher on screen than the glass
+   * bottom it is meant to cover — the lowered blind left a strip of city
+   * showing under it. The hem cannot simply be dropped further, because below
+   * it is the sill and cloth does not pass through a shelf.
+   *
+   * A deeper bottom rail solves it from the other end: it raises the glass by
+   * 90mm, which is more than the parallax can eat, and it is also what a real
+   * window has — the bottom rail of a sash is always the thickest member. */
+  const apron = 0.11;
+  frame(W + bar * 2, bar, 0, H / 2 + bar / 2);
+  frame(W + bar * 2, apron, 0, -H / 2 - apron / 2);
+  frame(bar, H + bar * 2, -W / 2 - bar / 2, 0);
+  frame(bar, H + bar * 2, W / 2 + bar / 2, 0);
+  // The glazing bars, thinner, sitting proud of the frame. Two uprights rather
+  // than one: a 1.7m opening split down the middle is a patio door, and three
+  // lights across is what a window that wide actually has.
+  frame(0.016, H, -W / 6, 0, 0.03);
+  frame(0.016, H, W / 6, 0, 0.03);
+  frame(W, 0.016, 0, 0, 0.03);
+
+  /* THE SILL, and it is a LEDGE rather than a lip.
+   *
+   * The old one was 90mm deep, which is enough to say "this window is in a wall
+   * with a thickness" and not enough to stand anything on. A window sill in a
+   * room somebody uses has things on it — a pot, a jar, whatever accumulates —
+   * so this one is 200mm deep with two brackets under it, which is a shelf.
+   *
+   * Where things go is published as `sill` on the rig rather than left for
+   * someone to measure off the screen: it is the centre of the top surface, in
+   * the room's own space, so an object placed there stands on it exactly. */
+  const sillDepth = 0.2;
+  const sillThick = 0.036;
+  const sillY = -H / 2 - apron - sillThick / 2;
+  const sillZ = sillDepth / 2 - 0.02;
+  const sill = new Mesh(sheet(W + bar * 4, sillThick, sillDepth, p.kraft, p.cut), m.card);
+  sill.position.set(0, sillY, sillZ);
+  sill.castShadow = true;
+  g.add(sill);
+
+  // Brackets. A 200mm shelf with nothing holding it up is a shelf that reads as
+  // floating, and two folded triangles of card are what a paper model uses.
+  for (const end of [-1, 1] as const) {
+    const bracket = new Mesh(sheet(0.02, 0.07, sillDepth * 0.7, p.kraft, p.cut, 0), m.card);
+    bracket.position.set((end * (W + bar * 4)) / 2.6, sillY - 0.05, sillZ - 0.01);
+    bracket.castShadow = true;
+    g.add(bracket);
+  }
+
+  /* THE BLIND. One sheet covering the whole opening, pulled up when the sky is
+   * known.
+   *
+   * It was a pair of side-drawing curtains, which is the wrong fitting for this
+   * window: side curtains have to go SOMEWHERE when they open, and once the
+   * window moved to the centre of the wall and grew, the only somewhere left was
+   * across the glass. A blind has nowhere to go but up, and stacks into a hand's
+   * width of folds under its own head rail.
+   *
+   * It also drops a moving part: one group, one scale, instead of two panels
+   * sliding in opposite directions with their own limits. */
+  const headY = H / 2 + bar + 0.012;
+  const front = 0.045;
+  const clothW = W + bar * 1.4;
+  // Down to just above the sill — derived, not chosen, so that changing the
+  // apron or the head height cannot reopen the gap this closes.
+  const drop = headY - (-H / 2 - apron) - 0.004;
+
+  // The head rail. A blind with nothing along its top edge is a sheet taped to
+  // the wall, and this is also what the folds stack up under.
+  const rail = new Mesh(sheet(clothW + 0.03, 0.036, 0.055, p.kraft, p.cut), m.card);
+  rail.position.set(0, headY + 0.018, front);
+  rail.castShadow = true;
+  g.add(rail);
+
+  const blind = new Group();
+  const cloth = new Mesh(pleat(clothW, drop, 7, 0.016, p.kraft, p.cut), m.card);
+  cloth.castShadow = true;
+  blind.add(cloth);
+  blind.position.set(0, headY, front);
+  // It moves under its own steam, so it carries its own ink. See outline.ts:
+  // lines baked into a parent stay behind when the child moves.
+  blind.userData.ownOutline = true;
+  g.add(blind);
+
+  // The bottom bar, with a pull tab. Not a child of the blind: scaling the
+  // blind to raise it would squash the bar flat. A sibling whose height is set
+  // each frame keeps its own proportions all the way up.
+  const bottom = new Group();
+  const bottomBar = new Mesh(sheet(clothW + 0.012, 0.022, 0.026, p.kraft, p.cut), m.card);
+  bottom.add(bottomBar);
+  const pull = new Mesh(sheet(0.016, 0.03, 0.006, p.kraft, p.cut), m.card);
+  pull.position.set(clothW * 0.32, -0.024, 0.004);
+  bottom.add(pull);
+  bottom.position.set(0, headY - drop, front + 0.004);
+  bottom.userData.ownOutline = true;
+  g.add(bottom);
+
+  // How far up it goes. Not zero: a raised blind is a stack of folds sitting
+  // under its rail, not an absence.
+  const RAISED = 0.13;
+
+  /* THE DAYLIGHT. The window used to change colour and nothing else, which
+   * makes it a picture of a window; what makes it a window is that the room
+   * gets brighter when the blind goes up.
+   *
+   * One DirectionalLight standing just outside the glass. Inside the group, so
+   * it is positioned against the window rather than against a number somebody
+   * measured twice, and so it travels if the window ever moves.
+   *
+   * It does NOT cast. The lamp is the single shadow-casting light in this
+   * scene on purpose (see buildLighting), and a second 1024² map is the most
+   * expensive thing anyone could add here for the least. What daylight gets
+   * instead is the patch below — the same painted answer the lamp uses. */
+  const daylight = new DirectionalLight(p.paper, 0);
+  daylight.position.set(0, 0.35, -0.6);
+  // The desk's centre-front, less where the window stands: the group's space.
+  daylight.target.position.copy(new Vector3(0, 0, 0.35).sub(WINDOW));
+  daylight.castShadow = false;
+  g.add(daylight, daylight.target);
+
+  /* And the sun on the desk, painted on — the lamp's pool trick applied to the
+   * other light in the room. A directional light alone brightens every upward
+   * face by the same amount, which is daylight everywhere and a sunlit desk
+   * nowhere; the patch is what says the light came through THAT opening.
+   *
+   * Sheared rather than rotated, because a rotated rectangle is still a
+   * rectangle: the skew is the whole reason it reads as thrown. Four vertices,
+   * so this loop is four passes. */
+  const sunGeometry = new PlaneGeometry(W * 0.96, DESK_SIZE[1] / 2);
+  const corners = sunGeometry.getAttribute("position");
+  for (let i = 0; i < corners.count; i++) {
+    corners.setX(i, corners.getX(i) + corners.getY(i) * 0.38);
+  }
+  // The lamp's own glow material, re-mixed rather than re-invented: additive,
+  // soft-edged from the same ramp, no depth write. Additive is what lets it
+  // only ever ADD light to the card — an opaque overlay would flatten the
+  // desk's shading into a pale slab exactly where the eye is going.
+  const sunMaterial = m.glow.clone();
+  sunMaterial.opacity = 0;
+  // Not tone mapped: this is light being added to a sheet, not a colour that
+  // was lit, and the curve would pull it back down as fast as it is put on.
+  sunMaterial.toneMapped = false;
+  const patch = new Mesh(sunGeometry, sunMaterial);
+  patch.rotation.x = -90 * DEG;
+  // Just clear of the base sheet, and of the lamp's pool at 0.0016.
+  patch.position.set(0, 0.0018, -0.32);
+  patch.renderOrder = 2;
+  // Light, not paper. Outlined, a patch of sun would come back with an ink
+  // border round it, which is the one thing sunlight does not have.
+  patch.userData.noOutline = true;
+
+  let openness = 0;
+  let target = 0;
+  /** What the sky is worth once the blind is all the way up. Set by reveal(). */
+  let lit = 0;
+  let sun = 0;
+
+  return {
+    group: g,
+    sill: {
+      centre: new Vector3(
+        WINDOW.x,
+        WINDOW.y + sillY + sillThick / 2,
+        WINDOW.z + sillZ,
+      ),
+      width: W + bar * 4,
+    },
+    daylight,
+    patch,
+    reveal(weather) {
+      if (!weather) return; // The blind stays down. A covered window is a window.
+      // The sky pane is the one unlit surface here, so its tone is a straight
+      // material change — no geometry to repaint.
+      const wetNow = weather.sky === "rain" || weather.sky === "storm";
+      const overcastNow =
+        weather.sky === "cloud" || wetNow || weather.sky === "fog";
+      const w = !weather.day
+        ? overcastNow
+          ? 0.72
+          : 0.62
+        : weather.sky === "fog"
+          ? 0.3
+          : overcastNow
+            ? 0.18
+            : 0.02;
+      (pane.material as MeshBasicMaterial).color.copy(blend(p.backdrop, p.line, w));
+
+      /* What the room gets. Colour first, because it is chosen from the same
+       * answer and only ever arrives at intensity zero — by the time anything
+       * is bright enough to have a colour, this has long since run.
+       *
+       * A clear day is the lamp's warmth pulled halfway to paper: not white,
+       * because sunlight through a window is never quite, and not warm enough
+       * to put back the colour the palette spent its whole argument removing.
+       * Everything else in a day is the cool token, which IS what an overcast
+       * sky is — a big soft blue-grey source. Night is the night token, and at
+       * 0.12 it is barely a source at all. */
+      daylight.color.copy(
+        !weather.day
+          ? p.night
+          : weather.sky === "clear"
+            ? blend(p.keyLight, p.paper, 0.5)
+            : blend(p.fillLight, p.paper, 0.3),
+      );
+      // The patch goes a step further toward paper than the light that made
+      // it. Additive light landing on a white sheet should brighten it, not
+      // tint it, and a tinted patch on white card reads as a stain.
+      sunMaterial.color.copy(blend(daylight.color, p.paper, 0.5));
+      lit = weather.day ? DAYLIGHT[weather.sky] : NIGHT_LIGHT;
+      sun = weather.day ? SUNPATCH[weather.sky] : 0;
+      target = 1;
+    },
+    update(dt) {
+      if (openness === target) return;
+      // Cloth is heavy and does not bounce: a plain ease toward the target.
+      openness += Math.min(dt * 1.7, 1) * (target - openness);
+      if (Math.abs(target - openness) < 0.002) openness = target;
+      // Squeezing y IS the raise: the creases are in the geometry, so they
+      // crowd into a stack under the rail on their own.
+      const shown = 1 - (1 - RAISED) * openness;
+      blind.scale.y = shown;
+      bottom.position.y = headY - drop * shown;
+      // The light rides the cloth. No second ease and no second timer: a blind
+      // half up lets half the sky in, which is both true and free.
+      daylight.intensity = lit * openness;
+      sunMaterial.opacity = sun * openness;
+    },
+  };
 }
 
 /* --- The lamp --------------------------------------------------------------
@@ -223,13 +931,36 @@ function buildLamp(p: Palette, m: Materials, models: ModelKit): LampParts {
   const group = new Group();
   group.name = "lamp";
   group.position.copy(LAMP);
+  /* AND SO DOES THE WHOLE LAMP, for the same reason the head does one level
+   * down. The lamp is a child of `room`, so its stem and foot were baked into
+   * the room's space — correct only while the lamp never moves. It moves: the
+   * tuner drives lamp.x/y/z, yaw and scale, and tuned.json replays them AFTER
+   * the room's ink is baked, so the pole and base stood ~40mm off their own
+   * black drawing on the very first frame. Flagged here, it is baked as its own
+   * root and travels with every one of those knobs. See outline.ts. */
+  group.userData.ownOutline = true;
 
   const kraft = p.kraft;
   const model = models.take("lamp");
 
+  /* The shade, found rather than assumed — see the bulb block below for why
+   * this is a variable and not a bounding box taken at the end. */
+  let shadeCentre: Vector3 | null = null;
+  let shadeSize = new Vector3();
+  /** The shade mesh itself, so the beam can be aimed along ITS axis. */
+  let shadePart: Mesh | null = null;
+
   const head = new Group();
   head.name = "lamp-head";
   head.position.copy(JOINT);
+  /* THE HEAD CARRIES ITS OWN INK.
+   *
+   * This is the one part of the model a visitor can move, and its lines were
+   * baked into the room with everything else — so the shade turned and left its
+   * outline hanging in the air where the shade used to be. Every drag made it
+   * worse. See outline.ts: anything flagged here is baked as its own root and
+   * pruned from its parent's. */
+  head.userData.ownOutline = true;
 
   if (model) {
     // Normalise to the desk's scale, standing on y = 0.
@@ -261,39 +992,77 @@ function buildLamp(p: Palette, m: Materials, models: ModelKit): LampParts {
     const pivotY = LAMP_HEIGHT * HEAD_SPLIT;
     const headParts: Mesh[] = [];
     const union = new Box3().makeEmpty();
+    const body = new Box3().makeEmpty();
     const partBox = new Box3();
     const partCentre = new Vector3();
     for (const part of parts) {
       partBox.setFromObject(part);
       partBox.getCenter(partCentre);
       // World y, which equals group-local y: the lamp group sits at y = 0.
-      if (partCentre.y < pivotY) continue;
+      if (partCentre.y < pivotY) {
+        body.union(partBox);
+        continue;
+      }
       headParts.push(part);
       union.union(partBox);
     }
 
-    /* THE PIVOT GOES AT THE KNUCKLE, not on the lamp's centre line.
+    /* THE PIVOT GOES AT THE KNUCKLE — and finding it means asking the BODY,
+     * not the head.
      *
-     * It was `(0, pivotY, 0)`, and that looked perfectly fine at rest —
-     * attach() preserves world position, so nothing moved until the lamp was
-     * dragged. Then the head swung about a point in mid-air beside the joint
-     * and the shade sailed off the end of the arm. The bug was invisible in
-     * every static screenshot and obvious the first time a hand touched it.
+     * Two wrong answers came before this one, and both looked perfect at rest,
+     * because attach() preserves world position: nothing moves until a hand
+     * drags it. First `(0, pivotY, 0)`, a point on the lamp's centre line, so
+     * the head swung about mid-air beside the joint. Then the bottom-centre of
+     * the moving parts — which sounds like the joint and is not: that box spans
+     * the knuckle AND the arm AND the shade hanging off the far end, so its
+     * centre is out along the arm and the lamp visibly came apart when turned.
      *
-     * The joint is the bottom-centre of the parts that move, which is what the
-     * union box gives us. */
-    if (!union.isEmpty()) {
-      const pivotWorld = new Vector3(
-        (union.min.x + union.max.x) / 2,
-        union.min.y,
-        (union.min.z + union.max.z) / 2,
+     * The hinge is not a feature of the head. It is where the head MEETS the
+     * part that stays put: the top of the pole. So take the top-centre of the
+     * body's box, and clamp it into the head's box so the pivot is guaranteed
+     * to sit on the assembly that turns rather than floating below it. */
+    if (!union.isEmpty() && !body.isEmpty()) {
+      const hinge = new Vector3(
+        (body.min.x + body.max.x) / 2,
+        body.max.y,
+        (body.min.z + body.max.z) / 2,
+      ).clamp(union.min, union.max);
+      head.position.copy(group.worldToLocal(hinge));
+    } else if (!union.isEmpty()) {
+      head.position.copy(
+        group.worldToLocal(
+          new Vector3((union.min.x + union.max.x) / 2, union.min.y, (union.min.z + union.max.z) / 2),
+        ),
       );
-      head.position.copy(group.worldToLocal(pivotWorld));
     } else {
       head.position.set(0, pivotY, 0);
     }
     group.add(head);
     group.updateMatrixWorld(true);
+
+    /* WHICH PART IS THE SHADE.
+     *
+     * By volume, because a lampshade is far and away the bulkiest thing above
+     * the knuckle: the arm is a thin rod and the joints are small lumps, and no
+     * plausible desk lamp inverts that. Cheaper and more robust than "furthest
+     * from the hinge", which an arm with a counterweight would break.
+     *
+     * Measured BEFORE the parts are re-parented, so each box is still the box
+     * of one part rather than of the assembly. */
+    const partExtent = new Box3();
+    const partSize = new Vector3();
+    let biggest = -1;
+    for (const part of headParts) {
+      partExtent.setFromObject(part);
+      partExtent.getSize(partSize);
+      const volume = partSize.x * partSize.y * partSize.z;
+      if (volume <= biggest) continue;
+      biggest = volume;
+      shadeCentre = partExtent.getCenter(new Vector3());
+      shadeSize = partSize.clone();
+      shadePart = part;
+    }
 
     for (const part of headParts) {
       // attach(), NOT add(). The parts hang two scaled parents deep — the
@@ -343,16 +1112,30 @@ function buildLamp(p: Palette, m: Materials, models: ModelKit): LampParts {
   /* The lit inside of the shade, tucked just under its mouth. This is what
    * makes the lamp look switched on from an angle that can see up into it.
    *
-   * Sized and placed off the head's actual extent rather than the procedural
-   * BULB constant, because that constant described the folded cone and the
-   * loaded shade is a different object at a different height. */
-  const headBox = new Box3().setFromObject(head);
-  const bulb = headBox.isEmpty() ? BULB.clone() : headBox.getCenter(new Vector3());
-  const glowRadius = headBox.isEmpty()
-    ? 0.1
-    : Math.max(0.05, Math.min(headBox.max.x - headBox.min.x, 0.16) * 0.42);
+   * IN THE SHADE, and this is the third time this exact mistake has been made
+   * in this file. It was the centre of the WHOLE HEAD's bounding box — a box
+   * that spans the knuckle, the arm and the shade — so the light left the lamp
+   * from a point halfway down the arm, and the glow disc sat in mid-air beside
+   * the shade rather than inside it. The hinge had the same bug and so did the
+   * first pivot. A bounding box around several parts describes none of them:
+   * the centre of "arm plus shade" is not a feature of either.
+   *
+   * So the shade is identified above and used here. Converted into the HEAD's
+   * space, because that is the space the bulb and aim are declared in and the
+   * space the glow is added to — the box came out in world coordinates, and the
+   * head sits at the hinge under a group turned through 180 degrees, so the two
+   * are nowhere near each other.
+   *
+   * Dropped a little below the shade's centre, because a bulb hangs at the
+   * mouth of a shade rather than floating in the middle of it. */
+  head.updateMatrixWorld(true);
+  const bulb = shadeCentre ? head.worldToLocal(shadeCentre.clone()) : BULB.clone();
+  if (shadeCentre) bulb.y -= shadeSize.y * 0.22;
+  const glowRadius = shadeCentre
+    ? Math.max(0.045, Math.min(shadeSize.x, shadeSize.z, 0.16) * 0.44)
+    : 0.1;
   const glow = new Mesh(new CircleGeometry(glowRadius, 16), m.glow);
-  glow.position.copy(model ? bulb : BULB);
+  glow.position.copy(model && shadeCentre ? bulb : BULB);
   glow.rotation.x = -90 * DEG;
   glow.renderOrder = 1;
   head.add(glow);
@@ -371,21 +1154,62 @@ function buildLamp(p: Palette, m: Materials, models: ModelKit): LampParts {
   pool.position.y = 0.0016;
   pool.renderOrder = 2;
 
-  // For the model, the beam starts at the shade and goes straight down with a
-  // slight lean, which lands the pool under the lamp on any lamp geometry. The
-  // procedural lamp keeps its hand-tuned pair.
-  const lampBulb = model ? bulb.clone() : BULB.clone();
-  const lampAim = model ? bulb.clone().add(new Vector3(0.12, -1, 0.22)) : AIM.clone();
+  /* WHERE THE BEAM GOES: out of the shade's mouth.
+   *
+   * This used to be `bulb + (0.12, -1, 0.22)` — "straight down with a slight
+   * lean", a lean picked by eye at one lamp yaw and unrelated to anything the
+   * shade was doing. Measured against the shade's own axis it was 19 degrees
+   * out, and out in AZIMUTH: the shade opened toward the viewer and the cone
+   * went the other way. The family of bug this file keeps producing — a value
+   * in one space used as if it belonged to another.
+   *
+   * So the direction is read off the shade mesh (see shadeAxisOf) and brought
+   * into the HEAD's space, which is the space `aim` is declared in and is what
+   * makes the beam follow the head when it pivots and the lamp when it is
+   * yawed. The aim point is a metre along it; only the direction matters.
+   *
+   * The procedural lamp keeps AIM: its shade is a cone this same file places,
+   * so that pair is already matched by construction. */
+  const lampBulb = model && shadeCentre ? bulb.clone() : BULB.clone();
+  const axis = model && shadePart ? shadeAxisOf(shadePart) : null;
+  let lampAim = AIM.clone();
+  if (model && shadeCentre && axis && shadePart) {
+    head.updateMatrixWorld(true);
+    // Shade space → world → head space. Rotation only, which is what
+    // transformDirection does, so the scale the loader applied cannot leak in.
+    axis
+      .transformDirection(shadePart.matrixWorld)
+      .transformDirection(new Matrix4().copy(head.matrixWorld).invert());
+    lampAim = lampBulb.clone().addScaledVector(axis, 1);
+  }
 
-  return { group, head, pool, glow, bulb: lampBulb, aim: lampAim };
+  return { group, head, pool, glow, bulb: lampBulb, aim: lampAim, shade: shadePart };
+}
+
+/* WHAT THE LIGHT IS TINTED TOWARD.
+ *
+ * All three lights below are pulled most of the way to the stock the model is
+ * cut from, which keeps a warm lamp from turning white card cream. On every
+ * paper theme that stock is `paper` — but blueprint inverts the pair, and
+ * blending daylight toward a deep blue sheet lit the room with blue, which is
+ * why the pale ink on the notes was barely there. So the target is the paler
+ * of the two, which is `paper` everywhere except the cyanotype and `line`
+ * there: the room is lit by pale light in every theme.
+ *
+ * Compared as a plain channel sum, in the renderer's linear working space —
+ * the two are far enough apart that a weighted luminance would answer the same.
+ */
+function lightStock(p: Palette): Color {
+  return p.line.r + p.line.g + p.line.b > p.paper.r + p.paper.g + p.paper.b ? p.line : p.paper;
 }
 
 export function buildLighting(p: Palette): Lighting {
+  const lit = lightStock(p);
   // The lamp. Still a SpotLight with a decay, because even flat card wants the
   // near half of the desk brighter than the far half — but far gentler than the
   // photoreal version, which crushed everything outside the cone to black. Here
   // the light shapes the model; the painted pool does the drama.
-  const key = new SpotLight(blend(p.keyLight, p.paper, 0.25), 3.7);
+  const key = new SpotLight(blend(p.keyLight, lit, 0.25), 3.7);
   // Position and target are both written by lamp.ts from the head's transform,
   // every time the head moves. What is set here is only a starting pose so the
   // very first frame is lit even if the lamp rig has not run yet.
@@ -398,12 +1222,36 @@ export function buildLighting(p: Palette): Lighting {
   // opposite.
   key.decay = 0.9;
   key.distance = 0;
-  // No castShadow anywhere in this scene. See texture.ts.
+
+  /* The lamp casts, and only the lamp.
+   *
+   * This scene ran on painted contact ellipses alone, which ground an object
+   * but cannot say that something is BETWEEN the lamp and the desk. With a real
+   * articulated lamp that is the whole point of aiming it: the shade throws a
+   * pool, and anything standing in the pool interrupts it.
+   *
+   * One shadow-casting light, at 1024², is the affordable version of that. The
+   * fill and the hemisphere stay shadowless, which is also physically the right
+   * story — they are the room, not a source.
+   *
+   * normalBias rather than a big constant bias: the model is made of thin flat
+   * card lit at a grazing angle, which is the exact case where a constant bias
+   * either leaves acne or lifts the shadow off its object ("peter-panning").
+   * Offsetting along the normal fixes the sheets without detaching anything. */
+  key.castShadow = true;
+  key.shadow.mapSize.set(1024, 1024);
+  key.shadow.camera.near = 0.05;
+  key.shadow.camera.far = 6;
+  key.shadow.bias = -0.0004;
+  key.shadow.normalBias = 0.018;
+  // Softens the edge without a second pass. A paper model's shadows are short
+  // and soft; a hard-edged one would read as a rendering.
+  key.shadow.radius = 3;
 
   // A soft cool wash from the left, for form: it is what keeps the vertical
   // faces of a folded box distinguishable from its top when the lamp is not on
   // them. Deliberately weak — the model must not read as lit from two sides.
-  const fill = new DirectionalLight(blend(p.fillLight, p.paper, 0.45), 0.95);
+  const fill = new DirectionalLight(blend(p.fillLight, lit, 0.45), 0.95);
   fill.position.set(-2.4, 2.1, 1.2);
 
   // Sky/ground rather than a flat ambient: cool daylight from above, warm
@@ -414,7 +1262,7 @@ export function buildLighting(p: Palette): Lighting {
   // raw 7000K token. Straight --stage-fill-light overhead turned every upward
   // face — which on a desk seen from above is nearly every face there is — a
   // cold grey, and cold grey card is the one thing this direction cannot have.
-  const ambient = new HemisphereLight(blend(p.fillLight, p.paper, 0.76), p.ambient, 2.7);
+  const ambient = new HemisphereLight(blend(p.fillLight, lit, 0.76), p.ambient, 2.7);
 
   return { key, fill, ambient };
 }

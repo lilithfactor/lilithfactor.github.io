@@ -117,8 +117,13 @@ export const PLACEMENTS: Readonly<Record<ArtifactId, Placement>> = {
     // Standing on the desk at the back edge, leaning toward the wall. The
     // group origin is the board's centre, so y is half its height: the board
     // rests on the surface rather than floating above it.
-    position: [0.1, 0.21, -0.7],
-    yaw: -2,
+    // MOVED OFF THE GLASS. At x 0.1 it stood dead centre against the back wall,
+    // which was fine when the window was tucked to the right and became a board
+    // nailed over the view the moment the window took the middle. Left-back
+    // instead: it still overlaps the sill by a few centimetres, which is what a
+    // board leaning by a window does, and clears the panes entirely.
+    position: [-0.68, 0.21, -0.6],
+    yaw: -4,
     anchor: [0, 0.29, 0.05],
   },
   projects: {

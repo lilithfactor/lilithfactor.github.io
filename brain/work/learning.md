@@ -103,6 +103,26 @@ Ruling: the swap stays the simple opacity+transitionend version. TBT and LCP
 findings from the same Lighthouse run WERE real (640ms → 0ms via idle-deferred
 mount) — the tool is wrong about one number, not useless.
 
+**Amended 2026-08-15.** Lighthouse now reports performance 99, CLS 0, TBT 0 —
+and the reason is not that the swap got better. Checking `network-requests` in
+the report shows only the 2KB gate script ever loaded: the desk is deferred to
+`requestIdleCallback`, which does not fire inside Lighthouse's measurement
+window, so the scene chunk, the models and the weather call all happen after
+the tool has stopped watching. The score is real and it is honest about the
+load, but it says nothing at all about the desk. Read it as "the document is
+fast", never as "the desk is fixed" — and check the network table before
+believing any Lighthouse number about this page.
+
+**Amended 2026-09-16.** That is no longer what happens. The idle-deferred
+mount now carries a 2000ms timeout, so the desk *does* load inside the
+window: the network table shows the scene chunk, every model and the weather
+call, and desktop performance scores ~0.2 under swiftshader (TBT ~2.4s, CLS
+1.0 from the swap above). Measured twice on the same day, one commit apart —
+0.20 before a masthead change, 0.18 after — so it is the desk's software
+render, not any one change. The gate in steps.md (≥ 90) cannot be met by
+this harness for the desk; run it on a case-study page for the document
+number, and judge the desk by hand until a real-GPU run exists.
+
 ---
 
 ## The token colour and the rendered colour are not the same colour

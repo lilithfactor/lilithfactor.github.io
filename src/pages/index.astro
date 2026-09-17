@@ -1,7 +1,9 @@
 ---
 import Base from "../layouts/Base.astro";
+import LinkIcon from "../components/LinkIcon.astro";
 import Section from "../components/Section.astro";
 import Chips from "../components/Chips.astro";
+import Mascot from "../components/Mascot.astro";
 // The desk mounts here and only here: it is this page's presentation of the
 // sections below. In the layout it leaked onto every page — a case-study
 // article with a 3D scene painting behind its text (Base.astro has the note).
@@ -17,6 +19,8 @@ import {
   beyond,
   links,
   playlist,
+  type CaseStudy,
+  type ProductDive,
 } from "../content/index";
 
 const byNewest = (a: { date: string | null }, b: { date: string | null }) =>
@@ -25,8 +29,56 @@ const byNewest = (a: { date: string | null }, b: { date: string | null }) =>
 const madeSorted = [...divesMade].sort(byNewest);
 const studiedSorted = [...divesStudied].sort(byNewest);
 
+// The meta line: what a recruiter wants before the prose — when, who for, what
+// kind. UTC so the build machine's timezone can't push a 1st back a month.
+const monthYear = new Intl.DateTimeFormat("en-GB", {
+  month: "short",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+const diveMeta = (d: ProductDive) =>
+  [
+    d.date && monthYear.format(new Date(d.date)),
+    ...d.gtm,
+    ...d.productType,
+    // Pricing is a Notion *url* property. A 130-character link would overflow
+    // the line, so only the plain answers ("Free") make it in.
+    d.pricing && !d.pricing.startsWith("http") ? d.pricing : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+const caseMeta = (cs: CaseStudy) =>
+  [cs.role, ...cs.domain, ...cs.type].filter(Boolean).join(" · ");
+
+// Notion labels a bare URL "Visit", which put two identical chips on Muretabi.
+// The host says which store it is.
+const linkLabel = ({ url, label }: { url: string; label: string }) => {
+  if (label !== "Visit") return label;
+  if (url.includes("apps.apple.com")) return "App Store";
+  if (url.includes("play.google.com")) return "Play Store";
+  return label;
+};
+
 const bookLine = (b: { name: string; author: string | null }) =>
   b.author ? `${b.name} — ${b.author}` : b.name;
+
+/* Beyond the routine carries no URL of its own — the Notion database has no
+ * such property — so the three pastimes with a public profile borrow the one
+ * already in Connect, matched by the link's own label rather than by a URL
+ * written out here. Nothing is hardcoded but the pairing.
+ * If the beyond database ever gains a URL property, this mapping belongs in Notion. */
+const BEYOND_LINK: Record<string, string> = {
+  music: "spotify",
+  chess: "chess.com",
+  reading: "goodreads",
+};
+const linkByLabel = new Map(links.map((l) => [l.label.toLowerCase(), l]));
+const beyondLink = (name: string) => {
+  const label = BEYOND_LINK[name.toLowerCase()];
+  return label ? linkByLabel.get(label) : undefined;
+};
 ---
 
 <Base
@@ -37,9 +89,22 @@ const bookLine = (b: { name: string; author: string | null }) =>
     {/* .masthead: on the desk stage this lifts out of the document flow and
         sits on the desk itself, so a visitor knows whose desk they landed on
         before they click anything. In the document page it is just a header. */}
-    <header class="stack masthead">
-      <p class="label">Product Manager</p>
-      <h1 class="display">Pranav Upadhyay</h1>
+    <header class="masthead">
+      {/* A head beside the name, watching the cursor: whose desk this is,
+          answered before the text is read. brain/design/art-direction.md,
+          "The head by the name". TO CHANGE THE CHARACTER: point the two paths
+          below at another pair of sheets in public/mascots (knight-* is there
+          too; any of the fifty-two at koboyo.com/page-mascot drops in), or draw
+          the likeness — brain/vision/todo.md has the command. */}
+      <Mascot
+        directions="/mascots/beard-directions.webp"
+        reactions="/mascots/beard-reactions.webp"
+        label="Pranav"
+      />
+      <div class="stack">
+        <p class="label">Product Manager</p>
+        <h1 class="display">Pranav Upadhyay</h1>
+      </div>
     </header>
 
     <Section id="about" label="About" title="About">
@@ -50,11 +115,15 @@ const bookLine = (b: { name: string; author: string | null }) =>
     <Section id="case-studies" label="Case studies" title="Case studies">
       {
         caseStudies.map((cs) => (
-          <a class="sheet sheet--interactive sheet--lift case-study-card" href={`/case-studies/${cs.slug}/`}>
+          <a
+            class="sheet sheet--interactive sheet--lift card-link"
+            href={`/case-studies/${cs.slug}/`}
+          >
+            <p class="label">{caseMeta(cs)}</p>
             <h3>{cs.name}</h3>
             <p>{cs.summary}</p>
             <Chips items={cs.kpis} />
-            <span class="label case-study-card__cta">Read case study →</span>
+            <span class="label card-cta">Read case study →</span>
           </a>
         ))
       }
@@ -66,19 +135,27 @@ const bookLine = (b: { name: string; author: string | null }) =>
           <p class="label">Things I made</p>
           <div class="card-grid">
             {
-              madeSorted.map((d) => (
-                <article class="sheet sheet--card">
-                  <h3>{d.name}</h3>
-                  <p>{d.summary}</p>
-                  {d.url && (
-                    <p class="link-row">
-                      <a href={d.url} target="_blank" rel="noopener" aria-label={`Visit ${d.name}`}>
-                        Visit
-                      </a>
-                    </p>
-                  )}
-                </article>
-              ))
+              madeSorted.map((d) =>
+                d.url ? (
+                  <a
+                    class="sheet sheet--card sheet--interactive sheet--lift card-link"
+                    href={d.url}
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <p class="label">{diveMeta(d)}</p>
+                    <h3>{d.name}</h3>
+                    <p>{d.summary}</p>
+                    <span class="label card-cta">Open ↗</span>
+                  </a>
+                ) : (
+                  <article class="sheet sheet--card">
+                    <p class="label">{diveMeta(d)}</p>
+                    <h3>{d.name}</h3>
+                    <p>{d.summary}</p>
+                  </article>
+                ),
+              )
             }
           </div>
         </div>
@@ -86,19 +163,27 @@ const bookLine = (b: { name: string; author: string | null }) =>
           <p class="label">Things I studied</p>
           <div class="card-grid">
             {
-              studiedSorted.map((d) => (
-                <article class="sheet sheet--card">
-                  <h3>{d.name}</h3>
-                  <p>{d.summary}</p>
-                  {d.url && (
-                    <p class="link-row">
-                      <a href={d.url} target="_blank" rel="noopener" aria-label={`Visit ${d.name}`}>
-                        Visit
-                      </a>
-                    </p>
-                  )}
-                </article>
-              ))
+              studiedSorted.map((d) =>
+                d.url ? (
+                  <a
+                    class="sheet sheet--card sheet--interactive sheet--lift card-link"
+                    href={d.url}
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <p class="label">{diveMeta(d)}</p>
+                    <h3>{d.name}</h3>
+                    <p>{d.summary}</p>
+                    <span class="label card-cta">Open ↗</span>
+                  </a>
+                ) : (
+                  <article class="sheet sheet--card">
+                    <p class="label">{diveMeta(d)}</p>
+                    <h3>{d.name}</h3>
+                    <p>{d.summary}</p>
+                  </article>
+                ),
+              )
             }
           </div>
         </div>
@@ -112,15 +197,19 @@ const bookLine = (b: { name: string; author: string | null }) =>
             <article class="sheet">
               <h3>{p.name}</h3>
               <p>{p.summary}</p>
+              <Chips items={p.kpis} />
               <p class="link-row">
                 {p.links.map((link) => (
                   <a
+                    class="chip-link"
                     href={link.url}
                     target="_blank"
                     rel="noopener"
-                    aria-label={link.label === "Visit" ? `Visit ${p.name}` : undefined}
+                    aria-label={
+                      linkLabel(link) === "Visit" ? `Visit ${p.name}` : undefined
+                    }
                   >
-                    {link.label}
+                    {linkLabel(link)}
                   </a>
                 ))}
               </p>
@@ -151,19 +240,40 @@ const bookLine = (b: { name: string; author: string | null }) =>
         <div>
           <p class="label">Reading ({shelf.reading.length})</p>
           <ul class="shelf-list">
-            {shelf.reading.map((b) => <li>{bookLine(b)}</li>)}
+            {
+              shelf.reading.map((b) => (
+                <li>
+                  {bookLine(b)}
+                  {b.year && <span class="note"> · {b.year}</span>}
+                </li>
+              ))
+            }
           </ul>
         </div>
         <div>
           <p class="label">Done ({shelf.done.length})</p>
           <ul class="shelf-list shelf-list--dense">
-            {shelf.done.map((b) => <li>{bookLine(b)}</li>)}
+            {
+              shelf.done.map((b) => (
+                <li>
+                  {bookLine(b)}
+                  {b.year && <span class="note"> · {b.year}</span>}
+                </li>
+              ))
+            }
           </ul>
         </div>
         <div>
           <p class="label">Queued ({shelf.queued.length})</p>
           <ul class="shelf-list shelf-list--dense">
-            {shelf.queued.map((b) => <li>{bookLine(b)}</li>)}
+            {
+              shelf.queued.map((b) => (
+                <li>
+                  {bookLine(b)}
+                  {b.year && <span class="note"> · {b.year}</span>}
+                </li>
+              ))
+            }
           </ul>
         </div>
       </div>
@@ -172,12 +282,23 @@ const bookLine = (b: { name: string; author: string | null }) =>
     <Section id="beyond" label="Beyond the routine" title="Beyond the routine">
       <div class="card-grid">
         {
-          beyond.map((i) => (
-            <article class="sheet sheet--card">
-              <h3>{i.name}</h3>
-              <p class="note">{i.desc}</p>
-            </article>
-          ))
+          beyond.map((i) => {
+            const link = beyondLink(i.name);
+            return (
+              <article class="sheet sheet--card">
+                <h3>{i.name}</h3>
+                <p class="note">{i.desc}</p>
+                {link && (
+                  <p class="link-row">
+                    <a class="chip-link" href={link.url} target="_blank" rel="noopener">
+                      <LinkIcon label={link.label} />
+                      {link.label}
+                    </a>
+                  </p>
+                )}
+              </article>
+            );
+          })
         }
       </div>
     </Section>
@@ -187,6 +308,7 @@ const bookLine = (b: { name: string; author: string | null }) =>
         {
           links.map((l) => (
             <a href={l.url} target={l.url.startsWith("mailto:") ? undefined : "_blank"} rel="noopener">
+              <LinkIcon label={l.label} />
               {l.label}
             </a>
           ))
@@ -197,3 +319,12 @@ const bookLine = (b: { name: string; author: string | null }) =>
   </main>
   <StageMount />
 </Base>
+
+<style>
+  /* Head and name sit on one baseline, the head a touch clear of the text. */
+  .masthead {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--s-4);
+  }
+</style>
