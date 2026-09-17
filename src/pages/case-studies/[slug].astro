@@ -16,7 +16,7 @@ const { cs } = Astro.props;
  * twenty seconds must hit the numbers. The Results bullets are written as
  * "Metric: value", so they split cleanly into a metric grid at the top —
  * presented, not parsed: no regex guessing at which token is the number. */
-const results = cs.body.find((s) => /result/i.test(s.heading));
+const results = cs.body.find((s) => s.heading !== null && /result/i.test(s.heading));
 const outcomes = (
   results?.blocks.flatMap((b) => (b.type === "list" ? b.items : [])) ?? []
 )
@@ -63,7 +63,7 @@ const body = cs.body;
         <article class="stack case-body">
           {body.map((section) => (
             <section class="stack">
-              <h2>{section.heading}</h2>
+              {section.heading && <h2>{section.heading}</h2>}
               {section.blocks.map((block) => {
                 if (block.type === "list")
                   return (
