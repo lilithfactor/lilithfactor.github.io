@@ -167,8 +167,6 @@ export const MODEL_SPECS = (p: Palette): readonly ModelSpec[] => [
   { name: "crate", size: 0.3, tone: p.kraft },
   { name: "envelope", size: 0.19, tone: p.paperAged },
   { name: "letter", size: 0.16, tone: stock(p.paper, 3) },
-  { name: "books", size: 0.32, tone: p.cool },
-  { name: "book-stack", size: 0.19, tone: p.accent },
   { name: "rubiks", size: 0.075, tone: p.accent },
   // The one prop on this desk that opens nothing. A coaster with a ring on it
   // and no mug is a conspicuous absence — every reference desk in
@@ -190,10 +188,12 @@ export const MODEL_SPECS = (p: Palette): readonly ModelSpec[] => [
   { name: "chess-bishop", size: 0.048, tone: stock(p.paper, 1) },
   { name: "chess-king", size: 0.056, tone: stock(p.paper, 1) },
 ];
-// Deliberately NOT loaded: folder, clipboard, pinboard, turntable. They are
-// fetched and ready, but nothing places them yet — the desk's rule is that
-// every object opens something, and downloading objects to decorate with would
-// break it and cost bytes at the same time. See brain/vision/todo.md.
+// Deliberately NOT loaded: folder, clipboard, pinboard, turntable, books,
+// book-stack. They are fetched and ready, but nothing places them yet — the
+// desk's rule is that every object opens something, and downloading objects to
+// decorate with would break it and cost bytes at the same time. The last two
+// were placed, on top of the bookcase, until RECOMMENDATIONS took that
+// surface. See brain/vision/todo.md.
 
 /* --- About: an open notebook, always open — this is the landing state ------ */
 function notebook(p: Palette, m: Materials, _press: Press, models: ModelKit): Group {
@@ -426,7 +426,7 @@ function spines(
   return out;
 }
 
-function shelf(p: Palette, m: Materials, _press: Press, models: ModelKit): Group {
+function shelf(p: Palette, m: Materials, _press: Press, _models: ModelKit): Group {
   const { width, depth, bay, board, side } = CASE;
   const bays = 3;
   const height = bays * bay + board;
@@ -469,22 +469,15 @@ function shelf(p: Palette, m: Materials, _press: Press, models: ModelKit): Group
     g.add(...spines(p, m, -inner / 2, inner, -(i + 1) * bay + board / 2, 0x51f3 + i * 977));
   }
 
-  /* On top: the two things that say this shelf belongs to somebody. A row that
-   * has been read and put back leaning, and a stack laid flat with something on
-   * it. Both are the downloaded models when they arrived, because a leaning row
-   * of real books is a shape five extruded rectangles cannot make. */
-  const row = models.take("books");
-  const stack = models.take("book-stack");
-  if (row) {
-    g.add(place(row, { x: -0.2, y: 0.013, yaw: 2 }));
-  } else {
-    g.add(...spines(p, m, -0.34, 0.3, 0.013, 0x2b71));
-  }
-  g.add(
-    stack
-      ? place(stack, { x: 0.26, y: 0.013, yaw: 4 })
-      : card(m, p.paperAged, p.cut, 0.15, 0.032, 0.11, { x: 0.26, y: 0.029, yaw: 4 }),
-  );
+  /* THE TOP IS LEFT BARE, deliberately.
+   *
+   * It used to carry a leaning row and a flat stack — the two things that said
+   * the shelf belonged to somebody. They were good and they lost to a better
+   * claimant: RECOMMENDATIONS now stands up there, and a section object has to
+   * be the only thing on the surface it stands on or it reads as part of the
+   * clutter rather than as a thing you can click. The bookcase is still a
+   * bookcase; what makes it one is the spines inside the bays, not the props.
+   */
   return g;
 }
 
