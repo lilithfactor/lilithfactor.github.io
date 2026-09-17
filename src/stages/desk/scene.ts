@@ -56,6 +56,7 @@ import { createMaterials } from "./materials";
 import { loadModels } from "./models";
 import { buildArtifact, buildNote, MODEL_SPECS, NOTE_SIZE } from "./objects";
 import { createOutlines } from "./outline";
+import { createPicker } from "./pick";
 import { blend, readPalette } from "./palette";
 import { applyTuned, type Tuned, type TunerTargets } from "./params";
 import tuned from "./tuned.json";
@@ -72,6 +73,19 @@ export interface DeskHandle {
   destroy(): void;
 }
 
+/**
+ * What the page hands the desk. One function, and deliberately only one: the
+ * desk raycasts the pointer (pick.ts) but it does not own navigation, so when
+ * an object is clicked it calls back out to whoever does. panels.ts owns
+ * `open`, StageMount.astro introduces them, and neither module imports the
+ * other — the desk still mounts, and still lifts its objects, with no panels
+ * at all.
+ */
+export interface DeskOptions {
+  /** Opens a section, exactly as its .desk-handle button does. */
+  open?(artifact: string): void;
+}
+
 interface Piece {
   readonly id: ArtifactId;
   readonly object: Object3D;
@@ -86,7 +100,10 @@ interface Piece {
   base: number;
   /** Its paper name-note, a child of the object. Absent if the press failed. */
   readonly note?: Object3D;
+  /** Its section is hovered or focused in the DOM — a handle, or the panel. */
   raised: boolean;
+  /** The pointer is on the OBJECT itself, per the raycaster. See pick.ts. */
+  picked: boolean;
 }
 
 /** Where a piece sits when nothing is hovering it: its own height, plus the sheet's. */
@@ -157,7 +174,7 @@ function wantsTuner(): boolean {
   }
 }
 
-export async function mountDesk(): Promise<DeskHandle | null> {
+export async function mountDesk(options: DeskOptions = {}): Promise<DeskHandle | null> {
   // BEFORE the palette: the theme is a set of tokens on <html>, and the palette
   // is those tokens resolved. Read in the other order, every theme is paper.
   const theme = applyTheme();
@@ -458,6 +475,9 @@ export async function mountDesk(): Promise<DeskHandle | null> {
         const mesh = n as Mesh;
         if (mesh.isMesh) mesh.castShadow = true;
       });
+      // Named so it can be told apart from the thing it names: the DEV pick
+      // probe measures an object's silhouette with its label left out.
+      note.name = "note";
       object.add(note);
       noteObjects.set(id, note);
       noteExtents.set(id, {
@@ -488,7 +508,14 @@ export async function mountDesk(): Promise<DeskHandle | null> {
     anchors.set(id, anchor);
     anchorLocals.set(id, anchorLocal);
 
-    pieces.push({ id, object, base: placement.position[1], note: noteOf ?? undefined, raised: false });
+    pieces.push({
+      id,
+      object,
+      base: placement.position[1],
+      note: noteOf ?? undefined,
+      raised: false,
+      picked: false,
+    });
     placed.set(id, object);
   }
 
@@ -579,6 +606,24 @@ export async function mountDesk(): Promise<DeskHandle | null> {
   const onPointerOver = (e: PointerEvent) => setRaised(sectionOf(e.target), true);
   const onPointerOut = (e: PointerEvent) => setRaised(sectionOf(e.target), false);
 
+  /* --- ...AND SO DOES THE OBJECT ------------------------------------------
+   * The four listeners above only ever hear about the DOM: a handle, a panel,
+   * a focus ring. They are what makes the NOTE clickable. This makes the
+   * OBJECT clickable, with a ray, for the pointer only — the handles are
+   * untouched and remain the whole keyboard story. pick.ts has the argument.
+   *
+   * `picked` is kept apart from `raised` on purpose: the two can disagree for
+   * a frame (the pointer leaves the handle while the ray still finds the
+   * object under it) and a single flag would drop the object mid-hover. */
+  const picker = createPicker(
+    placed,
+    (id) => {
+      for (const piece of pieces) piece.picked = piece.id === id;
+    },
+    // Not our call to make. panels.ts owns open(); the desk only knocks.
+    (id) => options.open?.(id),
+  );
+
   const onFocusIn = (e: FocusEvent) => {
     const id = sectionOf(e.target);
     setRaised(id, true);
@@ -655,6 +700,7 @@ export async function mountDesk(): Promise<DeskHandle | null> {
     viewport.removeEventListener("change", onViewportChange);
 
     tuner?.dispose();
+    picker.dispose();
     lampRig.dispose();
     pressKit.dispose();
     clearAnchors(bindings);
@@ -767,7 +813,7 @@ export async function mountDesk(): Promise<DeskHandle | null> {
       // object changes when the object is dragged across the desk and when the
       // bow itself is tuned, and two cosines times eight is nothing.
       const rest = restOf(piece);
-      const goal = rest + (piece.raised ? LIFT : 0);
+      const goal = rest + (piece.raised || piece.picked ? LIFT : 0);
       piece.object.position.y += (goal - piece.object.position.y) * Math.min(dt * 9, 1);
 
       /* Re-read the anchor from where the object actually IS.
@@ -810,6 +856,9 @@ export async function mountDesk(): Promise<DeskHandle | null> {
     renderer.render(scene, rig.camera);
     projectAnchors(bindings, rig.camera, size.width, size.height, rig.reference);
     lampRig.update(rig.camera, size.width, size.height);
+    // One raycast per frame at most, and only if the pointer has moved since
+    // the last one. Never per event. See pick.ts.
+    picker.update(rig.camera);
 
     if (!ready) {
       ready = true;

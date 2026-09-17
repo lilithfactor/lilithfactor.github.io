@@ -3,11 +3,17 @@
  *
  * Clicking a desk object opens that section as a sheet.
  *
- * There is NO raycaster. Each object gets a real <button> handle carrying
+ * NAVIGATION IS DOM. Each object gets a real <button> handle carrying
  * [data-anchor], which the desk's existing anchor projection positions over
- * the object every frame. So a click on the object is an ordinary DOM click,
- * and tab order, Enter/Space and screen-reader names all come free — none of
- * which a canvas raycast would have given us.
+ * the object every frame. So a click on the note is an ordinary DOM click, and
+ * tab order, Enter/Space and screen-reader names all come free — none of which
+ * a canvas raycast would have given us. This is still the only route the
+ * keyboard and assistive tech ever take.
+ *
+ * The desk now ALSO raycasts the pointer, so that clicking the bookcase and
+ * not just its label opens Library — see stages/desk/pick.ts, which argues the
+ * case. It calls `activate` below rather than carrying its own copy of any of
+ * this, so there is exactly one way a section opens however it was asked for.
  *
  * This module imports nothing from three, so it stays cheap and testable.
  *
@@ -26,6 +32,13 @@ const FOCUSABLE =
 
 export interface Panels {
   open(artifact: string): void;
+  /**
+   * Open a section as if its handle had been clicked — the tap, the focus, and
+   * then the panel. The desk's raycaster calls this, so a click on the object
+   * and a click on its note are the same event from here on, including where
+   * Escape hands focus back to.
+   */
+  activate(artifact: string): void;
   close(): void;
   readonly openId: string | null;
   dispose(): void;
@@ -93,9 +106,12 @@ export function mountPanels(): Panels {
    *
    * A <button>, not a div with a click listener: that is the entire keyboard
    * story (tab order, Enter/Space, and a name announced to a screen reader)
-   * for free, and it is why the desk needs no raycaster at all. */
+   * for free, and it is why the desk's raycaster is pointer-only — it adds a
+   * way in, it never becomes the way in. */
   const handles = document.createElement("div");
   handles.className = "desk-handles";
+  /** id → its handle, so `activate` can hand focus to the real control. */
+  const handleOf = new Map<string, HTMLButtonElement>();
   for (const [id, section] of sections) {
     const heading = section.querySelector("h2")?.textContent?.trim() ?? id;
     const btn = document.createElement("button");
@@ -104,10 +120,8 @@ export function mountPanels(): Panels {
     btn.dataset.anchor = id;
     btn.textContent = heading;
     btn.setAttribute("aria-haspopup", "dialog");
-    btn.addEventListener("click", () => {
-      audio.play("tap");
-      api.open(id);
-    });
+    btn.addEventListener("click", () => api.activate(id));
+    handleOf.set(id, btn);
     handles.append(btn);
   }
   document.body.append(handles);
@@ -238,6 +252,20 @@ export function mountPanels(): Panels {
   const api: Panels = {
     get openId() {
       return openId;
+    },
+
+    activate(artifact) {
+      /* Focus FIRST, and then open.
+       *
+       * A pointer on the canvas leaves focus on <body>, so a panel opened from
+       * the object would send Escape back to the top of the document instead
+       * of to the thing that was clicked. The handle is the real control for
+       * this section whichever way it was reached; putting focus there first
+       * means `open` records it as `lastFocused` and closing returns to the
+       * object, exactly as clicking the note already did. */
+      handleOf.get(artifact)?.focus({ preventScroll: true });
+      audio.play("tap");
+      api.open(artifact);
     },
 
     open(artifact) {

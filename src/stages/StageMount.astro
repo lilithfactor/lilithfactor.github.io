@@ -53,7 +53,13 @@ import "../styles/desk-panels.css";
         const panels = panelsModule.mountPanels();
         // Async now: the desk loads its models before it builds, because the
         // objects determine the anchor positions the panels' handles track.
-        const desk = await scene.mountDesk();
+        //
+        // `open` is the one thing the desk is handed. Its raycaster makes the
+        // whole 3D object clickable and not just its paper note, and when one
+        // is hit it has to open a section — which is panels' job, not the
+        // scene's. Passing the function is the entire coupling: no shared
+        // module, no event bus, and the desk still mounts without it.
+        const desk = await scene.mountDesk({ open: (id) => panels.activate(id) });
         // ...but if the desk never arrives, the panels have to undo themselves:
         // they mark sections aria-hidden, which would silently hide the whole
         // portfolio from assistive tech on a page with no desk to open them.
