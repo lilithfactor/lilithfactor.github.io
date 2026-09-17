@@ -24,8 +24,10 @@
 import {
   BoxGeometry,
   CylinderGeometry,
+  ExtrudeGeometry,
   Group,
   Mesh,
+  Shape,
   type Color,
   type Object3D,
   type Texture,
@@ -479,6 +481,242 @@ function shelf(p: Palette, m: Materials, _press: Press, _models: ModelKit): Grou
    * bookcase; what makes it one is the spines inside the bays, not the props.
    */
   return g;
+}
+
+/* --- The plant on the window sill ------------------------------------------
+ * The one object on this desk that is not a section and does not open
+ * anything. It is a tally you can look at: every visitor who likes the page
+ * adds one to a number, and past certain totals the plant puts out new parts.
+ *
+ * GROWTH IS STAGES, NOT SCALE, and that is the whole design. Scaling one mesh
+ * up is a zoom: the silhouette is identical, every proportion is identical,
+ * and the eye reads "the camera moved" rather than "the thing grew". So each
+ * threshold adds REAL PARTS — another length of stem, another pair of leaves,
+ * a second shoot, a flower — and what changes between stage 0 and stage 4 is
+ * the shape, not the size.
+ *
+ * Which is also why the tiers are separate groups rather than one rebuilt
+ * mesh. A tier's origin is the JOINT it grows out of, so easing its scale from
+ * nothing to one unfurls it out of the stem it belongs to, and nothing that
+ * was already there moves. It also gives each tier its own baked ink for free:
+ * a group that moves under its own steam is flagged `ownOutline` and outlined
+ * in its own space (outline.ts), so a scaling tier takes its line with it.
+ *
+ * THE BOOKCASE'S LESSON APPLIES. A plant has to be nameable in one flat colour
+ * at the resting camera, which rules out relying on green — there is no green
+ * in the palette and the mono themes collapse every stock tone to one sheet.
+ * What survives that is the SILHOUETTE: a tapered pot with a rim, a straight
+ * stem, and leaves cut as pointed almonds fanned around it. The ink outline
+ * does the rest.
+ */
+
+/**
+ * How many likes each stage costs. The plant is at stage `i` once the total
+ * has reached `PLANT_THRESHOLDS[i]`, so stage 0 is free and a visitor always
+ * sees a plant rather than an empty pot.
+ */
+export const PLANT_THRESHOLDS = [0, 10, 25, 50, 100] as const;
+
+/** The stage a total buys, 0..4. Clamped at both ends. */
+export function plantStage(count: number): number {
+  let stage = 0;
+  for (let i = 0; i < PLANT_THRESHOLDS.length; i++) {
+    if (count >= PLANT_THRESHOLDS[i]!) stage = i;
+  }
+  return stage;
+}
+
+/** Likes still to go before the next stage; null once it is fully grown. */
+export function plantToGo(count: number): number | null {
+  const next = PLANT_THRESHOLDS[plantStage(count) + 1];
+  return next === undefined ? null : Math.max(0, next - count);
+}
+
+/**
+ * A 380mm plant in a 90mm pot, at stage 4.
+ *
+ * Sized against the RESTING SHOT rather than against a garden centre. The
+ * first pass was a botanically sensible 260mm and came out 44 pixels tall on a
+ * 200mm ledge two and a half metres from the camera — legible if you went
+ * looking for it, invisible if you did not, and an object nobody notices
+ * cannot be a thing anybody clicks. A plant on a sill is allowed to be a big
+ * plant; the ledge is 2.19m wide and this still only uses a fifteenth of it.
+ */
+const POT = { top: 0.075, bottom: 0.054, height: 0.087 };
+/** Where the main stem's joints are, in metres above the soil. */
+const JOINT = [0, 0.083, 0.173, 0.263] as const;
+/** The soil surface: where everything that grows starts from. */
+const SOIL = POT.height - 0.003;
+
+/**
+ * How tall the plant stands at each stage, in metres above its own origin.
+ *
+ * Derived from the joints rather than measured off a screenshot, so it cannot
+ * drift when the joints move. The DOM tag hangs from this, which is why a
+ * seedling's label does not float a foot above it.
+ */
+export const PLANT_TOP: readonly number[] = [
+  SOIL + JOINT[1] + 0.03,
+  SOIL + JOINT[2] + 0.03,
+  SOIL + JOINT[3] + 0.03,
+  SOIL + JOINT[3] + 0.03,
+  SOIL + JOINT[3] + 0.06,
+];
+
+/**
+ * A folded vessel — the pot, its rim and the soil inside it.
+ *
+ * `tube` with two radii, which is the shape a pot is and the shape a cone of
+ * card rolled and taped is. Six sides and flat normals, for the same reason
+ * the lampshade has them: a faceted cone is a thing somebody scored and bent.
+ */
+function vessel(
+  m: Materials,
+  colour: Color,
+  cut: Color,
+  top: number,
+  bottom: number,
+  height: number,
+  t: Transform = {},
+): Mesh {
+  const geometry = facet(new CylinderGeometry(top, bottom, height, 6));
+  paint(geometry, colour, edgeOf(colour, cut), 1, true);
+  return place(new Mesh(geometry, m.card), t);
+}
+
+/**
+ * A leaf, cut flat out of card.
+ *
+ * Two quadratic curves from the stalk to the tip and back, extruded 3mm. A
+ * rectangle would have been one line of code and it would have read as a
+ * rectangle — the pointed almond is the entire reason a shape on a stick is a
+ * leaf and not a flag. Five segments a curve: past that the extra vertices go
+ * into an outline nobody can resolve at this size.
+ *
+ * Built pointing along +Y in its own space, so `roll` leans it away from the
+ * stem and `yaw` fans it around one.
+ */
+function leaf(
+  m: Materials,
+  colour: Color,
+  cut: Color,
+  length: number,
+  width: number,
+  t: Transform = {},
+): Mesh {
+  const shape = new Shape();
+  shape.moveTo(0, 0);
+  shape.quadraticCurveTo(width, length * 0.38, 0, length);
+  shape.quadraticCurveTo(-width, length * 0.38, 0, 0);
+  const geometry = new ExtrudeGeometry(shape, {
+    depth: 0.004,
+    bevelEnabled: false,
+    curveSegments: 5,
+    steps: 1,
+  });
+  // Centred on its own thickness, so a leaf turns about its face and not about
+  // one of its skins.
+  geometry.translate(0, 0, -0.002);
+  paint(geometry, colour, edgeOf(colour, cut), 2);
+  return place(new Mesh(geometry, m.card), t);
+}
+
+/** A length of stem standing up from the group's own origin. */
+function stem(m: Materials, colour: Color, cut: Color, height: number): Mesh {
+  return card(m, colour, cut, 0.012, height, 0.0075, { y: height / 2 });
+}
+
+/**
+ * The plant, and the five tiers it grows in.
+ *
+ * Every tier is built, always: five small groups is a few hundred triangles
+ * and the alternative — building geometry on the click — is a hitch at exactly
+ * the moment a visitor is watching. The rig attaches as many as the count has
+ * paid for (see plant.ts).
+ *
+ * The origin is the BOTTOM OF THE POT, so the whole thing can be dropped on
+ * the sill's published centre with no offset to work out.
+ */
+export function plant(p: Palette, m: Materials): { group: Group; tiers: Group[] } {
+  const g = new Group();
+  /* IT CARRIES ITS OWN INK.
+   *
+   * Sixth thing in this model to need this, and the first that changes SHAPE:
+   * the lamp head, the blind, its bottom rail, the notes, and now a plant that
+   * gains a tier mid-session and is nudged around the sill by the tuner. The
+   * line is baked in this group's own space, so it travels with every move —
+   * and each tier below re-declares it, so a tier easing out of its joint
+   * takes its own outline with it instead of leaving a plant-shaped stain. */
+  g.userData.ownOutline = true;
+
+  const clay = stock(p.kraft, 0);
+  const rim = stock(p.kraft, 1);
+  const earth = stock(p.kraft, 4);
+  const frond = stock(p.paper, 2);
+  const shoot = stock(p.paper, 4);
+
+  g.add(vessel(m, clay, p.cut, POT.top, POT.bottom, POT.height, { y: POT.height / 2 }));
+  // The rim. A pot without one is a beaker, and the band is what makes the
+  // taper read as a taper at forty pixels tall.
+  g.add(vessel(m, rim, p.cut, POT.top + 0.009, POT.top + 0.009, 0.018, { y: POT.height - 0.006 }));
+  g.add(vessel(m, earth, p.cut, POT.top - 0.011, POT.top - 0.011, 0.012, { y: POT.height - 0.009 }));
+
+  /** A tier, parked at the joint it grows out of. */
+  const tier = (y: number, x = 0): Group => {
+    const t = new Group();
+    t.position.set(x, y, 0);
+    // Its own ink, for the same reason the whole plant has its own: a tier
+    // scales out of its joint when it arrives, and a line baked into the
+    // plant's space would stay the size the tier was going to be.
+    t.userData.ownOutline = true;
+    return t;
+  };
+
+  /* Stage 0 — a seedling. One short stem and the two leaves every seedling on
+   * earth opens with, which is what makes this stage readable as a BEGINNING
+   * rather than as a broken plant. */
+  const t0 = tier(SOIL);
+  t0.add(stem(m, shoot, p.cut, JOINT[1]));
+  t0.add(leaf(m, frond, p.cut, 0.083, 0.029, { y: 0.045, yaw: 10, roll: 62 }));
+  t0.add(leaf(m, frond, p.cut, 0.075, 0.026, { y: 0.054, yaw: -12, roll: -58 }));
+
+  /* Stage 1 — it gets taller, and a taller stem needs more leaf under it. */
+  const t1 = tier(SOIL + JOINT[1]);
+  t1.add(stem(m, shoot, p.cut, JOINT[2] - JOINT[1]));
+  t1.add(leaf(m, frond, p.cut, 0.093, 0.032, { y: 0.021, yaw: 96, roll: 54 }));
+  t1.add(leaf(m, frond, p.cut, 0.087, 0.03, { y: 0.051, yaw: -84, roll: -50 }));
+
+  /* Stage 2 — the crown. Three leaves rather than two: an odd number reads as
+   * growth continuing, an even one as a thing that has finished. */
+  const t2 = tier(SOIL + JOINT[2]);
+  t2.add(stem(m, shoot, p.cut, JOINT[3] - JOINT[2]));
+  t2.add(leaf(m, frond, p.cut, 0.099, 0.033, { y: 0.018, yaw: 40, roll: 48 }));
+  t2.add(leaf(m, frond, p.cut, 0.09, 0.032, { y: 0.045, yaw: -140, roll: -44 }));
+  t2.add(leaf(m, frond, p.cut, 0.081, 0.029, { y: 0.069, yaw: 160, roll: 38 }));
+
+  /* Stage 3 — a SECOND SHOOT out of the soil, leaning away from the first.
+   * This is the stage that changes the silhouette most: one stem is a stem,
+   * two stems is a plant that has been alive for a while. */
+  const t3 = tier(SOIL, -0.03);
+  t3.rotation.z = 19 * DEG;
+  t3.add(stem(m, shoot, p.cut, 0.15));
+  t3.add(leaf(m, frond, p.cut, 0.075, 0.027, { y: 0.063, yaw: 20, roll: 58 }));
+  t3.add(leaf(m, frond, p.cut, 0.069, 0.024, { y: 0.093, yaw: -150, roll: -52 }));
+  t3.add(leaf(m, frond, p.cut, 0.063, 0.023, { y: 0.129, yaw: 80, roll: 30 }));
+
+  /* Stage 4 — it flowers. Five petals and a centre, on the top joint. */
+  const t4 = tier(SOIL + JOINT[3]);
+  /* PETALS AT 50°, NOT FLAT. A rosette lying flat on top of the stem is a disc,
+   * and the resting camera looks at this wall from slightly above and a long
+   * way back — a disc seen at that angle is a line. Standing them half-open
+   * turns the flower into a five-pointed star in silhouette, which survives
+   * being forty pixels tall in one colour. */
+  for (let i = 0; i < 5; i++) {
+    t4.add(leaf(m, rim, p.cut, 0.045, 0.026, { y: 0.008, yaw: i * 72 + 18, roll: 50 }));
+  }
+  t4.add(vessel(m, earth, p.cut, 0.0135, 0.0135, 0.009, { y: 0.012 }));
+
+  return { group: g, tiers: [t0, t1, t2, t3, t4] };
 }
 
 /* --- The notes -------------------------------------------------------------

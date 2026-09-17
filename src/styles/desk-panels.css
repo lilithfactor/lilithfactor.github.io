@@ -452,6 +452,104 @@ html[data-stage="desk"] .desk-sound__next:focus-visible {
   }
 }
 
+/* --- The plant on the sill -------------------------------------------------
+ * A like button and a tally, standing above the pot.
+ *
+ * The same positioning contract as a handle — --x/--y written every frame from
+ * the object's projected anchor, --a when it is in frame — but not the same
+ * look. A handle is invisible because its label is printed on a real square of
+ * paper in the model; this one has no paper of its own, so it is the paper: a
+ * chip cut from the same stock as the sound control, which is the other fixed
+ * thing on this screen made of the same material.
+ *
+ * Above the anchor rather than below it (-100% on y), because below the plant
+ * is the desk, and the desk is where all the other objects are. */
+html[data-stage="desk"] .desk-plant {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 4;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-2);
+
+  transform: translate3d(calc(var(--x, 50vw) - 50%), calc(var(--y, 50vh) - 100%), 0);
+  opacity: var(--a, 0);
+  /* The wrapper is a position, not a target. Only the button takes a click —
+   * otherwise an invisible column would claim the sky behind the window. */
+  pointer-events: none;
+  transition: opacity var(--m-quick);
+}
+
+/* An open panel owns the screen, exactly as it does for the handles. */
+html[data-stage="desk"][data-panel] .desk-plant {
+  opacity: 0;
+  pointer-events: none;
+}
+
+html[data-stage="desk"] .desk-plant__tag {
+  margin: 0;
+  padding: var(--s-1) var(--s-3);
+  /* No max-width. `nowrap` plus a cap is a cap the text walks straight out of,
+   * and what you get is half a sentence printed on the window behind it. */
+
+  background-color: var(--paper-sheet);
+  color: var(--ink-muted);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-chip);
+
+  font-family: var(--font-mono);
+  font-size: var(--t-label-size);
+  letter-spacing: 0.04em;
+  text-align: center;
+  white-space: nowrap;
+}
+
+html[data-stage="desk"] .desk-like {
+  pointer-events: auto;
+  min-height: 2.75rem;
+  padding: var(--s-2) var(--s-4);
+
+  background-color: var(--paper-page);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-chip);
+  box-shadow: var(--e-lift);
+
+  font-family: var(--font-mono);
+  font-size: var(--t-label-size);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color var(--m-quick);
+}
+
+html[data-stage="desk"] .desk-like:hover,
+html[data-stage="desk"] .desk-like:focus-visible {
+  border-color: var(--red-pen);
+}
+
+html[data-stage="desk"] .desk-like:focus-visible {
+  outline: 3px solid var(--red-pen);
+  outline-offset: 3px;
+}
+
+/* Liked: still focusable, still announced, no longer an invitation. It keeps
+ * its place in the tab order on purpose — a control that vanishes once used
+ * tells a keyboard user less than one that says what happened. */
+html[data-stage="desk"] .desk-like[data-liked="1"] {
+  background-color: var(--paper-sheet);
+  color: var(--ink-muted);
+  box-shadow: none;
+  cursor: default;
+}
+
+html[data-stage="desk"] .desk-like[data-liked="1"]:hover {
+  border-color: var(--rule);
+}
+
 @media (prefers-reduced-motion: reduce) {
   html[data-stage="desk"] .desk-sound__disc {
     animation: none;
