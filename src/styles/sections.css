@@ -768,7 +768,7 @@ figcaption {
   background-color: var(--surface);
 }
 
-/* --- The plain version, on small screens --------------------------------
+/* --- The mobile version, on small screens -------------------------------
  * Hidden at desk widths: up there the desk IS the better version, and this
  * would be an apology for the thing the visitor is already enjoying. */
 .plain-version {
@@ -779,22 +779,33 @@ figcaption {
   .plain-version {
     display: flex;
     flex-direction: column;
-    gap: var(--s-1);
+    gap: var(--s-2);
     margin: var(--s-5) 0 0;
-    padding: var(--s-4) var(--s-5);
     max-width: none;
-    border: 1px solid var(--rule);
-    border-radius: var(--r-sheet);
-    background-color: var(--paper-aged);
   }
 
+  /* Inked, not outlined. A bordered card under a masthead reads as a notice
+     and gets scrolled past; this has to read as the door. Reversed ink on
+     paper is the same 15.8:1 it is the other way round. */
   .plain-version a {
+    display: block;
+    padding: var(--s-4) var(--s-5);
+    border-radius: var(--r-sheet);
+    background-color: var(--ink);
+    color: var(--paper-page);
     font-family: var(--font-mono);
     font-size: var(--t-label-size);
     letter-spacing: 0.09em;
+    text-align: center;
+    text-decoration: none;
     text-transform: uppercase;
-    /* The whole row is the target, so the 44px comes from the padding above
+    /* The whole block is the target, so the 44px comes from the padding above
        rather than from a tall invisible band around the words. */
+  }
+
+  .plain-version a:hover {
+    color: var(--paper-page);
+    background-color: var(--accent);
   }
 
   .plain-version span {
