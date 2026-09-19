@@ -116,8 +116,8 @@ const subjects = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[
 /* One rule per subject, emitted at BUILD time from the same array that renders
  * the rail — so a new Notion domain appears in the rail, in the counts and in
  * the lens with nobody editing CSS. It sets a single custom property, --mark,
- * which the entry spends on its margin rule, the spine on its printed bands and
- * the tag on its own colour and underline: one generated line, three materials.
+ * which the entry and the reading slip both spend on the same margin rule and
+ * the tag on its own colour and underline: one generated line, two materials.
  * `is:inline` and not `is:global`: is:global marks an Astro-PROCESSED stylesheet
  * and does not compose with raw-string injection. */
 const lensCss = subjects
@@ -319,25 +319,41 @@ const beyondLink = (name: string) => {
         <div class="log__grid">
           {
             reading.length > 0 && (
-              <section class="shelf">
+              <section class="reading">
                 <h3 class="tier__head">Reading now</h3>
-                {/* The one object in the section, and the continuity with the
-                  bookcase that was clicked to open it. Each spine's THICKNESS is
-                  intrinsic — see sections.css — so a book with an author is a
-                  fatter book than one without. Two of thirty-six titles are set
-                  vertically; the other thirty-four stay flat where the scanning
-                  happens. */}
-                <ul class="shelf__board">
-                  {reading.map((b) => (
+                {/* NOT a shelf — a shelf is where a book is when nobody is
+                  reading it. These are the cards left in the pocket when the
+                  book came off it: title, author, subjects, and the month it
+                  went out. Exactly the fields Notion holds, which is why
+                  nothing here is a cover, a page count or a progress bar.
+                  Nearly every class is one this page already uses; what is
+                  new is in sections.css. .sheet--card is carried for the
+                  rotation, which paper.css permits only at card width. */}
+                <ul class="reading__slips">
+                  {reading.map((b, i) => (
                     <li
-                      class="spine"
+                      class:list={[
+                        "sheet sheet--card",
+                        i % 2 ? "sheet--askew-alt" : "sheet--askew",
+                      ]}
                       data-domain={
                         b.domain.length ? b.domain.map(subjectSlug).join(" ") : undefined
                       }
                     >
-                      <span class="spine__title">{b.name}</span>
-                      {b.author && <span class="spine__author">{b.author}</span>}
-                      {since(b) && <span class="spine__when">Since {since(b)}</span>}
+                      <p class="entry__line">
+                        <span class="reading__title">{b.name}</span>
+                        {b.author && <span class="entry__author">{b.author}</span>}
+                      </p>
+                      {b.domain.length > 0 && (
+                        <p class="entry__tags">
+                          {b.domain.map((d) => (
+                            <span class="tag" data-tag={subjectSlug(d)}>
+                              {d}
+                            </span>
+                          ))}
+                        </p>
+                      )}
+                      {since(b) && <p class="reading__since">Since {since(b)}</p>}
                     </li>
                   ))}
                 </ul>
@@ -348,7 +364,7 @@ const beyondLink = (name: string) => {
           <p class="label log__colophon">
             {library.length} titles · {reading.length} reading · {finished.length} finished
             ·{" "}
-            {queued.length} waiting · {subjects.length} subjects
+            {queued.length} next up · {subjects.length} subjects
           </p>
 
           {
@@ -359,7 +375,7 @@ const beyondLink = (name: string) => {
           <fieldset class="rail">
             <legend class="label rail__legend">By subject</legend>
             <p class="rail__hint">
-              Pick one to mark its titles in the margin. Nothing is hidden.
+              Pick one to mark its titles in the margin; nothing is hidden.
             </p>
             <div class="rail__items">
               <input class="vh" type="radio" name="lens" id="lens-all" checked />

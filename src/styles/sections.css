@@ -162,9 +162,9 @@ figcaption {
  * rules is the loudest default-table signal a page can carry. They are gone.
  * Hierarchy is carried by four rule weights and whitespace instead:
  *
- *   2px --text  the shelf board the reading books stand on (heaviest mark here)
  *   1px --text  under a tier head
  *   1px --rule  under a year
+ *   2px --mark  the gutter beside a marked book — reading slip and entry alike
  *   nothing     between entries
  *
  * Ink separates sections; space separates rows. That inversion is most of it.
@@ -175,8 +175,8 @@ figcaption {
  *
  * THE SUBJECT LENS. Ten generated rules (index.astro) set one inherited custom
  * property, --mark, on anything whose data-domain or data-tag matches the
- * checked radio. Three different materials spend it: an entry paints its margin
- * rule, a spine paints its printed bands, a tag paints its own word. Nothing is
+ * checked radio. Two materials spend it: an entry and a reading slip both paint
+ * the same 2px margin rule, and a tag paints its own word. Nothing is
  * filtered — hiding would pull up to 35 of 36 titles out of Cmd-F and out of the
  * accessibility tree, collapse the page height under the reader, and need an
  * empty state for the five books Notion has no subject for. A reader draws a
@@ -192,107 +192,109 @@ figcaption {
   container-name: log;
 }
 
-/* --- Reading now: two real books, standing -------------------------------
+/* --- Reading now: two slips, not a shelf ---------------------------------
  *
- * The section's one object, and the continuity with the bookcase that was
- * clicked to open it. Under `writing-mode: vertical-rl` the INLINE axis is
- * vertical, so `inline-size` is the book's height and `block-size` — left auto —
- * is its thickness. The text engine decides how fat each book is: three lines
- * (title, author, date) is a fatter book than two, and a title that wraps is
- * fatter still. Nothing is truncated, nothing is measured, and a misjudged font
- * metric costs a wrapped line rather than a clipped title.
+ * A shelf is where a book is when NOBODY is reading it, so it was the wrong
+ * object for this tier twice over. What it was: two `writing-mode: vertical-rl`
+ * boxes asserting "I am a book". Measured, 1.97:1 and 2.65:1 where a real spine
+ * is 4-6:1; both stuck at the same 205px tall, because the height was a fixed
+ * inline-size and not a fact about either book; a printed hairline near each end
+ * fencing off an empty compartment at the foot; and those same hairlines carried
+ * the subject mark, so picking History ruled a red line straight through the
+ * words "The Black" and "Swan". A book with a line through it is a damaged book.
  *
- * Two of thirty-six titles are set vertically. The other thirty-four stay flat,
- * where the scanning actually happens.
+ * These are the cards left in the pocket when the book came off the shelf: a
+ * title, an author, the subjects, the month it went out. Exactly the fields
+ * Notion holds, so nothing is invented and nothing is left with a hole where a
+ * cover or a page count would have gone — and a card that claims only to be a
+ * card leaves no gap between the claim and the pixels for the fake to live in.
+ *
+ * Most of it is primitives that were already here: .sheet for the stock, grain,
+ * contact shadow and 1px corner, .sheet--askew for the angle paper.css already
+ * permits at card width, .entry__line / .entry__author / .entry__tags / .tag for
+ * the type. Below is only what none of them did.
+ *
+ * Both slips stay on --paper-sheet. --red-pen on --paper-aged is 4.35:1 and the
+ * stamp is 12px mono, so an aged second card would put the one red word in this
+ * section under AA — they are told apart by height and density instead, and both
+ * come out of the data rather than an nth-child.
  */
 
-.shelf {
-  /* The whole object — head rule and board — is as wide as the books, so the
-   * space to its right reads as margin rather than as an empty shelf. */
-  width: max-content;
-  max-width: 100%;
-  margin-block-end: var(--s-6);
+.reading {
+  margin: 0 0 var(--s-6);
 }
 
-.shelf__board {
+/* Flex, not a grid: equal 1fr tracks left ~100px of nothing between two cards
+ * that are supposed to be lying beside each other, which is a table with two
+ * columns. Flex lets each take its own width and sit against its neighbour.
+ * flex-start and NOT the stretch a flex row gives by default — stretch equalised
+ * them at 208 and 207px, which is the spines' identical-boxes fault handed back
+ * by a default. Nothing sets a height, so the slip with an author and four
+ * subjects is simply the taller one. */
+.reading__slips {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
-  gap: var(--s-4);
+  align-items: flex-start;
+  gap: var(--s-5);
   margin: 0;
-  /* Top padding is the ribbon's room — it hangs over the head of the book. */
-  padding: var(--s-4) var(--s-5) 0;
+  padding: 0;
   list-style: none;
-  /* The board is as long as the books standing on it and no longer. A 2px rule
-   * running 900px past two books reads as an empty shelf rather than a mark. */
-  width: max-content;
-  max-width: 100%;
-  border-block-end: 2px solid var(--text);
 }
 
-.spine {
-  position: relative;
-  writing-mode: vertical-rl;
-  inline-size: 13rem;
-  padding: var(--s-4) var(--s-3);
-  background-color: var(--paper-sheet);
-  /* The two hairlines a real spine is printed with, near head and foot. They
-   * carry the subject mark, so picking History reddens the bands of a book
-   * filed under History without moving a pixel. */
-  background-image:
-    linear-gradient(var(--mark, var(--rule)), var(--mark, var(--rule))),
-    linear-gradient(var(--mark, var(--rule)), var(--mark, var(--rule)));
-  background-size: 100% 1px;
-  background-position:
-    0 var(--s-5),
-    0 calc(100% - var(--s-5));
-  background-repeat: no-repeat;
-  border: 1px solid var(--rule);
-  border-radius: var(--r-sheet);
-  box-shadow: var(--e-rest);
-  transition: background-image var(--m-quick);
+.reading .sheet {
+  /* A card is a CARD: .sheet--card's 34rem is the measure for a paragraph of
+   * prose, and at 1440 it gave the Gita — a title and a date — a 446px banner
+   * half of it empty, the spine's dead foot moved. 22rem is an index card. */
+  flex: 1 1 16rem;
+  min-width: 0;
+  max-width: 22rem;
+  /* The margin the red pen rules in: the same 2px carrier .entry uses two
+   * hundred lines down, so one gesture marks all thirty-six books and nothing is
+   * ever marked by drawing a line across it. Always 2px — no reflow. */
+  border-inline-start: 2px solid var(--mark, transparent);
+  transition: border-color var(--m-quick);
 }
 
-/* Two books off the same shelf are not the same stock. */
-.spine:nth-child(even) {
-  background-color: var(--paper-aged);
-}
-
-/* The bookmark. The one place in this section that spends the red pen on
- * something other than the lens, on exactly the books being read right now. */
-.spine::after {
-  content: "";
-  position: absolute;
-  top: calc(var(--s-4) * -1);
-  right: var(--s-4);
-  width: var(--s-2);
-  height: var(--s-6);
-  background-color: var(--accent);
-}
-
-.spine__title {
+/* A book being read now is not a log line. The one size here that is not the
+ * log's, and the reason the author needs its own line below. */
+.reading__title {
   display: block;
   font-family: var(--font-display);
   font-weight: 600;
   font-size: var(--t-heading-size);
-  line-height: 1.15;
-  color: var(--text);
-  overflow-wrap: break-word;
+  line-height: 1.2;
 }
 
-/* margin-block-start under vertical-rl is the gap to the LEFT: these stack as
- * further columns across the thickness of the spine, which is how a spine is
- * actually printed. */
-.spine__author,
-.spine__when {
+/* In the log the author is the back half of a line, after a middot. On a 22rem
+ * card the display title takes most of the first line and the name broke as
+ * "Nassim / N. Taleb" — exactly the sort of tell that reads as staged. */
+.reading .entry__author {
   display: block;
-  margin-block-start: var(--s-2);
+  margin-block-start: var(--s-1);
+}
+
+.reading .entry__author::before {
+  content: none;
+}
+
+/* The one red mark on the card, and the first time in this block the pen is
+ * spent on information rather than on 8px of the site's only loud colour saying
+ * nothing. A rubber stamp is never square to the card, and a ~9rem inline box
+ * moves its corners about 5px — inside the sheet's own padding, and nowhere near
+ * the warning --askew carries about rotating WIDE blocks. */
+.reading__since {
+  display: inline-block;
+  margin: var(--s-4) 0 0;
+  padding: var(--s-1) var(--s-2);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-chip);
   font-family: var(--font-mono);
   font-size: var(--t-label-size);
+  font-variant-numeric: tabular-nums;
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: var(--text-muted);
-  overflow-wrap: break-word;
+  color: var(--accent);
+  transform: rotate(-2deg);
 }
 
 /* --- Colophon --------------------------------------------------------------
@@ -562,13 +564,13 @@ figcaption {
     grid-template-columns: 16rem minmax(0, 1fr);
     column-gap: var(--s-7);
     grid-template-areas:
-      "shelf    shelf"
+      "reading  reading"
       "colophon colophon"
       "rail     body";
   }
 
-  .shelf {
-    grid-area: shelf;
+  .reading {
+    grid-area: reading;
   }
 
   .log__colophon {
