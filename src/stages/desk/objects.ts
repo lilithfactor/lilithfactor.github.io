@@ -491,9 +491,9 @@ function shelf(p: Palette, m: Materials, _press: Press, _models: ModelKit): Grou
  * GROWTH IS STAGES, NOT SCALE, and that is the whole design. Scaling one mesh
  * up is a zoom: the silhouette is identical, every proportion is identical,
  * and the eye reads "the camera moved" rather than "the thing grew". So each
- * threshold adds REAL PARTS — another length of stem, another pair of leaves,
- * a second shoot, a flower — and what changes between stage 0 and stage 4 is
- * the shape, not the size.
+ * threshold adds REAL PARTS — a side shoot, a second stem, another length of
+ * stem, a flower — and what changes between stage 0 and stage 4 is the shape,
+ * not the size.
  *
  * Which is also why the tiers are separate groups rather than one rebuilt
  * mesh. A tier's origin is the JOINT it grows out of, so easing its scale from
@@ -511,29 +511,44 @@ function shelf(p: Palette, m: Materials, _press: Press, _models: ModelKit): Grou
  */
 
 /**
- * How many likes each stage costs. The plant is at stage `i` once the total
- * has reached `PLANT_THRESHOLDS[i]`, so stage 0 is free and a visitor always
- * sees a plant rather than an empty pot.
+ * How many likes each stage costs. The plant is at stage `i` once the total has
+ * reached `PLANT_THRESHOLDS[i]`, so stage 0 is free and a visitor always sees a
+ * plant rather than an empty pot.
+ *
+ * THIS IS THE DEFAULT, NOT THE TRUTH. The live ladder is four tuner knobs —
+ * `plant.t1` to `plant.t4` — saved into tuned.json, because a threshold is a
+ * design decision: it says how much attention a shape is worth, it wants to be
+ * argued with in a diff, and it should not be editable by anyone who can reach
+ * a database. The COUNT is the opposite and lives in Supabase. See params.ts.
+ *
+ * RETUNED FOR A PORTFOLIO. It used to be 0/10/25/50/100, which was a ladder
+ * built for traffic this site will never see: the first forty visitors would
+ * have clicked a button and watched nothing happen, which teaches them the
+ * button is broken. At 1/4/10/25 the FIRST click by the FIRST visitor moves
+ * the plant, and the top of the ladder is somewhere a good week could reach.
  */
-export const PLANT_THRESHOLDS = [0, 10, 25, 50, 100] as const;
+export const PLANT_THRESHOLDS: readonly number[] = [0, 1, 4, 10, 25];
 
 /** The stage a total buys, 0..4. Clamped at both ends. */
-export function plantStage(count: number): number {
+export function plantStage(count: number, ladder: readonly number[] = PLANT_THRESHOLDS): number {
   let stage = 0;
-  for (let i = 0; i < PLANT_THRESHOLDS.length; i++) {
-    if (count >= PLANT_THRESHOLDS[i]!) stage = i;
+  for (let i = 0; i < ladder.length; i++) {
+    if (count >= ladder[i]!) stage = i;
   }
   return stage;
 }
 
 /** Likes still to go before the next stage; null once it is fully grown. */
-export function plantToGo(count: number): number | null {
-  const next = PLANT_THRESHOLDS[plantStage(count) + 1];
+export function plantToGo(
+  count: number,
+  ladder: readonly number[] = PLANT_THRESHOLDS,
+): number | null {
+  const next = ladder[plantStage(count, ladder) + 1];
   return next === undefined ? null : Math.max(0, next - count);
 }
 
 /**
- * A 380mm plant in a 90mm pot, at stage 4.
+ * A 380mm plant in a 90mm pot before a single like, reaching 460mm at stage 4.
  *
  * Sized against the RESTING SHOT rather than against a garden centre. The
  * first pass was a botanically sensible 260mm and came out 44 pixels tall on a
@@ -544,7 +559,7 @@ export function plantToGo(count: number): number | null {
  */
 const POT = { top: 0.075, bottom: 0.054, height: 0.087 };
 /** Where the main stem's joints are, in metres above the soil. */
-const JOINT = [0, 0.083, 0.173, 0.263] as const;
+const JOINT = [0, 0.083, 0.173, 0.263, 0.343] as const;
 /** The soil surface: where everything that grows starts from. */
 const SOIL = POT.height - 0.003;
 
@@ -552,15 +567,18 @@ const SOIL = POT.height - 0.003;
  * How tall the plant stands at each stage, in metres above its own origin.
  *
  * Derived from the joints rather than measured off a screenshot, so it cannot
- * drift when the joints move. The DOM tag hangs from this, which is why a
- * seedling's label does not float a foot above it.
+ * drift when the joints move. The DOM tag hangs from this, which is why the
+ * label does not float a foot above the leaves.
+ *
+ * The first three are equal now, because stages 1 and 2 grow SIDEWAYS — see
+ * the tiers below. A plant that only ever got taller would be a bar chart.
  */
 export const PLANT_TOP: readonly number[] = [
-  SOIL + JOINT[1] + 0.03,
-  SOIL + JOINT[2] + 0.03,
   SOIL + JOINT[3] + 0.03,
   SOIL + JOINT[3] + 0.03,
-  SOIL + JOINT[3] + 0.06,
+  SOIL + JOINT[3] + 0.03,
+  SOIL + JOINT[4] + 0.03,
+  SOIL + JOINT[4] + 0.06,
 ];
 
 /**
@@ -621,9 +639,14 @@ function leaf(
   return place(new Mesh(geometry, m.card), t);
 }
 
-/** A length of stem standing up from the group's own origin. */
-function stem(m: Materials, colour: Color, cut: Color, height: number): Mesh {
-  return card(m, colour, cut, 0.012, height, 0.0075, { y: height / 2 });
+/**
+ * A length of stem standing up from `base` metres above the group's origin.
+ *
+ * `base` exists because stage 0 is now three stacked segments in ONE group
+ * rather than three tiers arriving one at a time — see below.
+ */
+function stem(m: Materials, colour: Color, cut: Color, height: number, base = 0): Mesh {
+  return card(m, colour, cut, 0.012, height, 0.0075, { y: base + height / 2 });
 }
 
 /**
@@ -672,40 +695,65 @@ export function plant(p: Palette, m: Materials): { group: Group; tiers: Group[] 
     return t;
   };
 
-  /* Stage 0 — a seedling. One short stem and the two leaves every seedling on
-   * earth opens with, which is what makes this stage readable as a BEGINNING
-   * rather than as a broken plant. */
+  /* Stage 0 — A PLANT, NOT A SEEDLING, and this is the change that matters
+   * most about the ladder.
+   *
+   * The first version opened on two cotyledons on a 83mm stalk, which was
+   * botanically correct and read, at forty pixels on a sill two and a half
+   * metres away, as a twig in a pot. Everything after it was the plant being
+   * rescued from looking dead rather than being rewarded. So the whole main
+   * stem and its three sets of leaves — what used to be stages 0, 1 and 2 —
+   * arrive free, in one group, and the four stages above are all ADDITIONS to
+   * something that already looked alive. A visitor who never clicks still gets
+   * a plant; a visitor who does gets a bigger one.
+   *
+   * One group rather than three because they never come apart again. The
+   * joints are still the joints, so nothing below moved. */
   const t0 = tier(SOIL);
   t0.add(stem(m, shoot, p.cut, JOINT[1]));
+  t0.add(stem(m, shoot, p.cut, JOINT[2] - JOINT[1], JOINT[1]));
+  t0.add(stem(m, shoot, p.cut, JOINT[3] - JOINT[2], JOINT[2]));
   t0.add(leaf(m, frond, p.cut, 0.083, 0.029, { y: 0.045, yaw: 10, roll: 62 }));
   t0.add(leaf(m, frond, p.cut, 0.075, 0.026, { y: 0.054, yaw: -12, roll: -58 }));
+  t0.add(leaf(m, frond, p.cut, 0.093, 0.032, { y: 0.104, yaw: 96, roll: 54 }));
+  t0.add(leaf(m, frond, p.cut, 0.087, 0.03, { y: 0.134, yaw: -84, roll: -50 }));
+  /* The crown. Three leaves rather than two: an odd number reads as growth
+   * continuing, an even one as a thing that has finished. */
+  t0.add(leaf(m, frond, p.cut, 0.099, 0.033, { y: 0.191, yaw: 40, roll: 48 }));
+  t0.add(leaf(m, frond, p.cut, 0.09, 0.032, { y: 0.218, yaw: -140, roll: -44 }));
+  t0.add(leaf(m, frond, p.cut, 0.081, 0.029, { y: 0.242, yaw: 160, roll: 38 }));
 
-  /* Stage 1 — it gets taller, and a taller stem needs more leaf under it. */
-  const t1 = tier(SOIL + JOINT[1]);
-  t1.add(stem(m, shoot, p.cut, JOINT[2] - JOINT[1]));
-  t1.add(leaf(m, frond, p.cut, 0.093, 0.032, { y: 0.021, yaw: 96, roll: 54 }));
-  t1.add(leaf(m, frond, p.cut, 0.087, 0.03, { y: 0.051, yaw: -84, roll: -50 }));
+  /* Stage 1 — a LOW SIDE SHOOT, out of the soil on the other side and leaning
+   * away. It adds no height at all, which is the point: the first reward has
+   * to be visible at a glance, and a silhouette that gets WIDER at the base is
+   * the cheapest legible change there is. Nothing above it moves. */
+  const t1 = tier(SOIL, 0.026);
+  t1.rotation.z = -17 * DEG;
+  t1.add(stem(m, shoot, p.cut, 0.084));
+  t1.add(leaf(m, frond, p.cut, 0.066, 0.024, { y: 0.036, yaw: -30, roll: -56 }));
+  t1.add(leaf(m, frond, p.cut, 0.058, 0.021, { y: 0.069, yaw: 120, roll: 44 }));
 
-  /* Stage 2 — the crown. Three leaves rather than two: an odd number reads as
-   * growth continuing, an even one as a thing that has finished. */
-  const t2 = tier(SOIL + JOINT[2]);
-  t2.add(stem(m, shoot, p.cut, JOINT[3] - JOINT[2]));
-  t2.add(leaf(m, frond, p.cut, 0.099, 0.033, { y: 0.018, yaw: 40, roll: 48 }));
-  t2.add(leaf(m, frond, p.cut, 0.09, 0.032, { y: 0.045, yaw: -140, roll: -44 }));
-  t2.add(leaf(m, frond, p.cut, 0.081, 0.029, { y: 0.069, yaw: 160, roll: 38 }));
+  /* Stage 2 — a full SECOND SHOOT out of the soil, taller than the first and
+   * leaning the other way. This is the stage that changes the silhouette most:
+   * one stem is a stem, two stems is a plant that has been alive for a while. */
+  const t2 = tier(SOIL, -0.03);
+  t2.rotation.z = 19 * DEG;
+  t2.add(stem(m, shoot, p.cut, 0.15));
+  t2.add(leaf(m, frond, p.cut, 0.075, 0.027, { y: 0.063, yaw: 20, roll: 58 }));
+  t2.add(leaf(m, frond, p.cut, 0.069, 0.024, { y: 0.093, yaw: -150, roll: -52 }));
+  t2.add(leaf(m, frond, p.cut, 0.063, 0.023, { y: 0.129, yaw: 80, roll: 30 }));
 
-  /* Stage 3 — a SECOND SHOOT out of the soil, leaning away from the first.
-   * This is the stage that changes the silhouette most: one stem is a stem,
-   * two stems is a plant that has been alive for a while. */
-  const t3 = tier(SOIL, -0.03);
-  t3.rotation.z = 19 * DEG;
-  t3.add(stem(m, shoot, p.cut, 0.15));
-  t3.add(leaf(m, frond, p.cut, 0.075, 0.027, { y: 0.063, yaw: 20, roll: 58 }));
-  t3.add(leaf(m, frond, p.cut, 0.069, 0.024, { y: 0.093, yaw: -150, roll: -52 }));
-  t3.add(leaf(m, frond, p.cut, 0.063, 0.023, { y: 0.129, yaw: 80, roll: 30 }));
+  /* Stage 3 — the main stem puts on another 80mm and a pair of leaves. The
+   * first stage that makes the plant TALLER, which is why it is this far up:
+   * height is the change the eye reads last and remembers longest, and it is
+   * also the change that moves the label (see PLANT_TOP). */
+  const t3 = tier(SOIL + JOINT[3]);
+  t3.add(stem(m, shoot, p.cut, JOINT[4] - JOINT[3]));
+  t3.add(leaf(m, frond, p.cut, 0.078, 0.027, { y: 0.024, yaw: 65, roll: 46 }));
+  t3.add(leaf(m, frond, p.cut, 0.07, 0.025, { y: 0.054, yaw: -115, roll: -40 }));
 
-  /* Stage 4 — it flowers. Five petals and a centre, on the top joint. */
-  const t4 = tier(SOIL + JOINT[3]);
+  /* Stage 4 — it flowers. Five petals and a centre, on the new top joint. */
+  const t4 = tier(SOIL + JOINT[4]);
   /* PETALS AT 50°, NOT FLAT. A rosette lying flat on top of the stem is a disc,
    * and the resting camera looks at this wall from slightly above and a long
    * way back — a disc seen at that angle is a line. Standing them half-open

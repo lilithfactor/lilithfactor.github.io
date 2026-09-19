@@ -1002,7 +1002,7 @@ export async function mountDesk(options: DeskOptions = {}): Promise<DeskHandle |
     artifacts: placed,
     notes: noteObjects,
     lamp: lamp.group,
-    plant: { object: plantRig.group, stage: plantRig.preview },
+    plant: { object: plantRig.group, ...plantRig.controls },
     camera: { get: rig.overview, set: rig.setOverview },
     parallax: rig.parallaxTuning,
     // The base sheet's bow. Re-bowed from the flat copy desk.ts keeps, and

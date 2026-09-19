@@ -19,28 +19,69 @@
  * It is `aria-live` so the count reaching a keyboard user does not depend on
  * them noticing a paper square move.
  *
+ * AND BELOW TEN IT SAYS NO NUMBER AT ALL. A counter reading "2 likes" is not a
+ * neutral fact on a portfolio — it is the page volunteering that almost nobody
+ * cared, next to a button asking you to be the third. So under the threshold
+ * the tag is an instruction instead, and the number appears at the point where
+ * it starts being worth reading. Nothing is hidden that a visitor could act on:
+ * the plant's shape still says exactly how far along it is.
+ *
+ * THREE THINGS ARE ADJUSTABLE, and they live in three different places on
+ * purpose:
+ *
+ *   - THE COUNT is in Supabase, one row, hand-editable in the table editor.
+ *     It is a fact about the world that changes without anybody deploying.
+ *   - THE THRESHOLDS are `plant.t1`..`plant.t4` in the tuner, saved to
+ *     tuned.json. They are a design decision — how much attention a shape is
+ *     worth — so they belong in a diff, not in a database row.
+ *   - THE STAGE OVERRIDE is `plant.stage`, also in tuned.json: -1 derives from
+ *     the count, 0-4 pins the plant there and stops it responding to likes.
+ *
+ * `plant.seed` is the fourth and the most honest of the four: a number added to
+ * the real count before the ladder is read. It is how the plant opens looking
+ * established without the page claiming an audience it does not have — and
+ * because it is a visible line in a versioned file rather than a constant
+ * buried in a function, nobody has to remember later which part was true.
+ *
  * The desk never waits for the count. The plant is built at whatever stage the
  * cached or local number says, and the shared total redraws it when — or if —
- * it arrives. See likes.ts for the endpoint and the fallback.
+ * it arrives. See likes.ts for the project and the fallback.
  * ========================================================================== */
 
 import { Vector3, type Camera, type Group, type Object3D } from "three";
 import { hasLiked, like, likeCount } from "./likes";
 import type { Materials } from "./materials";
-import { plant, PLANT_TOP, plantStage, plantToGo } from "./objects";
+import { plant, PLANT_THRESHOLDS, PLANT_TOP, plantStage, plantToGo } from "./objects";
 import type { Palette } from "./palette";
 
 /** How long a new tier takes to unfurl out of its joint. */
 const GROW_MS = 700;
 
+/**
+ * The total below which the tag shows no number.
+ *
+ * Ten, because that is roughly where a count stops being an admission. It is a
+ * copy decision rather than a tuned one, so it is a constant here and not a
+ * slider: a knob for it would invite fiddling with the one number on this page
+ * whose job is to be trustworthy.
+ */
+const SHOW_COUNT_AT = 10;
+
 export interface PlantRig {
   readonly group: Group;
   /**
-   * The stage the tuner is showing, 0..4. Previewing one NEVER touches the
-   * count — it is a way to look at every growth stage without faking likes,
-   * and the next real like puts the plant back where the total says it is.
+   * The four knobs the tuner drives. All of them redraw on the frame and all
+   * of them replay through applyTuned at mount — see params.ts for which of
+   * these is a design decision and which is an override.
    */
-  readonly preview: { get(): number; set(v: number): void };
+  readonly controls: {
+    /** -1 derives the stage from the count; 0-4 pins it there. */
+    stage: { get(): number; set(v: number): void };
+    /** Added to the real count before the ladder is read. */
+    seed: { get(): number; set(v: number): void };
+    /** Threshold `i`, 1-4. The setter keeps the ladder ascending. */
+    threshold: { get(i: number): number; set(i: number, v: number): void };
+  };
   /** Projects the tag and eases anything still growing. Once per frame. */
   update(camera: Camera, width: number, height: number, dt: number): void;
   /** The pointer hit the plant itself. Same call the button makes. */
@@ -49,13 +90,6 @@ export interface PlantRig {
 }
 
 const easeOut = (k: number) => 1 - Math.pow(1 - k, 3);
-
-/** "142 likes · 8 more to grow" — and nothing more decorated than that. */
-function caption(count: number): string {
-  const likes = count === 0 ? "No likes yet" : count === 1 ? "1 like" : `${count} likes`;
-  const togo = plantToGo(count);
-  return togo === null ? `${likes} · fully grown` : `${likes} · ${togo} more to grow`;
-}
 
 /**
  * Builds the plant, mounts its controls, and returns the rig.
@@ -75,6 +109,30 @@ export function createPlant(
   let liked = hasLiked();
   let stage = 0;
   let busy = false;
+
+  /* --- The three adjustable things -----------------------------------------
+   * A mutable copy of the default ladder, because the tuner moves it and the
+   * default is a `readonly` export shared with anything else that asks. */
+  const ladder = [...PLANT_THRESHOLDS];
+  /** Added to the real count. See the file header for why this beats a lie. */
+  let seed = 0;
+  /**
+   * -1 = derive the stage from the total, which is the default and what makes
+   * the button mean anything. 0-4 PINS the plant at that stage.
+   *
+   * The trade is deliberate and it is not a bug: a pinned plant stops
+   * responding to likes entirely. Somebody clicks, the number moves, the shape
+   * does not. That is the right behaviour for an override — it is how you park
+   * the plant at a shape you want for a screenshot or a launch — and it is why
+   * the tag drops its "more to grow" line while a pin is in, rather than
+   * promising a change that will not come.
+   */
+  let pin = -1;
+
+  /** What the ladder is actually read against. */
+  const total = () => count + seed;
+  /** The stage that should be on screen right now. */
+  const wanted = () => (pin >= 0 ? Math.min(tiers.length - 1, pin) : plantStage(total(), ladder));
   const growing: { tier: Group; clock: number }[] = [];
   const still = matchMedia("(prefers-reduced-motion: reduce)");
 
@@ -99,9 +157,23 @@ export function createPlant(
   wrap.append(tag, button);
   document.body.append(wrap);
 
+  /**
+   * "57 likes · 3 more to grow", or an instruction, and nothing more decorated
+   * than that.
+   */
+  function caption(): string {
+    const n = total();
+    if (n < SHOW_COUNT_AT) return "Click to water it";
+    const likes = n === 1 ? "1 like" : `${n} likes`;
+    // Pinned: the shape is not tracking the count, so do not say it is.
+    if (pin >= 0) return likes;
+    const togo = plantToGo(n, ladder);
+    return togo === null ? `${likes} · fully grown` : `${likes} · ${togo} more to grow`;
+  }
+
   function paint(): void {
-    tag.textContent = caption(count);
-    button.textContent = liked ? "Liked" : "Like this plant";
+    tag.textContent = caption();
+    button.textContent = liked ? "Watered" : "Water it";
     // aria-disabled rather than disabled: a disabled button drops out of tab
     // order, and a keyboard user who tabs to the plant and finds nothing there
     // has been told less than one that says "Liked".
@@ -113,9 +185,14 @@ export function createPlant(
    * Attaches exactly the tiers this stage has paid for.
    *
    * A tier that arrives is baked, then eased out of nothing. A tier that goes
-   * (only the tuner can take one away) simply leaves — there is no reverse
-   * animation, because a plant does not un-grow and the only audience for that
-   * transition is the person dragging the slider.
+   * — a raised threshold, or a pin dropped to a lower stage — simply leaves.
+   * There is no reverse animation, because a plant does not un-grow and the
+   * only audience for that transition is the person dragging the slider.
+   *
+   * `removeFromParent()` is the whole of what a departing tier needs and the
+   * whole of what it may have: the tier stays alive and re-attachable, and its
+   * geometry and material must NOT be disposed here. Disposal belongs at rig
+   * teardown, once, where nothing is going to ask for the tier again.
    */
   function apply(next: number, animate: boolean): void {
     stage = Math.max(0, Math.min(tiers.length - 1, Math.round(next)));
@@ -139,18 +216,24 @@ export function createPlant(
     }
   }
 
-  /** One like, once. The guard is the button's, not the endpoint's. */
+  /** The tag and the shape, together, because nothing moves one without the
+   * other: every knob below and every arriving count goes through here. */
+  function redraw(animate: boolean): void {
+    paint();
+    apply(wanted(), animate);
+  }
+
+  /** One like, once. The guard is the button's, not the database's. */
   function activate(): void {
     if (liked || busy) return;
     busy = true;
     // Set before the round trip, so a fast second click has nothing to do.
     liked = true;
     paint();
-    void like().then((total) => {
-      count = total;
+    void like().then((n) => {
+      count = n;
       busy = false;
-      paint();
-      apply(plantStage(count), true);
+      redraw(true);
     });
   }
 
@@ -158,14 +241,12 @@ export function createPlant(
 
   // The first number. Cached, local, or shared — likes.ts decides, and this
   // does not care which it got.
-  void likeCount().then((total) => {
-    count = total;
-    paint();
-    apply(plantStage(count), false);
+  void likeCount().then((n) => {
+    count = n;
+    redraw(false);
   });
 
-  paint();
-  apply(0, false);
+  redraw(false);
 
   /* --- Where the tag goes --------------------------------------------------
    * The same projection the section handles get (anchors.ts), on one point
@@ -180,9 +261,49 @@ export function createPlant(
 
   return {
     group,
-    preview: {
-      get: () => stage,
-      set: (v) => apply(v, true),
+    controls: {
+      stage: {
+        get: () => pin,
+        set: (v) => {
+          pin = Math.max(-1, Math.min(tiers.length - 1, Math.round(v)));
+          redraw(true);
+        },
+      },
+      seed: {
+        get: () => seed,
+        set: (v) => {
+          seed = Math.max(0, Math.round(v));
+          redraw(true);
+        },
+      },
+      threshold: {
+        get: (i) => ladder[i] ?? 0,
+        /**
+         * Writes one rung and then repairs the ladder around it.
+         *
+         * A ladder that is not strictly ascending is not a slightly wrong
+         * ladder, it is a broken one: `plantToGo` would hand the tag a
+         * negative distance and two stages would claim the same total. So
+         * dragging t3 below t2 pushes t2 (and t1) down out of the way, and
+         * dragging it above t4 pushes t4 up — in both directions, so it
+         * cannot matter which order four sliders are moved in, or which order
+         * four saved values are replayed in at mount.
+         */
+        set: (i, v) => {
+          if (i < 1 || i >= ladder.length) return;
+          // Floor of `i`, not of 1: four strictly ascending whole numbers above
+          // zero means the lowest t4 can ever be is 4. That floor is also what
+          // stops the downward repair below walking a rung to zero or past it.
+          ladder[i] = Math.max(i, Math.round(v));
+          for (let j = i + 1; j < ladder.length; j++) {
+            ladder[j] = Math.max(ladder[j]!, ladder[j - 1]! + 1);
+          }
+          for (let j = i - 1; j >= 1; j--) {
+            ladder[j] = Math.min(ladder[j]!, ladder[j + 1]! - 1);
+          }
+          redraw(true);
+        },
+      },
     },
     activate,
     update(camera, width, height, dt) {
