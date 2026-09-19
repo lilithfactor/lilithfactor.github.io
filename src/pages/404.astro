@@ -1,10 +1,14 @@
 ---
+/* noindex rather than a canonical. GitHub Pages serves this file at /404.html
+ * with a 200, so without it the one page on the site that says nothing would
+ * also be the one page claiming a canonical URL that itself 404s. */
 import Base from "../layouts/Base.astro";
 ---
 
 <Base
   title="Page not found — Pranav Upadhyay"
   description="This page doesn't exist."
+  noindex
 >
   <main id="main-content" tabindex="-1" class="page stack">
     <p class="label">404</p>
