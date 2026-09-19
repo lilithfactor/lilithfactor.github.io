@@ -4,6 +4,87 @@ Things learned the hard way, written down while they still hurt. Newest first.
 
 ---
 
+## The sync committed every half hour for a month and published nothing
+
+*2026-09-19.*
+
+`sync-content.yml` wrote `content/*.json` to `main` and left publishing to
+`deploy.yml`'s `on: push` trigger. Every run was green, every commit is in the
+history, and the live site served 2026-08-13 content until 2026-09-17.
+
+**GitHub refuses to trigger a workflow from a push made with the default
+`GITHUB_TOKEN`** — deliberately, so a workflow cannot loop by committing its own
+output. Nothing warns you. The push succeeds, the run that should have started
+simply never appears, and the only evidence is an Actions list where every
+deploy happens to have been started by a human.
+
+The fix is not a different trigger, it is an explicit call: `deploy.yml` gained a
+`workflow_call` trigger and the sync invokes it as a job. A called workflow runs
+with the **caller's** permissions, so the caller has to declare `pages: write`
+and `id-token: write` that it never uses itself — leave them off and the deploy
+fails on a token it cannot use. (A PAT also works, and is a credential to rotate
+forever; `workflow_call` is not.)
+
+**The shape worth keeping:** "the commit landed" and "the thing that watches for
+commits ran" are two separate claims, and a green tick only ever proves the
+first. When a workflow hands off to another workflow, check the second one's
+*run list*, not the first one's logs.
+
+---
+
+## A squash merge leaves the branch ahead forever, and empties the release notes
+
+*2026-09-19.*
+
+PRs #3, #4 and #5 were squash-merged. Each landed on `main` as one new commit
+with a new sha (`git rev-list --parents -n1` shows a single parent, subject
+`… (#5)`), and not one of the branch's own commits is an ancestor of anything.
+Two consequences, neither of which announces itself:
+
+- **The branch is permanently "N commits ahead of main"** even though its work
+  is shipped, because its commits are not on main — they were rewritten. Reuse
+  that branch for the next PR (all three above reused
+  `fix/lead-section-no-heading`) and the new PR's diff carries the previous
+  PR's changes a second time.
+- **`release-notes.yml` reads `git log --no-merges --format='%h %s'`** and sorts
+  the subjects into Features / Fixes / Changes. A squash replaces every subject
+  with the PR title, so a branch of carefully written commit subjects — the
+  thing step 2 of the checklist asks for, for exactly this purpose — arrives as
+  one line.
+
+A merge commit (what PRs #6 and #7 got) costs one extra node in the graph and
+keeps both. The corollary that bit on the same day: a local `origin/main` that
+has not been fetched since someone merged is a *stale* main, `git checkout -b`
+from it silently reverts the merged work inside the new branch's diff, and any
+reasoning from local refs answers "is X live yet" wrongly. Fetch before
+branching; ask `gh run list` or the live URL, not the local ref.
+
+---
+
+## Two facts decided where the like counter could live
+
+*2026-09-19.*
+
+**`api.notion.com` sends no CORS headers at all.** Not a strict policy, not a
+preflight to be satisfied — no `Access-Control-Allow-Origin` on any response, so
+no browser can ever call it, with any token, from any origin. That one fact
+answers every future "can the page read or write Notion directly" question: no,
+and the only options are a server you run or a different database. It is why
+`workers/` existed, and why deleting it required Supabase, whose anon key is
+designed to be published and whose boundary is row-level security instead.
+(The *unofficial* `/api/v3` endpoint below is CORS-blocked too — same wall, and
+the reason that entry's "emergency fallback" is server-side only.)
+
+**Astro only exposes env vars prefixed `PUBLIC_` to client code.** Without the
+prefix the variable is `undefined` in the browser and **the build still
+succeeds** — no error, no warning. Here that lands in the worst possible place:
+`likes.ts` deliberately falls back to `localStorage` when the two variables are
+unset, so a missing prefix does not break anything visible. It quietly gives
+every visitor a private like count that looks completely correct and is shared
+with nobody.
+
+---
+
 ## A page opened in a background tab never finished becoming the desk
 
 *2026-08-14.*
@@ -122,6 +203,19 @@ call, and desktop performance scores ~0.2 under swiftshader (TBT ~2.4s, CLS
 render, not any one change. The gate in steps.md (≥ 90) cannot be met by
 this harness for the desk; run it on a case-study page for the document
 number, and judge the desk by hand until a real-GPU run exists.
+
+**Amended 2026-09-19, live and on a real GPU.** The command in steps.md cannot
+see the desk at all: Lighthouse defaults to the **mobile** form factor, the desk
+is gated off below 1024px, and the homepage scores 98 — an honest number about a
+page without its main feature. Force the desktop preset and the same build
+scores 73 locally and **14 on the live site** (CLS 1.0, TBT 3,110 ms, LCP 3.3s),
+while a desk-free case-study page scores 100 / CLS 0 / TBT 0 under the identical
+config. So this CLS is not the 2026-08-14 artifact repeating itself:
+`cls-culprits-insight` names `body > main#main-content` worth 1.0 on its own —
+the swap reflows the whole document with nothing reserving the desk's box. Two
+lessons, kept apart: the **tool** was wrong about the mechanism in August, and
+the **command** is measuring the wrong page now. A pass from it says nothing
+about the desk either way.
 
 ---
 

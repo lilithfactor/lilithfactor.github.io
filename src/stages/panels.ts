@@ -182,6 +182,54 @@ export function mountPanels(): Panels {
     section.append(nav);
   }
 
+  /* --- Getting focus INTO the panel ----------------------------------------
+   * `panel.focus()` in the same task that sets [data-open] does NOTHING, and
+   * does it silently: focus() on an element that is not rendered is a no-op,
+   * so the panel opened with focus still on the handle behind the scrim, and
+   * the Tab trap below — which only ever ran when focus was already inside —
+   * never engaged. Measured: activeElement was still BUTTON.desk-handle at
+   * +200ms, +800ms and +2000ms after Enter.
+   *
+   * The cause is not a missing style recalc, which is the tempting diagnosis.
+   * A closed panel is `visibility: hidden` WITH `transition: visibility` (see
+   * desk-panels.css), and a visibility transition holds the from-value at
+   * progress 0 — so at the first style update after [data-open] the computed
+   * value is still `hidden`, and the browser is right to refuse focus.
+   * Measured in the live desk: forcing a reflow (offsetWidth) → hidden.
+   * getComputedStyle → hidden. One requestAnimationFrame → hidden. Two frames
+   * → visible, and focus lands. An inline visibility:visible → hidden too,
+   * because that transitions as well.
+   *
+   * So the trigger cannot be a guess about *when* — not a setTimeout, which
+   * would encode the transition duration in JS and rot the moment --m-open
+   * changes, and not a fixed number of frames, which is the same guess with a
+   * nicer name. It asks, checks whether the browser accepted, and asks again
+   * next frame until it did. The panel is the authority on when it became
+   * focusable; this loop just listens to the answer.
+   *
+   * Not fixed in CSS instead: the closed state has to be visibility:hidden or
+   * display:none, or eight sections stay in the tab order behind the desk, and
+   * the transition on it is what lets the panel fade OUT rather than vanish.
+   * The mechanism is correct; only the assumption that focus could be taken
+   * synchronously was wrong.
+   *
+   * It stops on its own: when focus arrives (from here, or because the visitor
+   * clicked something inside), when the panel is no longer the open one, or
+   * after ~20 frames, so a panel that can never take focus spins a third of a
+   * second and gives up rather than forever.
+   */
+  function focusPanel(panel: HTMLElement, artifact: string): void {
+    let frames = 20;
+    const attempt = () => {
+      if (openId !== artifact) return;
+      if (panel.contains(document.activeElement)) return;
+      panel.focus({ preventScroll: true });
+      if (panel.contains(document.activeElement)) return;
+      if (--frames > 0) requestAnimationFrame(attempt);
+    };
+    attempt();
+  }
+
   /** Puts a panel away. Shared by close() and by switching between panels. */
   function hide(id: string): void {
     const panel = sections.get(id);
@@ -240,10 +288,24 @@ export function mountPanels(): Panels {
     if (items.length === 0) return;
     const first = items[0]!;
     const last = items[items.length - 1]!;
-    if (e.shiftKey && document.activeElement === first) {
+    const active = document.activeElement;
+
+    // Focus somewhere else entirely — the panel container itself, a handle
+    // behind the scrim, <body> after a canvas click — is the case this used to
+    // miss, and it was the common one: the trap tested only for the first and
+    // last child, so any other starting point walked straight out of the open
+    // panel and into the desk controls underneath it. Anything that is not one
+    // of the panel's own tabbables comes back to the near end instead.
+    if (!(active instanceof HTMLElement) || !items.includes(active)) {
+      e.preventDefault();
+      (e.shiftKey ? last : first).focus();
+      return;
+    }
+    // Inside already: only the two ends need help, and they wrap.
+    if (e.shiftKey && active === first) {
       e.preventDefault();
       last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
+    } else if (!e.shiftKey && active === last) {
       e.preventDefault();
       first.focus();
     }
@@ -293,8 +355,10 @@ export function mountPanels(): Panels {
 
       // Move focus to the panel itself, not its first link: a screen-reader
       // user should hear what opened before they hear where they can go.
+      // Not synchronously — see focusPanel, which explains why a panel is not
+      // yet focusable in the task that opens it.
       panel.tabIndex = -1;
-      panel.focus({ preventScroll: true });
+      focusPanel(panel, artifact);
 
       // Deep-linkable without a navigation: back closes the panel. Replacing
       // rather than pushing when stepping sideways, so Back means "leave the

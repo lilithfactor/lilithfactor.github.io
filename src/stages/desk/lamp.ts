@@ -217,7 +217,13 @@ export function createLampRig(lamp: LampParts, key: SpotLight): LampRig {
       pose();
       lamp.head.getWorldPosition(world);
       world.project(camera);
-      const visible = world.z > -1 && world.z < 1;
+      // An open panel owns the screen, and the grip is the DESK's control.
+      // This has to be decided HERE and not in CSS: the opacity below is an
+      // inline style written every frame, and an inline style beats any rule
+      // a stylesheet can offer, so `html[data-panel] .desk-lamp-grip` lost
+      // every time and the focus ring floated over the open sheet.
+      const visible =
+        !document.documentElement.dataset.panel && world.z > -1 && world.z < 1;
       grip.style.opacity = visible ? "1" : "0";
       grip.style.pointerEvents = visible ? "auto" : "none";
       if (visible) {

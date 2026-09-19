@@ -240,6 +240,13 @@ html[data-stage="desk"] main {
     0 26px 60px -18px rgb(0 0 0 / 0.55);
   padding-inline: var(--s-7);
   margin-block: var(--s-8);
+  /* The other half of the swap's third beat (scene.ts). The document layer is
+   * still at opacity 0 when this rule starts applying — .stage-swapping is
+   * held for two frames past the flip so the reflow paints invisible — and
+   * this is what it fades back in with. Same duration as the canvas's own
+   * fade, so the desk and the layer standing on it arrive together instead of
+   * the masthead popping in over a half-faded stage. */
+  transition: opacity var(--m-turn);
 }
 
 /* --- Anchored sections ----------------------------------------------------
@@ -259,9 +266,30 @@ html[data-stage="desk"] [data-artifact] {
   --a: 0;
 }
 
-/* Where this section lives on the desk. It is silent until you ask: eight
- * permanent markers would be a HUD, and the desk is a room, not a game. */
-html[data-stage="desk"] [data-artifact]::after {
+/* Where this section lives on the desk — DEBUG ONLY, and that is the whole of
+ * the rule now. Set document.documentElement.dataset.stageDebug = "" to check
+ * the projection against the render without a screenshot diff.
+ *
+ * It used to exist unconditionally, at opacity 0, lit by :hover and
+ * :focus-within. Both were unreachable: a closed panel is visibility: hidden
+ * and pointer-events: none, so it can be neither hovered nor focused, and an
+ * OPEN one is force-hidden by desk-panels.css. A marker nobody could see —
+ * eight of them, each with its own will-change layer, re-transformed every
+ * frame.
+ *
+ * And it scrolled the Library sideways. `position: fixed` resolves against the
+ * nearest TRANSFORMED ancestor, and an open panel is transformed
+ * (translate(-50%,-50%) scale(1)), so the marker's containing block was the
+ * panel's own scroll box — not the viewport. --x/--y are viewport pixels, so
+ * with the camera on the bookshelf (--x: 720px, --scale: 2.37) a 44px circle
+ * became a 104px one whose right edge sat 6px past a 736px panel. overflow-y:
+ * auto computes overflow-x to auto, so those 6px were a horizontal scrollbar
+ * on the reading log — ux-rules.md rule 10. The opacity: 0 hid the circle and
+ * kept the overflow, which is the failure that rule warns about.
+ *
+ * Gating `content` and not just `opacity` is the point: an invisible box still
+ * lays out. Out of debug mode the pseudo-element does not exist. */
+html[data-stage="desk"][data-stage-debug] [data-artifact]::after {
   content: "";
   position: fixed;
   top: 0;
@@ -276,26 +304,14 @@ html[data-stage="desk"] [data-artifact]::after {
     color-mix(in srgb, var(--highlighter) 40%, transparent),
     transparent 68%
   );
-  opacity: 0;
+  /* --a folds in the off-screen case: an anchor the camera cannot see does not
+   * get a marker at the edge of the viewport. */
+  opacity: calc(var(--a) * 0.7);
   pointer-events: none;
   /* translate(-50%, -50%) last, so it centres in the already-scaled space. */
   transform: translate3d(var(--x), var(--y), 0) scale(var(--scale)) translate(-50%, -50%);
   transition: opacity var(--m-settle);
   will-change: transform, opacity;
-}
-
-/* Hover and focus, because hover is never the only way to reach anything.
- * ux-rules.md rule 7. --a folds in the off-screen case: an anchor the camera
- * cannot see does not get a marker at the edge of the viewport. */
-html[data-stage="desk"] [data-artifact]:hover::after,
-html[data-stage="desk"] [data-artifact]:focus-within::after {
-  opacity: calc(var(--a) * 0.85);
-}
-
-/* Shows every marker at once. For checking the projection against the render
- * without a screenshot diff: document.documentElement.dataset.stageDebug = "". */
-html[data-stage="desk"][data-stage-debug] [data-artifact]::after {
-  opacity: calc(var(--a) * 0.7);
 }
 
 /* --- Belt and braces ------------------------------------------------------
@@ -358,10 +374,15 @@ html[data-stage="desk"] .desk-lamp-grip:focus-visible {
   outline-offset: 2px;
 }
 
-/* The first beat of the desk swap: the document fades to nothing BEFORE the
- * stage attribute reflows it into panels. Opacity moves no layout, so the
- * transformation happens while nothing is visible — the reader never watches
- * their place on the page teleport. scene.ts owns the timing. */
+/* The desk swap's invisible window: the document fades to nothing BEFORE the
+ * stage attribute reflows it into panels, and STAYS at nothing for two painted
+ * frames afterwards. Opacity moves no layout, and Chrome's layout-shift
+ * tracker records no rect at all for an element whose computed opacity is 0 —
+ * so a document that goes from a centred column to a full-viewport fixed layer
+ * entirely inside this window has not, as far as any measurement or any reader
+ * is concerned, moved. The frames on the far side are the load-bearing part:
+ * without them the reflow paints straight back into a visible frame and the
+ * whole viewport scores a 1.0 shift. scene.ts owns the timing. */
 html.stage-swapping main {
   opacity: 0;
   transition: opacity 240ms ease-out;

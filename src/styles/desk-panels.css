@@ -224,10 +224,36 @@ html[data-stage="desk"] .desk-scrim[data-visible] {
  * One line, dismissed on the first open, never shown again this session. */
 html[data-stage="desk"] .desk-hint {
   position: fixed;
-  bottom: var(--s-6);
-  left: 50%;
-  transform: translateX(-50%);
+  /* NOT centred on the viewport any more.
+   *
+   * The bottom band already has two owners — the masthead on the left, the
+   * sound chip on the right — and a pill centred between them sat inside the
+   * masthead's box at every desk width: 225px of it printed across
+   * "Upadhyay" at 1024, and still 17px of box overlap at 1440. So the hint
+   * stops competing for the middle and stacks on top of the sound chip: same
+   * right edge, one row up. Stacking rather than sitting beside it is the
+   * part that keeps working — the chip grows when a track is playing (name
+   * plus credit), so any gap reserved to its left is a gap it can outgrow,
+   * while a row above it is a row whatever its width.
+   *
+   * The bottom offset is the sound stack read from the floor up: the chip at
+   * s-5, NEXT TRACK at s-5 + 3.5rem and 2.75rem tall once a track is playing,
+   * then s-4 of air. The hint only leaves on the first panel open, so it can
+   * still be on screen when that second button appears; clearing the resting
+   * chip alone would have been a fix that undid itself the moment someone
+   * pressed play.
+   *
+   * max-width is the guard against the masthead, and it is deliberately in
+   * vw rather than ch: `ch` resolves against this element's 12px mono, not
+   * against the display face the masthead is measured in, so a ch-based
+   * clearance here would be a number that only looks related. The masthead
+   * reaches at most s-7 + 50vw; the hint starts at 60vw - s-5; the two cannot
+   * meet at any width the desk exists at (>= 1024px). */
+  right: var(--s-5);
+  bottom: calc(var(--s-5) + 3.5rem + 2.75rem + var(--s-4));
   z-index: 3;
+  margin: 0;
+  max-width: 40vw;
 
   padding: var(--s-2) var(--s-4);
   border-radius: var(--r-chip);
@@ -607,18 +633,47 @@ html[data-stage="desk"] .panel-nav button:focus-visible {
  * frame, wherever the lamp happens to be on screen. With a panel open, the
  * canvas is behind the panel and the grip was left floating over the text as an
  * unexplained circle. Same for the hint. */
-html[data-panel] .desk-lamp-grip,
+/* The hint only. The lamp grip is NOT here any more, and deliberately so: its
+ * opacity is an inline style the rig rewrites every frame, so no rule in this
+ * file could ever win. It hides itself in lamp.ts instead. A CSS rule that
+ * silently loses is worse than no rule, because it reads as handled. */
 html[data-panel] .desk-hint {
   opacity: 0;
   pointer-events: none;
 }
 
-/* Same problem, the anchor marker. Opening a panel focuses it, so the section
- * matches :focus-within and stage.css paints its desk marker — a circle
- * floating over the panel's own text. !important because that rule is
- * html[data-stage="desk"] [data-artifact]:focus-within::after with
- * opacity: calc(var(--a) * .85), which outranks this selector, and stage.css
- * is not ours to edit. */
-html[data-panel] [data-artifact]::after {
-  opacity: 0 !important;
+/* The anchor marker used to be force-hidden here — opening a panel focuses it,
+ * the section matched :focus-within, and stage.css painted a circle over the
+ * panel's own text. Hiding it with opacity left the box in layout, inside the
+ * panel's scroll container (a transformed ancestor is the containing block for
+ * position: fixed), where it reached past the right edge and gave the Library
+ * a horizontal scrollbar. The marker is debug-only now, so there is nothing
+ * left to hide. See the note in stage.css. */
+
+/* --- The swap's invisible window, extended to the desk's furniture --------
+ * stage.css holds the document layer at opacity 0 across the stage flip and
+ * for two painted frames after it, so the reflow from scrolling column to
+ * fixed layer never paints: Chrome's layout-shift tracker records no rect for
+ * a fully transparent element, and neither does a reader.
+ *
+ * Everything below is created by panels.ts before the flip and styled only
+ * under html[data-stage="desk"], so each one adopts its fixed, sometimes
+ * full-viewport geometry on exactly the frame main does. That makes every one
+ * of them a candidate to become the shift main used to be — .desk-handles and
+ * .desk-hint measured as the whole 1.0 themselves the hour this was written,
+ * the moment main stopped scoring it. So they share the window. Each already
+ * transitions its own opacity, so they fade up with the layer.
+ *
+ * NOT .desk-lamp-grip, for the reason the note above gives: its opacity is an
+ * inline style the rig rewrites every frame, and a rule here would silently
+ * lose. It is a transparent circle with no paint of its own, so it has nothing
+ * to shift. .desk-plant IS here — what the rig writes on it is --a, and a rule
+ * that sets opacity outright still wins. */
+html.stage-swapping .desk-scrim,
+html.stage-swapping .desk-hint,
+html.stage-swapping .desk-handles,
+html.stage-swapping .desk-sound,
+html.stage-swapping .desk-sound__next,
+html.stage-swapping .desk-plant {
+  opacity: 0;
 }

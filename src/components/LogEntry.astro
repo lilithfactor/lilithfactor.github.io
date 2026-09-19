@@ -1,0 +1,62 @@
+---
+/**
+ * One line of the reading log.
+ *
+ * It exists as a component because the same entry is set three ways — dated in
+ * the Finished tier, undated and dense in Next up — and the only thing that
+ * differs is which parts are present. The old `bookLine()` helper concatenated
+ * `${name} — ${author}` into a single string, which made it impossible to give
+ * the title and the author different weights and printed a dangling em dash for
+ * the five books that have no author.
+ */
+import type { Book } from "../content/index";
+
+/**
+ * Attribute-safe subject slug. Exported because the lens CSS in index.astro is
+ * generated from the same domain strings and must spell the token exactly the
+ * way the markup does — one function, so the two sides cannot drift.
+ */
+export const subjectSlug = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+interface Props {
+  book: Book;
+  /** The right-flush tabular column. Blank where the log has a gap. */
+  when?: string | null;
+  /** Subjects are printed where there is room to read them, not in the dense tier. */
+  tags?: boolean;
+}
+
+const { book, when = null, tags = true } = Astro.props;
+const domains = book.domain;
+---
+
+{
+  /* data-domain is present even when the tags are not printed, so the subject
+    lens still marks a Next-up book in the margin. Absent entirely for the five
+    books Notion has no subject for — an empty thing is not rendered. */
+}
+<li
+  class="entry"
+  data-domain={domains.length ? domains.map(subjectSlug).join(" ") : undefined}
+>
+  <p class="entry__line">
+    <span class="entry__title">{book.name}</span>
+    {book.author && <span class="entry__author">{book.author}</span>}
+  </p>
+  {when && <p class="entry__when">{when}</p>}
+  {
+    tags && domains.length > 0 && (
+      <p class="entry__tags">
+        {domains.map((d) => (
+          <span class="tag" data-tag={subjectSlug(d)}>
+            {d}
+          </span>
+        ))}
+      </p>
+    )
+  }
+</li>

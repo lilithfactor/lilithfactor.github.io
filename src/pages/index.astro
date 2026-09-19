@@ -4,6 +4,7 @@ import LinkIcon from "../components/LinkIcon.astro";
 import Section from "../components/Section.astro";
 import Chips from "../components/Chips.astro";
 import Mascot from "../components/Mascot.astro";
+import LogEntry, { subjectSlug } from "../components/LogEntry.astro";
 // The desk mounts here and only here: it is this page's presentation of the
 // sections below. In the layout it leaked onto every page — a case-study
 // article with a 3D scene painting behind its text (Base.astro has the note).
@@ -15,7 +16,7 @@ import {
   divesStudied,
   projects,
   recommendations,
-  shelf,
+  library,
   beyond,
   links,
   playlist,
@@ -61,8 +62,73 @@ const linkLabel = ({ url, label }: { url: string; label: string }) => {
   return label;
 };
 
-const bookLine = (b: { name: string; author: string | null }) =>
-  b.author ? `${b.name} — ${b.author}` : b.name;
+/* --- The Library, read as a log ---------------------------------------------
+ *
+ * The year field records when Pranav READ a book, not when it was published, so
+ * it only ever holds 2025 or 2026. A tabular year column of two repeating values
+ * is dead weight; the year becomes the group head and the MONTH becomes the
+ * right-flush column. That inversion is what turns a list into a log, and it
+ * comes out of the data rather than out of a layout preference. */
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sept",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+const mIdx = (m: string | null) => (m ? MONTHS.indexOf(m) : -1);
+
+const reading = library.filter((b) => b.status === "reading");
+
+/* Newest first. A book with a year but no month sorts to the foot of its year,
+ * which is where a gap belongs in a log. */
+const finished = library
+  .filter((b) => b.status === "done")
+  .sort((a, b) => (b.year ?? 0) - (a.year ?? 0) || mIdx(b.month) - mIdx(a.month));
+
+/* Nothing queued carries a date, so chronology is meaningless here and
+ * alphabetical makes the dense two-column block read as an actual index. */
+const queued = library
+  .filter((b) => b.status === "enqueued" || b.status === "tbd")
+  .sort((a, b) => a.name.localeCompare(b.name));
+
+const years = [...new Set(finished.map((b) => b.year))]
+  .filter((y): y is number => y !== null)
+  .sort((a, b) => b - a)
+  .map((year) => ({ year, books: finished.filter((b) => b.year === year) }));
+
+/* The subject rail, counted from the data. Every book carries a `domain` array
+ * that this page used to parse and throw away; this is the whole of its use.
+ * Sorted by count, so the shape of the reading is legible before anything is
+ * clicked and the single Finance book is honest rather than hidden. */
+const counts = library
+  .flatMap((b) => b.domain)
+  .reduce((m, d) => m.set(d, (m.get(d) ?? 0) + 1), new Map<string, number>());
+const subjects = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+
+/* One rule per subject, emitted at BUILD time from the same array that renders
+ * the rail — so a new Notion domain appears in the rail, in the counts and in
+ * the lens with nobody editing CSS. It sets a single custom property, --mark,
+ * which the entry and the reading slip both spend on the same margin rule and
+ * the tag on its own colour and underline: one generated line, two materials.
+ * `is:inline` and not `is:global`: is:global marks an Astro-PROCESSED stylesheet
+ * and does not compose with raw-string injection. */
+const lensCss = subjects
+  .map(([name]) => {
+    const s = subjectSlug(name);
+    return `.log:has(#lens-${s}:checked) :is([data-domain~="${s}"],[data-tag="${s}"]){--mark:var(--accent)}`;
+  })
+  .join("\n");
+
+const since = (b: { month: string | null; year: number | null }) =>
+  [b.month, b.year].filter(Boolean).join(" ");
 
 /* Beyond the routine carries no URL of its own — the Notion database has no
  * such property — so the three pastimes with a public profile borrow the one
@@ -86,16 +152,20 @@ const beyondLink = (name: string) => {
   description="Product Manager who turns messy, high-stakes journeys into simple, confident experiences."
 >
   <main id="main-content" tabindex="-1" class="page stack">
-    {/* .masthead: on the desk stage this lifts out of the document flow and
+    {
+      /* .masthead: on the desk stage this lifts out of the document flow and
         sits on the desk itself, so a visitor knows whose desk they landed on
-        before they click anything. In the document page it is just a header. */}
+        before they click anything. In the document page it is just a header. */
+    }
     <header class="masthead">
-      {/* A head beside the name, watching the cursor: whose desk this is,
+      {
+        /* A head beside the name, watching the cursor: whose desk this is,
           answered before the text is read. brain/design/art-direction.md,
           "The head by the name". TO CHANGE THE CHARACTER: point the two paths
           below at another pair of sheets in public/mascots (knight-* is there
           too; any of the fifty-two at koboyo.com/page-mascot drops in), or draw
-          the likeness — brain/vision/todo.md has the command. */}
+          the likeness — brain/vision/todo.md has the command. */
+      }
       <Mascot
         directions="/mascots/beard-directions.webp"
         reactions="/mascots/beard-reactions.webp"
@@ -106,6 +176,34 @@ const beyondLink = (name: string) => {
         <h1 class="display">Pranav Upadhyay</h1>
       </div>
     </header>
+
+    {
+      /* THE MOBILE VERSION.
+        This page is a desk on a laptop and a long document on a phone, and the
+        long document is the weaker of the two. The same writing already lives
+        in Notion, which is built for reading on a phone and does it better —
+        so on a phone Notion is not an alternative to this page, it IS the
+        mobile version, and the copy says that rather than offering a choice.
+
+        Filled, full width, directly under the name: the first thing a thumb
+        can reach, so nobody arrives on a phone and scrolls the wrong version
+        by accident.
+
+        In the document, not in the dismissible chip and not a redirect. A
+        dismissed chip is an option gone for good; a fixed overlay on a
+        scrolling page always covers something; and a redirect would hand this
+        URL's mobile crawl — which is the crawl Google indexes with — to
+        another domain. This sits in the flow, costs no JavaScript, and is
+        there with JavaScript off. Hidden above 1024px, where the desk is the
+        better answer. */
+    }
+    <p class="plain-version">
+      <a href="https://lilithfactor.notion.site/pranav-upadhyay" rel="noopener">
+        Switch to mobile version
+      </a>
+      <span>This page is laid out for a desktop. The mobile one has the same
+        writing.</span>
+    </p>
 
     <Section id="about" label="About" title="About">
       <p class="lead">{about.headline}</p>
@@ -236,47 +334,141 @@ const beyondLink = (name: string) => {
     </Section>
 
     <Section id="library" label="Library" title="Library">
-      <div class="stack">
-        <div>
-          <p class="label">Reading ({shelf.reading.length})</p>
-          <ul class="shelf-list">
-            {
-              shelf.reading.map((b) => (
-                <li>
-                  {bookLine(b)}
-                  {b.year && <span class="note"> · {b.year}</span>}
-                </li>
-              ))
-            }
-          </ul>
-        </div>
-        <div>
-          <p class="label">Done ({shelf.done.length})</p>
-          <ul class="shelf-list shelf-list--dense">
-            {
-              shelf.done.map((b) => (
-                <li>
-                  {bookLine(b)}
-                  {b.year && <span class="note"> · {b.year}</span>}
-                </li>
-              ))
-            }
-          </ul>
-        </div>
-        <div>
-          <p class="label">Queued ({shelf.queued.length})</p>
-          <ul class="shelf-list shelf-list--dense">
-            {
-              shelf.queued.map((b) => (
-                <li>
-                  {bookLine(b)}
-                  {b.year && <span class="note"> · {b.year}</span>}
-                </li>
-              ))
-            }
-          </ul>
+      {
+        /* Not a `.stack`: the log sets its own vertical rhythm, and the stack's
+          blanket margin between children fought the rail's sticky offset. */
+      }
+      {
+        /* Two boxes on purpose. The outer one is the container and the :has()
+          scope for the lens; the inner one is the grid, because an @container
+          rule styles a container's DESCENDANTS and never the container itself. */
+      }
+      <div class="log">
+        <div class="log__grid">
+          {
+            reading.length > 0 && (
+              <section class="reading">
+                <h3 class="tier__head">Reading now</h3>
+                {/* NOT a shelf — a shelf is where a book is when nobody is
+                  reading it. These are the cards left in the pocket when the
+                  book came off it: title, author, subjects, and the month it
+                  went out. Exactly the fields Notion holds, which is why
+                  nothing here is a cover, a page count or a progress bar.
+                  Nearly every class is one this page already uses; what is
+                  new is in sections.css. .sheet--card is carried for the
+                  rotation, which paper.css permits only at card width. */}
+                <ul class="reading__slips">
+                  {reading.map((b, i) => (
+                    <li
+                      class:list={[
+                        "sheet sheet--card",
+                        i % 2 ? "sheet--askew-alt" : "sheet--askew",
+                      ]}
+                      data-domain={
+                        b.domain.length ? b.domain.map(subjectSlug).join(" ") : undefined
+                      }
+                    >
+                      <p class="entry__line">
+                        <span class="reading__title">{b.name}</span>
+                        {b.author && <span class="entry__author">{b.author}</span>}
+                      </p>
+                      {b.domain.length > 0 && (
+                        <p class="entry__tags">
+                          {b.domain.map((d) => (
+                            <span class="tag" data-tag={subjectSlug(d)}>
+                              {d}
+                            </span>
+                          ))}
+                        </p>
+                      )}
+                      {since(b) && <p class="reading__since">Since {since(b)}</p>}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )
+          }
+
+          <p class="label log__colophon">
+            {library.length} titles · {reading.length} reading · {finished.length} finished
+            ·{" "}
+            {queued.length} next up · {subjects.length} subjects
+          </p>
+
+          {
+            /* A native radiogroup: one tab stop for all eleven subjects, arrow keys
+            and Home/End for free, the count inside the label so a screen reader
+            announces it. No script anywhere in this section. */
+          }
+          <fieldset class="rail">
+            <legend class="label rail__legend">By subject</legend>
+            <p class="rail__hint">
+              Pick one to mark its titles in the margin; nothing is hidden.
+            </p>
+            <div class="rail__items">
+              <input class="vh" type="radio" name="lens" id="lens-all" checked />
+              <label class="rail__item" for="lens-all">
+                <span class="rail__name">Whole shelf</span>
+                <span class="vh">, </span>
+                <span class="rail__n">{library.length}</span>
+              </label>
+              {
+                subjects.map(([name, n]) => (
+                  <Fragment>
+                    <input
+                      class="vh"
+                      type="radio"
+                      name="lens"
+                      id={`lens-${subjectSlug(name)}`}
+                    />
+                    <label class="rail__item" for={`lens-${subjectSlug(name)}`}>
+                      <span class="rail__name">{name}</span>
+                      <span class="vh">, </span>
+                      <span class="rail__n">{n}</span>
+                    </label>
+                  </Fragment>
+                ))
+              }
+            </div>
+          </fieldset>
+
+          <div class="log__body">
+            <section class="tier">
+              <h3 class="tier__head">Finished</h3>
+              {
+                years.map(({ year, books }) => (
+                  <Fragment>
+                    <h4 class="year">
+                      {/* The hidden comma is load-bearing: without it this
+                          heading's accessible name is the two numbers run
+                          together — "20266". Same in every rail row. */}
+                      <span class="year__n">{year}</span>
+                      <span class="vh">, </span>
+                      <span class="year__count">
+                        {books.length}
+                        <span class="vh"> books</span>
+                      </span>
+                    </h4>
+                    <ul class="entries">
+                      {books.map((b) => (
+                        <LogEntry book={b} when={b.month} />
+                      ))}
+                    </ul>
+                  </Fragment>
+                ))
+              }
+            </section>
+
+            <section class="tier">
+              <h3 class="tier__head">Next up</h3>
+              <ul class="entries entries--dense">
+                {queued.map((b) => <LogEntry book={b} tags={false} />)}
+              </ul>
+            </section>
+          </div>
         </div>
       </div>
+      <style is:inline set:html={lensCss}></style>
     </Section>
 
     <Section id="beyond" label="Beyond the routine" title="Beyond the routine">
@@ -307,7 +499,11 @@ const beyondLink = (name: string) => {
       <nav class="link-row link-row--large" aria-label="Connect">
         {
           links.map((l) => (
-            <a href={l.url} target={l.url.startsWith("mailto:") ? undefined : "_blank"} rel="noopener">
+            <a
+              href={l.url}
+              target={l.url.startsWith("mailto:") ? undefined : "_blank"}
+              rel="noopener"
+            >
               <LinkIcon label={l.label} />
               {l.label}
             </a>
@@ -315,7 +511,12 @@ const beyondLink = (name: string) => {
         }
       </nav>
     </Section>
-    <script type="application/json" id="playlist" set:html={JSON.stringify(playlist)} is:inline></script>
+    <script
+      type="application/json"
+      id="playlist"
+      set:html={JSON.stringify(playlist)}
+      is:inline
+    />
   </main>
   <StageMount />
 </Base>
