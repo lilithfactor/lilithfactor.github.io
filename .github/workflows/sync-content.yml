@@ -73,6 +73,22 @@ jobs:
           git push
           echo "changed=true" >> "$GITHUB_OUTPUT"
 
+      # Keeps the plant's like counter awake. A free Supabase project pauses
+      # after about a week idle; this workflow already runs every 30 minutes,
+      # so a HEAD on one row is the cheapest possible insurance and needs no
+      # schedule of its own. See docs/likes.md.
+      #
+      # It does nothing at all when the variables are unset, and cannot fail
+      # the run when it is set: a sleeping plant must never be the reason
+      # content stops deploying.
+      - name: Keep the plant's database awake
+        if: vars.PUBLIC_SUPABASE_URL != ''
+        continue-on-error: true
+        run: |
+          curl -sS -I -o /dev/null \
+            -H "apikey: ${{ vars.PUBLIC_SUPABASE_ANON_KEY }}" \
+            "${{ vars.PUBLIC_SUPABASE_URL }}/rest/v1/plant?select=likes&limit=1"
+
   # The half of this that was missing. Calling deploy.yml is the only way a
   # bot-authored commit reaches the site.
   publish:

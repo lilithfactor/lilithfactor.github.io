@@ -36,7 +36,16 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      # PUBLIC_ vars reach the browser bundle, so they are repository
+      # *variables*, not secrets - the Supabase anon key is designed to ship in
+      # client code and row-level security is what protects the data. Without
+      # these the build succeeds and the plant silently falls back to a
+      # per-visitor count, which is the kind of failure nobody notices.
       - run: npm run build
+        env:
+          PUBLIC_SUPABASE_URL: ${{ vars.PUBLIC_SUPABASE_URL }}
+          PUBLIC_SUPABASE_ANON_KEY: ${{ vars.PUBLIC_SUPABASE_ANON_KEY }}
 
       - uses: actions/upload-pages-artifact@v5
         with:
