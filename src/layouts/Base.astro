@@ -74,6 +74,16 @@ const ogImage = new URL("/og-card.png", Astro.site);
       crossorigin
     />
 
+    {/* The ink face, cropped to itself and set on paper.
+        NOT the raw 512 square: its background is opaque white with 30% padding
+        all round, so a browser scaling it to 16px would have drawn a white
+        tile with a smudge in the middle. The two small sizes are zoomed past
+        the sparkle marks, which are noise below about 64px; the touch icon
+        keeps them, because at 180px they are the drawing. */}
+    <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="icon" href="/favicon-48.png" sizes="48x48" type="image/png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
     <meta name="theme-color" content="#faf7f0" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
