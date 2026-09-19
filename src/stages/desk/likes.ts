@@ -6,52 +6,51 @@
  * crawled; it is a tally that changes between two people loading the page, and
  * baking it at build time would mean a deploy per click.
  *
- * WHY THERE IS A PROXY IN FRONT OF NOTION, and why the browser does not just
- * call Notion itself. Two reasons, both fatal on their own:
+ * THE RELAY IS GONE, and the reason is worth keeping. A Worker used to sit in
+ * front of Notion because api.notion.com sends no CORS headers on any request,
+ * and because a Notion token is a WORKSPACE key — put one in the bundle and
+ * anybody can write to the whole CMS. Supabase is the opposite on both counts:
+ * it sends CORS, and its anon key is a role selector rather than a password.
+ * Row-level security is the boundary, so the browser can hold the key and talk
+ * to Postgres directly. 380 lines of Worker and a second deploy target gone.
  *
- *   1. api.notion.com sends no CORS headers at all — not on the preflight and
- *      not on the request. A browser cannot reach it with any token.
- *   2. A Notion token is a WORKSPACE key. Put one in client JavaScript and it
- *      is in the bundle, readable by anyone, with write access to everything
- *      Pranav has ever shared with the integration. A "public write count" is
- *      not worth handing out the keys to the CMS.
+ * That is only safe because of what the database is allowed to do, and the
+ * answer is short: one row, and one function taking NO ARGUMENTS whose whole
+ * body is `likes = likes + 1` under a daily ceiling. No insert, update or
+ * delete policy exists and the default grants are revoked, so there is no
+ * other write path. docs/likes.md has the SQL, the threat model and the
+ * two-statement recovery.
  *
- * So a small Worker holds the token, is the only thing that talks to Notion,
- * and the site talks to the Worker. See workers/likes/. The build-time sync
- * (scripts/sync-notion.mjs) runs on a half-hour cron and could never serve a
- * live number anyway.
+ * THE TRADE, plainly: this posts to Supabase, which — like every host — sees
+ * the visitor's IP in its own logs. Nothing identifying is sent by this file
+ * and nothing identifying is stored in the table: no body, no identifier, no
+ * cookie. This browser keeps a count and a flag saying it has already clicked.
  *
- * Be clear about the trade, because it is a real one. This posts to an endpoint
- * that sees the visitor's IP — which is how it rate-limits, and is the whole
- * reason a public write endpoint is survivable. Nothing else is sent: no body,
- * no identifier, no cookie. Nothing is stored in this browser but a count and a
- * flag saying this visitor has already clicked.
- *
- * AND IT WORKS WITH NO ENDPOINT AT ALL. Same discipline as the weather: the
- * desk never waits on this and never breaks without it. With PUBLIC_LIKES_-
- * ENDPOINT unset — which is the state today — the count lives in localStorage
- * and the plant grows for that visitor alone. The moment the variable is set,
- * the same two functions return the shared number instead. Nothing else in the
- * scene knows the difference.
+ * AND IT WORKS WITH NO ACCOUNT AT ALL. Same discipline as the weather: the desk
+ * never waits on this and never breaks without it. With the two variables unset
+ * the count lives in localStorage and the plant grows for that visitor alone.
+ * Set them and the same two functions return the shared number. Nothing else in
+ * the scene knows the difference.
  * ========================================================================== */
 
 /**
- * The Worker's URL, injected at build time. Astro exposes PUBLIC_ variables to
- * the client; anything without that prefix stays on the server, which is
- * exactly where a Notion token belongs.
- *
- * Empty string when unset, which is the local-only mode below.
+ * Both PUBLIC_ because both belong in the bundle — see .env.example. The one
+ * that must never appear here is the SERVICE key, which bypasses every policy.
  */
-const ENDPOINT = String(import.meta.env.PUBLIC_LIKES_ENDPOINT ?? "").trim();
+const BASE = String(import.meta.env.PUBLIC_SUPABASE_URL ?? "")
+  .trim()
+  .replace(/\/$/, "");
+const KEY = String(import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? "").trim();
+const AUTH = { apikey: KEY, Authorization: `Bearer ${KEY}` };
 
-/** The count, for this browser only, when there is no endpoint to ask. */
+/** The count, for this browser only, when there is no project to ask. */
 const LOCAL_COUNT = "desk-likes-local";
 /**
  * COURTESY, NOT SECURITY. This stops an enthusiastic visitor clicking twenty
  * times; it stops nothing else, because anything in localStorage can be cleared
- * from the console in one line. The real limit is one like per IP per day,
- * enforced in the Worker where a visitor cannot reach it. This flag exists so
- * the button can say "liked" and stop firing, which is a UI state and not a
+ * from the console in one line. The real limit is the daily ceiling inside
+ * water_plant(), where a visitor cannot reach it. This flag exists so the
+ * button can say "Watered" and stop firing, which is a UI state and not a
  * defence.
  */
 const LIKED = "desk-liked";
@@ -61,11 +60,18 @@ const MAX_AGE = 60 * 1000;
 /** The desk never waits on this. If the answer is slow, it is not an answer. */
 const DEADLINE = 4000;
 
-/** A count is a whole, non-negative, believable number or it is nothing. */
-function sane(value: unknown): number | null {
-  const n = Number(value);
-  if (!Number.isFinite(n) || n < 0 || n > 1e9) return null;
-  return Math.floor(n);
+/**
+ * A count is a whole, non-negative, believable number or it is nothing.
+ *
+ * It also unwraps the two shapes PostgREST answers in — `[{ likes: 57 }]` from
+ * the table, a bare `58` from the function — which is why there is no
+ * `Accept: application/vnd.pgrst.object+json` header below. One line here beats
+ * a header the next reader has to go and look up.
+ */
+function sane(raw: unknown): number | null {
+  const row = Array.isArray(raw) ? raw[0] : raw;
+  const n = Number(row && typeof row === "object" ? (row as { likes?: unknown }).likes : row);
+  return Number.isFinite(n) && n >= 0 && n <= 1e9 ? Math.floor(n) : null;
 }
 
 function read(key: string): string | null {
@@ -98,7 +104,7 @@ function cached(): number | null {
     const raw = sessionStorage.getItem(CACHE);
     if (!raw) return null;
     const { at, value } = JSON.parse(raw) as { at: number; value: number };
-    return Date.now() - at < MAX_AGE ? (sane(value) ?? null) : null;
+    return Date.now() - at < MAX_AGE ? sane(value) : null;
   } catch {
     return null;
   }
@@ -116,19 +122,18 @@ function remember(count: number): number {
 /**
  * One request, with a deadline, that always resolves to a number or null.
  *
- * The 409 a second like from the same address earns is NOT an error: the body
- * still carries the true count, and showing the visitor the real total after
- * they have been turned away is better than showing them nothing.
+ * A refused like is NOT an error: if the day's ceiling has been spent the
+ * function still returns the true total, and showing the visitor the real
+ * number after they have been turned away is better than showing them nothing.
  */
-async function ask(method: "GET" | "POST"): Promise<number | null> {
-  if (!ENDPOINT) return null;
-  const request = fetch(ENDPOINT, { method, mode: "cors", cache: "no-store" })
-    .then(async (r) => {
-      // 5xx is the server having a bad day; 429/409 still answer the question.
-      if (r.status >= 500) return null;
-      const data = (await r.json()) as { count?: unknown };
-      return sane(data?.count);
-    })
+function ask(path: string, init: RequestInit = {}): Promise<number | null> {
+  if (!BASE || !KEY) return Promise.resolve(null);
+  const request = fetch(`${BASE}/rest/v1/${path}`, {
+    cache: "no-store",
+    ...init,
+    headers: { ...AUTH, ...init.headers },
+  })
+    .then(async (r) => (r.ok ? sane(await r.json()) : null))
     .catch(() => null);
 
   return Promise.race([
@@ -140,14 +145,17 @@ async function ask(method: "GET" | "POST"): Promise<number | null> {
 /**
  * The total. Never throws, never hangs, never leaves the plant without a size.
  *
- * With an endpoint: the shared number, session-cached. Without one, or when the
+ * With a project: the shared number, session-cached. Without one, or when the
  * request fails: this browser's own tally, so the plant still has a stage and
  * nothing on screen looks broken.
  */
 export async function likeCount(): Promise<number> {
   const hit = cached();
   if (hit !== null) return hit;
-  const live = await ask("GET");
+  // No `id=eq.1` filter: anon is granted SELECT on the `likes` column only, and
+  // PostgREST needs SELECT on a column to filter by it. The table's CHECK pins
+  // it to one row, so `limit=1` is the same question with fewer grants.
+  const live = await ask("plant?select=likes&limit=1");
   return live === null ? localCount() : remember(live);
 }
 
@@ -159,11 +167,16 @@ export async function likeCount(): Promise<number> {
  * them the button again would only produce a second failure.
  */
 export async function like(): Promise<number> {
-  const live = await ask("POST");
+  // The body has to be `{}` rather than absent: PostgREST rejects an RPC POST
+  // with no body. The function reads none of it — it takes no arguments.
+  const live = await ask("rpc/water_plant", {
+    method: "POST",
+    body: "{}",
+    headers: { "Content-Type": "application/json" },
+  });
   write(LIKED, "1");
   if (live !== null) return remember(live);
   const next = localCount() + 1;
   write(LOCAL_COUNT, String(next));
-  remember(next);
-  return next;
+  return remember(next);
 }
