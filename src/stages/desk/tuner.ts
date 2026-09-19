@@ -28,6 +28,20 @@ export type { TunerTargets };
 
 const STORE = "desk-tune";
 
+/**
+ * A number read back out of the scene, rounded to the precision its slider
+ * actually offers.
+ *
+ * Reading values back is what keeps tuned.json honest (see `snapshot`), but a
+ * value that went through a unit conversion does not come back the way it went
+ * in: -25° stored as radians and divided back out is -24.999999999999996, and
+ * a file that is committed and diffed does not want that dust in it. The step
+ * is the right precision by definition — it is what the panel would let you
+ * pick.
+ */
+const tidy = (v: number, step: number): number =>
+  Number(v.toFixed((String(step).split(".")[1] ?? "").length));
+
 /** Is the tuner wanted? `?tune` turns it on, `?tune=off` turns it off. */
 export function tuningRequested(): boolean {
   const flag = new URLSearchParams(location.search).get("tune");
@@ -73,6 +87,22 @@ export function mountTuner(t: TunerTargets): { dispose(): void } {
 
   const all = specs(t);
 
+  /**
+   * Puts every slider back in step with the scene, except the one being
+   * dragged.
+   *
+   * Every `num` getter here reads an authoritative stored value — an object's
+   * position, a rung of the plant's ladder, the OVERVIEW camera rather than
+   * the parallaxed one — so this can never fight the hand or jitter with the
+   * cursor.
+   */
+  const resync = (except?: string) => {
+    for (const s of all) {
+      if (s.kind !== "num" || s.key === except) continue;
+      echo.get(s.key)?.(tidy(s.get(), s.step));
+    }
+  };
+
   for (const spec of all) {
     const into = sectionFor(spec.group);
 
@@ -92,7 +122,15 @@ export function mountTuner(t: TunerTargets): { dispose(): void } {
         values[spec.key] = v;
         if (drive) spec.set(v);
       };
-      input.addEventListener("input", () => push(Number(input.value)));
+      input.addEventListener("input", () => {
+        push(Number(input.value));
+        // A setter is allowed to move its NEIGHBOURS — the plant's thresholds
+        // repair the ladder around the rung you dragged — so every other
+        // slider is re-read from the scene, not left showing what it showed
+        // before. `drive: false`: this paints the controls, it does not
+        // re-issue the values.
+        resync(spec.key);
+      });
       echo.set(spec.key, (v) => push(v, false));
       label(into, spec.label, input, out);
       continue;
@@ -180,6 +218,29 @@ export function mountTuner(t: TunerTargets): { dispose(): void } {
   /* --- Handing the numbers back --------------------------------------------
    * Save first, because it is the one that ends the loop. Copy stays as the
    * fallback for a built site, where there is no dev server to write to. */
+
+  /**
+   * WHAT IS ON SCREEN, NOT WHAT WAS TYPED.
+   *
+   * `values` is a running record of slider movements, and a slider movement is
+   * not the only way a number changes: the plant's threshold setter
+   * deliberately moves the rungs either side of the one you dragged to keep
+   * the ladder ascending, and those sibling writes reach the scene and nothing
+   * else. Serialising the record shipped a ladder nobody had ever seen — drag
+   * "stage 1 at" to 30, Save, and the live site grew the plant at 3, because
+   * replaying the stale t2 ran the repair loop and walked t1 back down.
+   * Nothing errored; the panel on reload just read 3, which looks like Save
+   * not working rather than Save corrupting.
+   *
+   * Asking the specs what they actually hold costs one loop and cannot drift.
+   * The hex and pick keys are left alone: their setters move nothing but
+   * themselves, and `values` is already what they last set.
+   */
+  const snapshot = (): string => {
+    for (const s of all) if (s.kind === "num") values[s.key] = tidy(s.get(), s.step);
+    return JSON.stringify(values, null, 2);
+  };
+
   const foot = document.createElement("footer");
   const save = document.createElement("button");
   save.type = "button";
@@ -203,7 +264,7 @@ export function mountTuner(t: TunerTargets): { dispose(): void } {
   };
 
   save.addEventListener("click", async () => {
-    const text = JSON.stringify(values, null, 2);
+    const text = snapshot();
     try {
       const response = await fetch("/__tune", {
         method: "POST",
@@ -241,7 +302,7 @@ export function mountTuner(t: TunerTargets): { dispose(): void } {
   copy.type = "button";
   copy.textContent = "Copy JSON";
   copy.addEventListener("click", async () => {
-    await toClipboard(JSON.stringify(values, null, 2), copy, "Copied");
+    await toClipboard(snapshot(), copy, "Copied");
     setTimeout(() => (copy.textContent = "Copy JSON"), 4000);
   });
 

@@ -257,6 +257,13 @@ Reload schema**.
 **A 401 or 403.** The key is wrong, or the `grant`/`revoke` lines did not run.
 Re-run the whole SQL block; it is safe to repeat.
 
+**The count goes up by one but the next reload shows the old number.** The
+click did not reach the database — a schema cache that has not caught up, a
+project still waking up, a lost connection — and the browser showed you your
+own click anyway rather than pretending nothing happened. The server total is
+the one that is true, and the next load reads it. The plant does not shrink
+back either: see `known` in `src/stages/desk/likes.ts`.
+
 **Nothing in the console and the count stays at 0.** That is the fallback
 working as designed. The desk never waits on this and never shows an error for
 it — see the header of `src/stages/desk/likes.ts`.

@@ -143,6 +143,25 @@ function ask(path: string, init: RequestInit = {}): Promise<number | null> {
 }
 
 /**
+ * THE BEST TOTAL THIS PAGE VIEW HAS SEEN, and the reason the plant cannot
+ * shrink under a visitor's own click.
+ *
+ * The failure that needs it is ordinary, not exotic: the SELECT succeeds and
+ * the POST does not. A schema cache that has not caught up with water_plant
+ * yet, a 429, a project waking from its free-tier pause slower than DEADLINE,
+ * or simply a visitor who read for two minutes before clicking and lost the
+ * network in between. Without a memory here the fallback returns
+ * `localStorage + 1` — which for a first-time clicker is 1 — and plant.ts
+ * writes that straight over a real total of 57, tearing three tiers off the
+ * plant with no animation because there is no reverse ease. The flagship
+ * interaction would do the opposite of what it promises, silently.
+ *
+ * A module variable rather than a second request: re-fetching is exactly what
+ * a fallback exists to avoid.
+ */
+let known = 0;
+
+/**
  * The total. Never throws, never hangs, never leaves the plant without a size.
  *
  * With a project: the shared number, session-cached. Without one, or when the
@@ -151,12 +170,16 @@ function ask(path: string, init: RequestInit = {}): Promise<number | null> {
  */
 export async function likeCount(): Promise<number> {
   const hit = cached();
-  if (hit !== null) return hit;
+  if (hit !== null) return (known = hit);
   // No `id=eq.1` filter: anon is granted SELECT on the `likes` column only, and
   // PostgREST needs SELECT on a column to filter by it. The table's CHECK pins
   // it to one row, so `limit=1` is the same question with fewer grants.
   const live = await ask("plant?select=likes&limit=1");
-  return live === null ? localCount() : remember(live);
+  // A live answer is authoritative IN BOTH DIRECTIONS — it is allowed to be
+  // lower, because editing the number down in the table editor is a thing
+  // docs/likes.md promises works. Only the fallback is floored.
+  if (live === null) return (known = Math.max(known, localCount()));
+  return (known = remember(live));
 }
 
 /**
@@ -175,8 +198,14 @@ export async function like(): Promise<number> {
     headers: { "Content-Type": "application/json" },
   });
   write(LIKED, "1");
-  if (live !== null) return remember(live);
-  const next = localCount() + 1;
+  if (live !== null) return (known = remember(live));
+  /* THE CLICK STILL COUNTS ON SCREEN, and it counts UP from the best total
+   * already known rather than from this browser's private tally. 57 becomes
+   * 58 and the plant stays standing, which is the truthful thing to show: the
+   * server total is still 57, this visitor's click may or may not have landed,
+   * and the next load reads the real number again. The alternative — clamping
+   * in plant.ts instead — would also block a genuine downward correction. */
+  const next = Math.max(known, localCount()) + 1;
   write(LOCAL_COUNT, String(next));
-  return remember(next);
+  return (known = remember(next));
 }

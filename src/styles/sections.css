@@ -238,6 +238,11 @@ figcaption {
 
 .case-body__list li {
   margin-block-end: var(--s-2);
+  /* Notion bullets arrive as arrow chains — "Research→insights→features→build"
+     is one unbreakable 67-character word to the line breaker, and at 320px it
+     ran straight out of the page. The <li> box stayed in bounds while its text
+     did not, so no element's rect looked wrong; only the document scrolled. */
+  overflow-wrap: anywhere;
 }
 
 .case-body__list li::marker {

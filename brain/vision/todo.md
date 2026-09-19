@@ -109,9 +109,12 @@ Content still needed before the two new objects can be wired:
   from it. Decide: `simple-icons` (already a devDependency) for the brand
   marks + lucide for anything generic, or drop icons entirely and go
   text-only.
-- [ ] **Where the plant's like count lives.** A small, cheap, always-on
-  counter — Cloudflare Worker + KV, or a Supabase table — needs picking before
-  it's wired to anything on the desk.
+- [x] **Where the plant's like count lives.** Decided: a Supabase table, called
+  straight from the browser. Notion needed a relay because it sends no CORS
+  headers and its token is a workspace key; Supabase needs none, because its
+  anon key is meant to be published and row-level security is the boundary.
+  `workers/` is deleted. Remaining: paste the SQL and set the two repository
+  variables — `docs/likes.md`, ten minutes, no code.
 - [ ] **The weather IP → third-party trade**, restated: `weather.ts` sends a
   visitor's IP to ipwho.is/geojs and then Open-Meteo on every load. Reversible
   in one line (`locate()`) but still needs a yes/no.
