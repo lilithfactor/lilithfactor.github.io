@@ -484,12 +484,19 @@ figcaption {
   color: var(--text);
 }
 
+/* The author is a BYLINE, on its own line under the title.
+ *
+ * It used to run on after a middot, which broke badly in the dense two-column
+ * lists: a title long enough to wrap left the separator dangling at the end of
+ * a line - "Elon Musk, Steve Jobs ·" then "Walter Isaacson" - so the eye read
+ * a trailing mark before it read a name. A block author cannot do that, and it
+ * is how a bibliography sets a name anyway.
+ *
+ * Slightly smaller and lighter, so the title still leads. */
 .entry__author {
+  display: block;
+  font-size: var(--t-small-size);
   color: var(--text-muted);
-}
-
-.entry__author::before {
-  content: " · ";
 }
 
 .entry__when {
@@ -536,6 +543,44 @@ figcaption {
   display: inline-block;
   margin-inline: var(--s-2);
   color: var(--text-muted);
+}
+
+/* --- Subjects as chips, on the two reading cards ONLY --------------------
+ * Not in Finished or Next up. Those hold 34 entries carrying up to four
+ * subjects each, and ninety bordered boxes is a wall, not an index — the quiet
+ * mono line is doing the right job there. There are exactly two of these cards
+ * and they are the top of the section, so here the subjects can take up room.
+ *
+ * The chip ground is --paper-page rather than --paper-aged: --red-pen on aged
+ * is 4.35:1, and the marked chip puts red on this at 12px. */
+.reading__slips .entry__author {
+  margin-block-start: var(--s-1);
+}
+
+.reading__slips .entry__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  line-height: 1.4;
+}
+
+.reading__slips .tag {
+  padding: 0.25em 0.6em;
+  border: 1px solid var(--mark, var(--rule));
+  border-radius: var(--r-chip);
+  background-color: var(--paper-page);
+  /* The mark colours the whole chip - border and word together - instead of
+     underlining it. An underline inside a bordered box reads as a mistake. */
+  color: var(--mark, var(--text-muted));
+  text-decoration-line: none;
+  transition:
+    color var(--m-quick),
+    border-color var(--m-quick);
+}
+
+/* The middot separated words in a line. Boxes separate themselves. */
+.reading__slips .tag:not(:last-child)::after {
+  content: none;
 }
 
 /* Next up: dense, undated, alphabetical — an index rather than a log. */
