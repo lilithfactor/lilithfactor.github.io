@@ -607,18 +607,19 @@ html[data-stage="desk"] .panel-nav button:focus-visible {
  * frame, wherever the lamp happens to be on screen. With a panel open, the
  * canvas is behind the panel and the grip was left floating over the text as an
  * unexplained circle. Same for the hint. */
-html[data-panel] .desk-lamp-grip,
+/* The hint only. The lamp grip is NOT here any more, and deliberately so: its
+ * opacity is an inline style the rig rewrites every frame, so no rule in this
+ * file could ever win. It hides itself in lamp.ts instead. A CSS rule that
+ * silently loses is worse than no rule, because it reads as handled. */
 html[data-panel] .desk-hint {
   opacity: 0;
   pointer-events: none;
 }
 
-/* Same problem, the anchor marker. Opening a panel focuses it, so the section
- * matches :focus-within and stage.css paints its desk marker — a circle
- * floating over the panel's own text. !important because that rule is
- * html[data-stage="desk"] [data-artifact]:focus-within::after with
- * opacity: calc(var(--a) * .85), which outranks this selector, and stage.css
- * is not ours to edit. */
-html[data-panel] [data-artifact]::after {
-  opacity: 0 !important;
-}
+/* The anchor marker used to be force-hidden here — opening a panel focuses it,
+ * the section matched :focus-within, and stage.css painted a circle over the
+ * panel's own text. Hiding it with opacity left the box in layout, inside the
+ * panel's scroll container (a transformed ancestor is the containing block for
+ * position: fixed), where it reached past the right edge and gave the Library
+ * a horizontal scrollbar. The marker is debug-only now, so there is nothing
+ * left to hide. See the note in stage.css. */
