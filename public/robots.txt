@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /meta.json
+
+Sitemap: https://lilithfactor.github.io/sitemap-index.xml

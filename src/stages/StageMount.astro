@@ -65,10 +65,17 @@ import "../styles/desk-panels.css";
         // portfolio from assistive tech on a page with no desk to open them.
         if (!desk) panels.dispose();
       })
-      .catch(() => {
+      .catch((err) => {
         // No desk. From the visitor's point of view nothing failed: they are
         // looking at the complete, prerendered portfolio either way, and an
         // error message would be the only thing here that could break it.
+        //
+        // In dev it is the opposite: a silent swallow here once turned a stale
+        // Vite pre-bundle (a 504 on three.js after a dependency was installed
+        // mid-session) into "the desk just doesn't mount any more", with
+        // nothing in the console to say so. Stripped from the production
+        // bundle by the DEV constant.
+        if (import.meta.env.DEV) console.error("[stage] desk did not mount:", err);
       });
     });
   } else if (matchMedia("(max-width: 1023px)").matches) {

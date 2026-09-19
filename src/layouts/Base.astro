@@ -3,14 +3,35 @@ import "../styles/fonts.css";
 import "../styles/tokens.css";
 import "../styles/paper.css";
 import "../styles/sections.css";
+import Schema from "../components/Schema.astro";
 
 interface Props {
   title: string;
   description: string;
+  /** "article" on a case study. Everything else is a website. */
+  ogType?: string;
+  /** Page-specific JSON-LD nodes, appended to the site-wide graph. */
+  schema?: unknown[];
+  /** Keep the page out of the index *instead of* claiming a canonical. */
+  noindex?: boolean;
 }
 
-const { title, description } = Astro.props;
+const {
+  title,
+  description,
+  ogType = "website",
+  schema = [],
+  noindex = false,
+} = Astro.props;
+
 const canonical = new URL(Astro.url.pathname, Astro.site);
+
+/* One share card for the whole site, committed like the fonts are committed.
+ * It carries the name and the headline, not the page title, so it never goes
+ * stale when Notion republishes — and LinkedIn, Slack and iMessage render
+ * og:title over it anyway. Per-page cards would mean eight more binaries and a
+ * regeneration ritual tied to case-study names; see the report in the PR. */
+const ogImage = new URL("/og-card.png", Astro.site);
 ---
 
 <!doctype html>
@@ -20,11 +41,24 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
-    <link rel="canonical" href={canonical} />
+    {
+      /* GitHub Pages serves /404.html with a 200, so the 404 is a real,
+         crawlable, indexable page whose self-canonical would point at /404/ —
+         a URL that genuinely 404s. noindex instead of a canonical, never both. */
+    }
+    {
+      noindex ? (
+        <meta name="robots" content="noindex" />
+      ) : (
+        <link rel="canonical" href={canonical} />
+      )
+    }
 
-    {/* Preload only the two latin faces that render immediately. Mono is 9KB
+    {
+      /* Preload only the two latin faces that render immediately. Mono is 9KB
         and not in the critical path; latin-ext loads only if an accented
-        character appears, which is the whole point of unicode-range. */}
+        character appears, which is the whole point of unicode-range. */
+    }
     <link
       rel="preload"
       href="/fonts/lexend-latin-300-700.woff2"
@@ -43,15 +77,28 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     <meta name="theme-color" content="#faf7f0" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
-    <meta property="og:type" content="website" />
+    <meta property="og:type" content={ogType} />
     <meta property="og:url" content={canonical} />
+    <meta property="og:site_name" content="Pranav Upadhyay" />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Pranav Upadhyay, Product Manager — portfolio"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <Schema extra={schema} />
   </head>
   <body>
     <a href="#main-content" class="visually-hidden">Skip to content</a>
-    {/* No StageMount here. The desk is the homepage's presentation of the
+    {
+      /* No StageMount here. The desk is the homepage's presentation of the
         eight sections; on any other page there is nothing for it to present,
         and mounting it anyway paints the scene behind the article text
-        (shipped bug, 2026-08-14). index.astro mounts it. */}
+        (shipped bug, 2026-08-14). index.astro mounts it. */
+    }
     <slot />
   </body>
 </html>

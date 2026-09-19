@@ -31,9 +31,48 @@ const outcomes = (
 /* The narrative keeps every section in STAR order — including Results, in
  * full, in place. The grid above is the skim path, not a replacement. */
 const body = cs.body;
+
+/* Structured data. These eight pages are the site's indexable surface — eight
+ * long-form authored documents — and nothing in the markup said so. The Article
+ * node says what they are; `author` points at the Person node Schema.astro
+ * always emits, which is what attaches the work to the name.
+ *
+ * No datePublished/dateModified: the CaseStudy schema carries no date field and
+ * an invented one is worse than an absent one. Both are recommended, not
+ * required. See the note at the foot of src/components/Schema.astro. */
+const site = Astro.site!.href;
+const url = new URL(Astro.url.pathname, Astro.site).href;
+const article = {
+  "@type": "Article",
+  "@id": `${url}#article`,
+  headline: cs.name, // longest is 53 chars, well under Google's 110 cap
+  description: cs.summary,
+  url,
+  mainEntityOfPage: url,
+  inLanguage: "en",
+  author: { "@id": `${site}#pranav` },
+  isPartOf: { "@id": `${site}#website` },
+  keywords: [...cs.type, ...cs.domain, ...cs.kpis],
+};
+
+/* Two rungs, not three: there is no /case-studies/ index page, and a ListItem
+ * pointing at a URL that does not exist is a Search Console error rather than a
+ * rich result. The last rung correctly carries no `item` — it is this page. */
+const breadcrumbs = {
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Pranav Upadhyay", item: site },
+    { "@type": "ListItem", position: 2, name: cs.name },
+  ],
+};
 ---
 
-<Base title={`${cs.name} — Pranav Upadhyay`} description={cs.summary}>
+<Base
+  title={`${cs.name} — Pranav Upadhyay`}
+  description={cs.summary}
+  ogType="article"
+  schema={[article, breadcrumbs]}
+>
   <main id="main-content" tabindex="-1" class="page stack">
     <a class="back-link" href="/#case-studies">← Back to desk</a>
 
@@ -73,8 +112,10 @@ const body = cs.body;
                       ))}
                     </ul>
                   );
-                if (block.type === "quote") return <blockquote class="note">{block.text}</blockquote>;
-                if (block.type === "callout") return <p class="sheet sheet--aged case-body__callout">{block.text}</p>;
+                if (block.type === "quote")
+                  return <blockquote class="note">{block.text}</blockquote>;
+                if (block.type === "callout")
+                  return <p class="sheet sheet--aged case-body__callout">{block.text}</p>;
                 if (block.type === "para") return <p>{block.text}</p>;
                 if (block.type === "link")
                   return (
@@ -87,15 +128,24 @@ const body = cs.body;
                 if (block.type === "image")
                   return (
                     <figure class="case-body__figure">
+                      {/* Empty alt on purpose. A captioned figure is already
+                          named by its <figcaption>, and repeating the sentence
+                          makes a screen reader read it twice; an uncaptioned
+                          one has no description in Notion, and "<name> —
+                          supporting figure" described nothing. The real fix is
+                          an alt property on the Notion image, carried through
+                          the sync and the schema. */}
                       <img
                         src={block.src}
-                        alt={block.caption ?? `${cs.name} — supporting figure`}
+                        alt=""
                         width={block.width}
                         height={block.height}
                         loading="lazy"
                         decoding="async"
                       />
-                      {block.caption && <figcaption class="note">{block.caption}</figcaption>}
+                      {block.caption && (
+                        <figcaption class="note">{block.caption}</figcaption>
+                      )}
                     </figure>
                   );
                 return null;
@@ -109,8 +159,8 @@ const body = cs.body;
     {
       body.length === 0 && (
         <p class="note">
-          The full write-up for this one is being typed up — the summary above is
-          the shape of it.
+          The full write-up for this one is being typed up — the summary above is the
+          shape of it.
         </p>
       )
     }

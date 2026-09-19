@@ -1,0 +1,75 @@
+---
+/**
+ * The JSON-LD graph. One <script> per page, always carrying the two nodes that
+ * never change — who Pranav is, and what this site is — plus whatever the page
+ * adds (an Article, a breadcrumb trail).
+ *
+ * Why the Person node is on every page and not just the homepage: the Article
+ * nodes reference it by @id, and an @id only resolves inside the same graph.
+ *
+ * Every value comes through the content proxy. There is nothing to invent here
+ * and nothing that can drift from Notion. Fields the content cannot support are
+ * deliberately absent — see the note at the bottom of this file.
+ */
+import { about, caseStudies, links } from "../content/index";
+
+interface Props {
+  /** Page-specific nodes appended to the graph. */
+  extra?: unknown[];
+}
+
+const { extra = [] } = Astro.props;
+
+// "https://lilithfactor.github.io/". The two @ids are plain string literals
+// rather than an export, because a page that wants to point at them builds the
+// same string from Astro.site — no import across an .astro boundary.
+const site = Astro.site!.href;
+const PERSON_ID = `${site}#pranav`;
+const WEBSITE_ID = `${site}#website`;
+
+const mailto = links.find((l) => l.url.startsWith("mailto:"))?.url;
+
+const graph = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Person",
+      "@id": PERSON_ID,
+      name: "Pranav Upadhyay",
+      url: site,
+      jobTitle: "Product Manager",
+      description: about.headline,
+      // The union of every case study's Domain property: Travel, B2B, SaaS, XR, AR.
+      knowsAbout: [...new Set(caseStudies.flatMap((c) => c.domain))],
+      // schema.org/email is Text, not a URI — the mailto: scheme is stripped.
+      email: mailto?.slice("mailto:".length),
+      // The only machine-readable statement that the LinkedIn, GitHub, Goodreads
+      // and Chess.com accounts are the same person as this domain.
+      sameAs: links.filter((l) => l.url !== mailto).map((l) => l.url),
+    },
+    {
+      "@type": "WebSite",
+      "@id": WEBSITE_ID,
+      url: site,
+      name: "Pranav Upadhyay — Product Manager",
+      inLanguage: "en",
+      author: { "@id": PERSON_ID },
+      publisher: { "@id": PERSON_ID },
+    },
+    ...extra,
+  ],
+};
+
+/* Refused, because content/*.json cannot support them:
+ *   worksFor / Organization — `association` is the anonymised "Org" on seven of
+ *     the eight case studies and null on the eighth. The real company names in
+ *     the repo belong to the recommenders, not to Pranav.
+ *   image — there is no photograph of him in the repo. The mascots are drawn
+ *     characters, not a likeness.
+ *   alumniOf / address / birthDate — no such field in any JSON file.
+ *   datePublished / dateModified on Article — the CaseStudy schema has no date.
+ *     Recommended by Google, not required; an invented one is worse than none.
+ */
+---
+
+<script type="application/ld+json" set:html={JSON.stringify(graph)} is:inline />

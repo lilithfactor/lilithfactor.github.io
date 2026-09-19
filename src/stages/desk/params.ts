@@ -40,14 +40,23 @@ export interface TunerTargets {
   notes: Map<string, Object3D>;
   lamp: Object3D;
   /**
-   * The plant on the sill, and which growth stage it is showing.
+   * The plant on the sill: where it stands, and the three things about its
+   * growth that are decided here rather than by the count.
    *
-   * `stage` is a PREVIEW and nothing else: it attaches and removes tiers so
-   * every stage can be looked at without inventing a hundred likes, and it
-   * never writes to the count. The next real like puts the plant back where
-   * the total says it belongs. See plant.ts.
+   * None of these is a preview. Every one of them is saved to tuned.json and
+   * replayed at mount, which is the difference between a knob for looking and
+   * a knob for deciding. The COUNT is the thing that is not here — it lives in
+   * Supabase, where it can be edited without a deploy. See plant.ts.
    */
-  plant: { object: Object3D; stage: { get(): number; set(v: number): void } };
+  plant: {
+    object: Object3D;
+    /** -1 derives the stage from the count; 0-4 pins it there. */
+    stage: { get(): number; set(v: number): void };
+    /** Added to the real count before the ladder is read. */
+    seed: { get(): number; set(v: number): void };
+    /** Threshold `i`, 1-4. The setter keeps the ladder ascending. */
+    threshold: { get(i: number): number; set(i: number, v: number): void };
+  };
   /** The base sheet's bow, in metres of lift at the crown. See desk.ts. */
   deskBow: { get(): number; set(v: number): void };
   /**
@@ -468,9 +477,11 @@ export function specs(t: TunerTargets): Spec[] {
    * off a real ledge rather than a position found by dragging. The range is
    * the room's, not the desk's: the sill is behind and below everything else.
    *
-   * `stage` is the one knob here that is not a placement. It exists so the
-   * growth can be reviewed — all five of them, in order, in about four seconds
-   * — without anybody having to fake a hundred likes to see the flower. */
+   * The last three are not placements at all. They are the growth itself, and
+   * they are HERE — in a file that is committed and diffed — rather than in
+   * the database, because when the plant grows is a design decision and how
+   * many people liked it is a fact. Facts belong where they can be corrected
+   * without a deploy; decisions belong where they can be argued with. */
   AXIS.forEach((name, i) => {
     num({
       key: `plant.${name}`,
@@ -493,11 +504,75 @@ export function specs(t: TunerTargets): Spec[] {
     get: () => t.plant.object.scale.x,
     set: (v) => t.plant.object.scale.setScalar(v),
   });
+  /* THE LADDER. Four boundaries above stage 0, which is free — a visitor who
+   * never clicks still sees a plant, and always has.
+   *
+   * The ranges climb with the rung so the sliders are usable at the values
+   * they will actually hold: a t1 slider that runs to 300 spends its whole
+   * travel in a region where the first click does nothing. The setter repairs
+   * the order (plant.ts), so dragging these into a mess is not possible — the
+   * worst that happens is a neighbouring rung moving out of the way. */
+  ([
+    [1, 30],
+    [2, 60],
+    [3, 150],
+    [4, 300],
+  ] as const).forEach(([i, max]) => {
+    num({
+      key: `plant.t${i}`,
+      group: "Plant",
+      label: `stage ${i} at`,
+      min: i,
+      max,
+      step: 1,
+      get: () => t.plant.threshold.get(i),
+      set: (v) => t.plant.threshold.set(i, v),
+    });
+  });
+
+  /* THE SEED. Added to the real count before the ladder is read, so the plant
+   * can open looking established on a site nobody has visited yet.
+   *
+   * It is a slider rather than a constant because this is the number most
+   * likely to be wrong and most likely to want changing, and because a number
+   * sitting in tuned.json next to the thresholds is a number whose existence
+   * is obvious. A "starting count" hidden inside a function is the version of
+   * this that turns into a small lie nobody remembers telling. */
   num({
-    key: "plant.stage",
+    key: "plant.seed",
     group: "Plant",
-    label: "stage 0-4",
+    label: "seed likes",
     min: 0,
+    max: 500,
+    step: 1,
+    get: () => t.plant.seed.get(),
+    set: (v) => t.plant.seed.set(v),
+  });
+
+  /* THE OVERRIDE. -1 is the default and means "read the count". 0-4 pins the
+   * plant at that stage and it stays there.
+   *
+   * Say the trade out loud, because the next person to find this will think it
+   * is broken: A PINNED PLANT DOES NOT RESPOND TO LIKES. The count still
+   * moves, the tag still shows it, the shape does not change. That is what an
+   * override is for — parking the plant at a known shape for a screenshot, or
+   * looking at all five stages in four seconds without inventing likes — and
+   * it is why the tag drops its "more to grow" line while a pin is in rather
+   * than promising a change that is not coming. Put it back to -1 when done.
+   *
+   * THE KEY IS `plant.pin`, NOT `plant.stage`, and the rename is the migration.
+   * `plant.stage` meant "the stage the tuner is previewing", it was excluded
+   * from applyTuned, and the file on disk still holds a 0 against it. Keeping
+   * the name would have made that stale 0 mean "pin every visitor's plant at
+   * stage 0" the moment this key started being replayed — a silent, shipped
+   * regression from a value nobody typed for this purpose. A new key is read
+   * as absent, absent means -1, and -1 means what it always did. The old entry
+   * is ignored (see the note on applyTuned) and can be deleted next Save. */
+  num({
+    key: "plant.pin",
+    group: "Plant",
+    label: "pin stage (-1 off)",
+    min: -1,
     max: 4,
     step: 1,
     get: () => t.plant.stage.get(),
@@ -630,12 +705,14 @@ export function applyTuned(t: TunerTargets, saved: Tuned): void {
      * bounce a reload off each other forever. The tuner still writes it to the
      * file; nothing reads it back. */
     if (key === "theme") continue;
-    /* AND EXCEPT THE PLANT'S STAGE, for a related reason: it is a preview of
-     * something the LIKE COUNT owns, so replaying a saved one would show every
-     * visitor whichever stage happened to be on screen when Save was pressed,
-     * until their next like corrected it. The knob still moves the plant and
-     * the tuner still writes the value; nothing reads it back. */
-    if (key === "plant.stage") continue;
+    /* `plant.stage` USED TO BE SKIPPED HERE. It was a preview of something the
+     * like count owned, so replaying a saved one would have shown every
+     * visitor whichever stage was on screen when Save was pressed. The knob it
+     * named is now `plant.pin`, an explicit override that IS replayed — -1
+     * means "read the count" and is the default — so there is no exception
+     * left to write. The stale `plant.stage` still in tuned.json falls through
+     * the unknown-key path below and does nothing, which is the whole reason
+     * the key was renamed rather than redefined. */
     const spec = byKey.get(key);
     if (!spec) continue;
     if (spec.kind === "num") {
