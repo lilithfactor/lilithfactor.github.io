@@ -39,6 +39,15 @@ export interface TunerTargets {
    */
   notes: Map<string, Object3D>;
   lamp: Object3D;
+  /**
+   * The plant on the sill, and which growth stage it is showing.
+   *
+   * `stage` is a PREVIEW and nothing else: it attaches and removes tiers so
+   * every stage can be looked at without inventing a hundred likes, and it
+   * never writes to the count. The next real like puts the plant back where
+   * the total says it belongs. See plant.ts.
+   */
+  plant: { object: Object3D; stage: { get(): number; set(v: number): void } };
   /** The base sheet's bow, in metres of lift at the crown. See desk.ts. */
   deskBow: { get(): number; set(v: number): void };
   /**
@@ -454,6 +463,47 @@ export function specs(t: TunerTargets): Spec[] {
     set: (v) => (t.lamp.rotation.y = v * DEG),
   });
 
+  /* --- The plant ------------------------------------------------------------
+   * Placed from the window rig's published sill centre, so these are nudges
+   * off a real ledge rather than a position found by dragging. The range is
+   * the room's, not the desk's: the sill is behind and below everything else.
+   *
+   * `stage` is the one knob here that is not a placement. It exists so the
+   * growth can be reviewed — all five of them, in order, in about four seconds
+   * — without anybody having to fake a hundred likes to see the flower. */
+  AXIS.forEach((name, i) => {
+    num({
+      key: `plant.${name}`,
+      group: "Plant",
+      label: name,
+      min: -1.6,
+      max: 1.6,
+      step: 0.005,
+      get: () => t.plant.object.position.getComponent(i),
+      set: (v) => t.plant.object.position.setComponent(i, v),
+    });
+  });
+  num({
+    key: "plant.scale",
+    group: "Plant",
+    label: "scale",
+    min: 0.3,
+    max: 3,
+    step: 0.01,
+    get: () => t.plant.object.scale.x,
+    set: (v) => t.plant.object.scale.setScalar(v),
+  });
+  num({
+    key: "plant.stage",
+    group: "Plant",
+    label: "stage 0-4",
+    min: 0,
+    max: 4,
+    step: 1,
+    get: () => t.plant.stage.get(),
+    set: (v) => t.plant.stage.set(v),
+  });
+
   /* --- Every object's placement -------------------------------------------- */
   for (const [id, object] of t.artifacts) {
     AXIS.forEach((name, i) => {
@@ -580,6 +630,12 @@ export function applyTuned(t: TunerTargets, saved: Tuned): void {
      * bounce a reload off each other forever. The tuner still writes it to the
      * file; nothing reads it back. */
     if (key === "theme") continue;
+    /* AND EXCEPT THE PLANT'S STAGE, for a related reason: it is a preview of
+     * something the LIKE COUNT owns, so replaying a saved one would show every
+     * visitor whichever stage happened to be on screen when Save was pressed,
+     * until their next like corrected it. The knob still moves the plant and
+     * the tuner still writes the value; nothing reads it back. */
+    if (key === "plant.stage") continue;
     const spec = byKey.get(key);
     if (!spec) continue;
     if (spec.kind === "num") {

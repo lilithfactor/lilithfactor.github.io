@@ -57,6 +57,7 @@ import { loadModels } from "./models";
 import { buildArtifact, buildNote, MODEL_SPECS, NOTE_SIZE } from "./objects";
 import { createOutlines } from "./outline";
 import { createPicker } from "./pick";
+import { createPlant } from "./plant";
 import { blend, readPalette } from "./palette";
 import { applyTuned, type Tuned, type TunerTargets } from "./params";
 import tuned from "./tuned.json";
@@ -350,6 +351,24 @@ export async function mountDesk(options: DeskOptions = {}): Promise<DeskHandle |
   lamp.glow.userData.noOutline = true;
   outlines.apply(room);
 
+  /* --- The plant on the sill ------------------------------------------------
+   * The one object here that is not a section. It stands on the ledge the
+   * window rig publishes — `view.sill.centre` is the middle of the sill's top
+   * surface in the ROOM's own space, which is exactly what it was reserved for
+   * — so it is a child of the room and turns with it, and nothing had to be
+   * measured off a screenshot.
+   *
+   * Off to one side by a fifth of the sill, because the middle of the window
+   * is the view, and a plant parked in front of the sky is a plant in the way.
+   *
+   * Outlined explicitly: the room was baked before this existed, so it would
+   * otherwise stand there in paper with no ink on it. */
+  const plantRig = createPlant(palette, materials, (root) => outlines.apply(root));
+  plantRig.group.position.copy(view.sill.centre);
+  plantRig.group.position.x += view.sill.width * 0.2;
+  room.add(plantRig.group);
+  outlines.apply(plantRig.group);
+
   // --- Objects and their anchors ------------------------------------------
   const anchors = new Map<ArtifactId, Vector3>();
   const placed = new Map<string, Object3D>();
@@ -615,13 +634,26 @@ export async function mountDesk(options: DeskOptions = {}): Promise<DeskHandle |
    * `picked` is kept apart from `raised` on purpose: the two can disagree for
    * a frame (the pointer leaves the handle while the ray still finds the
    * object under it) and a single flag would drop the object mid-hover. */
+  /* THE PLANT IS A TARGET, AND IT IS NOT A SECTION.
+   *
+   * Kept in its own map rather than added to `placed`, which is also what the
+   * tuner walks to build per-object knobs: a "plant" entry in there would
+   * generate an artifact.plant.y slider wired to a piece that does not exist,
+   * and a knob that silently does nothing is worse than no knob. So the
+   * raycaster gets a superset and everything else keeps the eight.
+   */
+  const pickTargets = new Map<string, Object3D>(placed);
+  pickTargets.set("plant", plantRig.group);
+
   const picker = createPicker(
-    placed,
+    pickTargets,
     (id) => {
       for (const piece of pieces) piece.picked = piece.id === id;
     },
-    // Not our call to make. panels.ts owns open(); the desk only knocks.
-    (id) => options.open?.(id),
+    // Not our call to make. panels.ts owns open(); the desk only knocks. The
+    // plant is the exception, because there is nothing to open — the click is
+    // the whole interaction, and the rig owns it.
+    (id) => (id === "plant" ? plantRig.activate() : options.open?.(id)),
   );
 
   const onFocusIn = (e: FocusEvent) => {
@@ -701,6 +733,7 @@ export async function mountDesk(options: DeskOptions = {}): Promise<DeskHandle |
 
     tuner?.dispose();
     picker.dispose();
+    plantRig.dispose();
     lampRig.dispose();
     pressKit.dispose();
     clearAnchors(bindings);
@@ -856,6 +889,10 @@ export async function mountDesk(options: DeskOptions = {}): Promise<DeskHandle |
     renderer.render(scene, rig.camera);
     projectAnchors(bindings, rig.camera, size.width, size.height, rig.reference);
     lampRig.update(rig.camera, size.width, size.height);
+    // After the camera has moved, with the anchors and the lamp's grip: eases
+    // anything the last like set growing, and keeps the like button and its
+    // tally standing over the pot.
+    plantRig.update(rig.camera, size.width, size.height, dt);
     // One raycast per frame at most, and only if the pointer has moved since
     // the last one. Never per event. See pick.ts.
     picker.update(rig.camera);
@@ -965,6 +1002,7 @@ export async function mountDesk(options: DeskOptions = {}): Promise<DeskHandle |
     artifacts: placed,
     notes: noteObjects,
     lamp: lamp.group,
+    plant: { object: plantRig.group, stage: plantRig.preview },
     camera: { get: rig.overview, set: rig.setOverview },
     parallax: rig.parallaxTuning,
     // The base sheet's bow. Re-bowed from the flat copy desk.ts keeps, and

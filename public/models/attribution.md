@@ -3,9 +3,16 @@
 Every model on the desk, where it came from, and its licence. Fetched by
 `scripts/fetch-models.mjs`, which is the only thing that should write here.
 
-The desk surface, the walls, the paper sheets, the printed outcomes and the
-business card are **not** in this list: they are procedural geometry built in
-`src/stages/desk/`, and owe nobody a credit.
+The desk surface, the walls, the paper sheets, the printed outcomes, the
+business card, the bookcase and **the plant on the window sill** are **not** in
+this list: they are procedural geometry built in `src/stages/desk/`, and owe
+nobody a credit.
+
+The plant is called out by name because it is the newest and the most
+model-like, and somebody is going to come looking for its licence. There is no
+file to license — every pot, stem and leaf in it is cut in
+`objects.ts/plant()`, and its five growth stages are geometry this repo
+authored. Nothing was downloaded, so there is nothing to credit.
 
 All models are re-materialled on load — the paper Lambert, the cut-edge vertex
 colours and the palette tokens are ours; the geometry is theirs.

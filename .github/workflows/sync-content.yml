@@ -4,8 +4,12 @@ name: Sync content
 #   schedule  — the guarantee (every 30 min)
 #   dispatch  — the speed (runnable from the GitHub mobile app, or a Notion
 #               automation webhook via repository_dispatch)
-# Committing content/*.json to main triggers deploy.yml, so a Notion edit is
-# live in ~2 minutes without anyone opening a laptop.
+# This workflow CALLS deploy.yml when it commits. It used to rely on the push
+# to main triggering deploy.yml on its own, which never once worked: GitHub
+# refuses to trigger a workflow from a push made with the default GITHUB_TOKEN,
+# deliberately, so that a workflow cannot loop by committing. The sync happily
+# committed every half hour, printed "deploy.yml will publish it", and nothing
+# published. The site served 2026-08-13 content until 2026-09-17.
 
 on:
   schedule:
@@ -14,8 +18,13 @@ on:
   repository_dispatch:
     types: [notion-changed]
 
+# contents: write to commit the sync. The other two are for deploy.yml, which
+# this workflow calls: a called workflow gets the CALLER's permissions, so
+# leaving them out here makes the deploy fail on a token it cannot use.
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 concurrency:
   group: sync-content
@@ -24,6 +33,10 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    # Whether anything actually changed, so the deploy below can skip the ~27
+    # runs a day where Notion was untouched.
+    outputs:
+      changed: ${{ steps.commit.outputs.changed }}
     steps:
       - uses: actions/checkout@v7
 
@@ -39,6 +52,7 @@ jobs:
         run: node scripts/sync-notion.mjs
 
       - name: Commit if content changed
+        id: commit
         run: |
           set -euo pipefail
           # -I ignores lines matching the regex: meta.json's syncedAt changes on
@@ -48,6 +62,7 @@ jobs:
           if git diff --quiet -I '"syncedAt"' -- content/; then
             echo "No content changes (timestamp-only)."
             git checkout -- content/
+            echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git config user.name  "github-actions[bot]"
@@ -56,4 +71,15 @@ jobs:
           # Subject is filtered out of release notes — see brain/work/releases.md.
           git commit -m "Sync content from Notion"
           git push
-          echo "Content updated; deploy.yml will publish it."
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+  # The half of this that was missing. Calling deploy.yml is the only way a
+  # bot-authored commit reaches the site.
+  publish:
+    needs: sync
+    if: needs.sync.outputs.changed == 'true'
+    uses: ./.github/workflows/deploy.yml
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
