@@ -177,6 +177,26 @@ const beyondLink = (name: string) => {
       </div>
     </header>
 
+    {
+      /* THE WAY OUT, ON A PHONE.
+        This page is a desk on a laptop and a long document on a phone, and the
+        long document is the weaker of the two. The same writing already lives
+        in Notion, which is built for reading on a phone and does it better, so
+        the honest thing is to say so rather than make someone scroll.
+
+        In the document, not in the dismissible chip: a chip that is dismissed
+        is an option gone for good, and a fixed overlay on a scrolling page
+        always covers something. This sits in the flow, costs no JavaScript,
+        and is there with JavaScript off. Hidden above 1024px, where the desk
+        is the better answer. */
+    }
+    <p class="plain-version">
+      <a href="https://lilithfactor.notion.site/pranav-upadhyay" rel="noopener">
+        Read this on Notion instead
+      </a>
+      <span>Built for a phone. Same writing.</span>
+    </p>
+
     <Section id="about" label="About" title="About">
       <p class="lead">{about.headline}</p>
       {about.paragraphs.map((para) => <p>{para}</p>)}

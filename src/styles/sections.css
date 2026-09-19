@@ -763,3 +763,38 @@ figcaption {
   box-shadow: var(--e-rest);
   background-color: var(--surface);
 }
+
+/* --- The plain version, on small screens --------------------------------
+ * Hidden at desk widths: up there the desk IS the better version, and this
+ * would be an apology for the thing the visitor is already enjoying. */
+.plain-version {
+  display: none;
+}
+
+@media (max-width: 63.99rem) {
+  .plain-version {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-1);
+    margin: var(--s-5) 0 0;
+    padding: var(--s-4) var(--s-5);
+    max-width: none;
+    border: 1px solid var(--rule);
+    border-radius: var(--r-sheet);
+    background-color: var(--paper-aged);
+  }
+
+  .plain-version a {
+    font-family: var(--font-mono);
+    font-size: var(--t-label-size);
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    /* The whole row is the target, so the 44px comes from the padding above
+       rather than from a tall invisible band around the words. */
+  }
+
+  .plain-version span {
+    font-size: var(--t-small-size);
+    color: var(--text-muted);
+  }
+}
