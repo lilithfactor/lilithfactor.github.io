@@ -285,27 +285,43 @@ hr,
   max-width: 100%;
 }
 
+/* The pocket edition's one nudge toward the desk — ux-rules.md rule 8, a chip
+ * and never a wall.
+ *
+ * It is NOT `position: fixed` any more, and that is the whole fix. A fixed
+ * chip over a scrolling document covers something by definition: at 390px it
+ * opened in the middle of the About paragraph, 195 × 114px of body copy behind
+ * a three-line pill, on first load, before the visitor had read a sentence.
+ * Reserving a gutter at the foot of the page rescues the END of the document
+ * and nothing else — the chip still sits over whatever line happens to be
+ * under it at every other scroll position.
+ *
+ * So it leaves the overlay layer and joins the flow, last in the column. It
+ * cannot cover a word at any width or any scroll position, because there is
+ * nothing underneath it. Bottom-anchored in the sense rule 8 actually needs:
+ * at the bottom, after the reading, an invitation rather than an interruption.
+ * The cost is honest and worth naming — a visitor who never scrolls to the end
+ * never sees it. */
 .stack-chip {
-  position: fixed;
-  bottom: var(--s-4);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 9;
-
   display: flex;
   align-items: center;
   gap: var(--s-2);
-  max-width: calc(100vw - var(--s-6));
+  /* .stack already spaces its children; this is the extra breath that stops
+   * the chip reading as the last section's footnote. */
+  margin: var(--s-8) 0 0;
   padding: var(--s-2) var(--s-3) var(--s-2) var(--s-4);
 
   background-color: var(--paper-sheet);
   color: var(--text-muted);
   border: 1px solid var(--rule);
   border-radius: var(--r-chip);
-  box-shadow: var(--e-lift);
   font-family: var(--font-mono);
   font-size: var(--t-label-size);
   letter-spacing: 0.05em;
+}
+
+.stack-chip > span {
+  flex: 1;
 }
 
 .stack-chip button {

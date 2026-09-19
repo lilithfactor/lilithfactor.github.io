@@ -224,10 +224,36 @@ html[data-stage="desk"] .desk-scrim[data-visible] {
  * One line, dismissed on the first open, never shown again this session. */
 html[data-stage="desk"] .desk-hint {
   position: fixed;
-  bottom: var(--s-6);
-  left: 50%;
-  transform: translateX(-50%);
+  /* NOT centred on the viewport any more.
+   *
+   * The bottom band already has two owners — the masthead on the left, the
+   * sound chip on the right — and a pill centred between them sat inside the
+   * masthead's box at every desk width: 225px of it printed across
+   * "Upadhyay" at 1024, and still 17px of box overlap at 1440. So the hint
+   * stops competing for the middle and stacks on top of the sound chip: same
+   * right edge, one row up. Stacking rather than sitting beside it is the
+   * part that keeps working — the chip grows when a track is playing (name
+   * plus credit), so any gap reserved to its left is a gap it can outgrow,
+   * while a row above it is a row whatever its width.
+   *
+   * The bottom offset is the sound stack read from the floor up: the chip at
+   * s-5, NEXT TRACK at s-5 + 3.5rem and 2.75rem tall once a track is playing,
+   * then s-4 of air. The hint only leaves on the first panel open, so it can
+   * still be on screen when that second button appears; clearing the resting
+   * chip alone would have been a fix that undid itself the moment someone
+   * pressed play.
+   *
+   * max-width is the guard against the masthead, and it is deliberately in
+   * vw rather than ch: `ch` resolves against this element's 12px mono, not
+   * against the display face the masthead is measured in, so a ch-based
+   * clearance here would be a number that only looks related. The masthead
+   * reaches at most s-7 + 50vw; the hint starts at 60vw - s-5; the two cannot
+   * meet at any width the desk exists at (>= 1024px). */
+  right: var(--s-5);
+  bottom: calc(var(--s-5) + 3.5rem + 2.75rem + var(--s-4));
   z-index: 3;
+  margin: 0;
+  max-width: 40vw;
 
   padding: var(--s-2) var(--s-4);
   border-radius: var(--r-chip);

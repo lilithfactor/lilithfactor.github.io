@@ -97,7 +97,12 @@ import "../styles/desk-panels.css";
         chip.remove();
       });
       chip.append(x);
-      document.body.append(chip);
+      // Into the column, not on top of it. Appended to <body> it was a fixed
+      // overlay sitting across the About copy on first load; as the last child
+      // of <main> it is part of the document and covers nothing. See the note
+      // on .stack-chip in paper.css. Falls back to <body> only if the page has
+      // no <main>, which no page here does.
+      (document.querySelector("main") ?? document.body).append(chip);
     }
   }
 </script>
