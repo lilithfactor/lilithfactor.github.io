@@ -592,7 +592,7 @@ export async function mountDesk(options: DeskOptions = {}): Promise<DeskHandle |
   scene.add(shadows);
 
   const size = { width: window.innerWidth, height: window.innerHeight };
-  const rig = createCameraRig(anchors, size.width, size.height);
+  const rig = createCameraRig(size.width, size.height);
   const bindings: Binding[] = bindAnchors(anchors, noteExtents);
 
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_DPR));
@@ -657,40 +657,14 @@ export async function mountDesk(options: DeskOptions = {}): Promise<DeskHandle |
   );
 
   const onFocusIn = (e: FocusEvent) => {
-    const id = sectionOf(e.target);
-    setRaised(id, true);
-    // The camera moves for focus and for nothing else. Never for scroll.
-    rig.frame(id);
+    // The object lifts. The camera does not move - see createCameraRig.
+    setRaised(sectionOf(e.target), true);
   };
   const onFocusOut = (e: FocusEvent) => {
     const id = sectionOf(e.target);
     if (id && sectionOf(e.relatedTarget) !== id) setRaised(id, false);
   };
 
-  /* --- WHAT IS OPEN DECIDES WHAT IS FRAMED --------------------------------
-   * Focus alone could not answer this, and the reason is worth keeping: what
-   * framed the object on the way in was the HANDLE taking focus when it was
-   * clicked. Closing hands focus back to that same handle — which never lost
-   * it — so no focusin fires, nothing calls frame(null), and the camera simply
-   * stays where the last focus put it. The ✕, Escape, the scrim, "Back to the
-   * desk" and Back all ended there, and fixing them one at a time would be five
-   * callbacks that have to agree.
-   *
-   * panels.ts already writes the one fact behind all five: `data-panel` on
-   * <html>, set on open and deleted on close. So the framing reads that instead
-   * of guessing from focus. Observer callbacks land after the click handler
-   * that moved focus, so this is what the rig is left holding. panels.ts stays
-   * ignorant of the camera, and the desk stays mountable without it. */
-  const onPanelChange = () => {
-    const id = document.documentElement.dataset.panel;
-    const known = id && (ARTIFACT_IDS as readonly string[]).includes(id);
-    rig.frame(known ? (id as ArtifactId) : null);
-  };
-  const panelWatch = new MutationObserver(onPanelChange);
-  panelWatch.observe(document.documentElement, { attributeFilter: ["data-panel"] });
-  // Panels mount before the desk does, so a shared link like /#library has
-  // already opened one by the time there is a camera to point at it.
-  onPanelChange();
 
   const onPointerMove = (e: PointerEvent) => {
     rig.parallax((e.clientX / size.width) * 2 - 1, (e.clientY / size.height) * 2 - 1);
@@ -725,7 +699,6 @@ export async function mountDesk(options: DeskOptions = {}): Promise<DeskHandle |
     document.removeEventListener("pointerout", onPointerOut);
     document.removeEventListener("focusin", onFocusIn);
     document.removeEventListener("focusout", onFocusOut);
-    panelWatch.disconnect();
     document.removeEventListener("visibilitychange", onVisibility);
     window.removeEventListener("resize", onResize);
     canvas.removeEventListener("webglcontextlost", onContextLost);

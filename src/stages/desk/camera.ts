@@ -16,7 +16,7 @@
  * ========================================================================== */
 
 import { PerspectiveCamera, Vector3 } from "three";
-import { FRAMING_OFFSET, OVERVIEW, type ArtifactId } from "./layout";
+import { OVERVIEW } from "./layout";
 
 const DRIFT_YAW = 0.85 * (Math.PI / 180);
 const DRIFT_PITCH = 0.45 * (Math.PI / 180);
@@ -36,8 +36,6 @@ export interface CameraRig {
   readonly camera: PerspectiveCamera;
   /** Distance from the overview camera to the desk — the --scale reference. */
   readonly reference: number;
-  /** Pass null to return to the overview. */
-  frame(id: ArtifactId | null): void;
   update(elapsed: number, dt: number): void;
   resize(width: number, height: number): void;
   /** Cursor position, each axis −1…1. The rig damps it; callers just report. */
@@ -65,16 +63,25 @@ export interface CameraRig {
   }): void;
 }
 
-export function createCameraRig(
-  anchors: ReadonlyMap<ArtifactId, Vector3>,
-  width: number,
-  height: number,
-): CameraRig {
+/* THE CAMERA DOES NOT MOVE TO A SECTION, and that is a decision rather than
+ * an omission.
+ *
+ * It used to fly to whichever object you opened. The trouble is that the set is
+ * a set: it has three walls, the backdrop stops, and the objects are placed for
+ * ONE viewpoint. Flying to the bookcase on the far left swung the eye wide
+ * enough to see past the edge of the world - the backdrop's border, the gap
+ * behind the pinboard, the flat back of things only ever seen from the front.
+ *
+ * So the rig no longer takes the anchors and has no frame(). The eye stays on
+ * its rails and only the cursor moves it, within the cone the parallax and gaze
+ * constants allow. Anchors are still computed - anchors.ts needs them to pin
+ * each DOM handle over its object every frame - they just no longer aim a
+ * camera. */
+export function createCameraRig(width: number, height: number): CameraRig {
   const camera = new PerspectiveCamera(OVERVIEW.fov, width / height, 0.1, 20);
 
   const overviewPosition = new Vector3(...OVERVIEW.position);
   const overviewTarget = new Vector3(...OVERVIEW.target);
-  const framingOffset = new Vector3(...FRAMING_OFFSET);
 
   const targetPosition = overviewPosition.clone();
   const targetLookAt = overviewTarget.clone();
@@ -104,7 +111,7 @@ export function createCameraRig(
    * thing it is looking at, so raising the throw cannot push the subject out
    * of frame the way dollying sideways would. And because the orbit is applied
    * to `position` and the gaze to `lookAt` — both AFTER their own easing —
-   * neither fights `frame(id)`: with the cursor centred both terms are exactly
+   * neither fights the resting shot: with the cursor centred both terms are exactly
    * zero, so every framed shot and the walk home from it are untouched.
    *
    * The cone is bounded by construction rather than by trust: `parallax()`
@@ -175,21 +182,8 @@ export function createCameraRig(
         camera.fov = fov;
         camera.updateProjectionMatrix();
       }
-      // Retarget only if nothing is being framed, so tuning the resting shot
-      // while a panel is open does not yank the camera off its subject.
       targetPosition.copy(overviewPosition);
       targetLookAt.copy(overviewTarget);
-    },
-
-    frame(id) {
-      const anchor = id === null ? null : anchors.get(id);
-      if (!anchor) {
-        targetPosition.copy(overviewPosition);
-        targetLookAt.copy(overviewTarget);
-        return;
-      }
-      targetLookAt.copy(anchor);
-      targetPosition.copy(anchor).add(framingOffset);
     },
 
     update(elapsed, dt) {
