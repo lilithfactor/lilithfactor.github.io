@@ -3,14 +3,115 @@
 Build-scoped tasks. Ideas live in [vision.md](vision.md); the flow is in
 [workflow.md](../work/workflow.md).
 
-**State, 2026-08-15.** Local is several commits ahead of the live site by
+**State, 2026-09-19.** Local is several commits ahead of the live site by
 design: changes are verified on `localhost:4321` first now, because people may
-be reading the deployed page. Live is on `898595e`.
+be reading the deployed page. Live is on `6e05aff` (PR #7, the favicon); the
+work above it sits on `feat/library`.
 
 **State, 2026-08-14: the live desk is shipped.** https://lilithfactor.github.io/
 is a paper-craft desk with printed outcomes, click-to-open panels, an
 adjustable lamp, sound, cursor parallax, and full STAR case-study pages.
 Everything below the line is what remains.
+
+## Shipped 2026-09-19 — likes, the plant, the Library, SEO
+
+- [x] **The like counter runs on Supabase**, called straight from the browser;
+      `workers/` is gone. The live table returns `{"likes":60}` and the page's
+      own label agrees.
+- [x] **The plant on the sill grows on that real count**, ladder 1/20/100/200
+      (`plant.t1`–`t4`).
+- [x] **The Library is a reading log with a subject index** — 36 titles, and the
+      index *marks* instead of filtering: picking "History" leaves all 36 in the
+      DOM and visible and marks the 6 that carry it.
+- [x] **The SEO layer**: `@astrojs/sitemap`, `robots.txt`, a generated
+      `llms.txt` (8,377 b), JSON-LD via `Schema.astro`, one `og-card.png`
+      (1200×630, matching what the head declares). All nine sitemap `<loc>`s
+      return 200; `/404.html` is correctly not among them.
+- [x] **Search Console verification file** live (`/google27bd…html` → 200).
+- [x] **The sync deploys again.** It committed every 30 minutes for a month and
+      published nothing; `sync-content.yml` now *calls* `deploy.yml`. Live
+      `/meta.json` `syncedAt` matches the repo byte-for-byte. See learning.md.
+- [x] **Favicon merged (PR #7) and live** — `favicon-32/48.png` and
+      `apple-touch-icon.png` all 200.
+- [x] **Article pages still ship zero JS** — each of the 8 has exactly one
+      `<script>`, and it is `application/ld+json`.
+- [x] **Mobile still pays nothing for the desk.** At 390×844 with touch
+      emulation the only script fetched is the 2,783 b gate; `scene.*.js`
+      (713 KB) is not requested. At 1440 it is.
+
+## Found by the checklist — 2026-09-19
+
+- [ ] **Lighthouse on the live homepage is Performance 14** against steps.md's
+      ≥ 90 gate: CLS 1.0, TBT 3,110 ms, LCP 3.3 s. A desk-free case-study page
+      scores 100 / CLS 0 / TBT 0 under the identical config, so it is the desk's
+      mount and nothing else. Decide it in writing: reserve the canvas box
+      before the swap, or say in steps.md that the gate excludes the desk route.
+      Right now the checklist says the site fails its own gate.
+- [ ] **Case-study images are unoptimized full-size PNGs**, by far the heaviest
+      thing on the site: `dist/case-studies/configurator-…/` is 5.4 MB
+      (`1.png` 1,197,873 b, `2.png` 1,074,661 b), `60-faster-onboarding…` 3.9 MB.
+      `astro.config.mjs` sets `image: { responsiveStyles: true }` and nothing
+      routes these through the pipeline. It lands on the page a recruiter opens.
+- [ ] **A pointer click on a paper note can open the wrong section.** Pressing
+      "Beyond the routine" opened Library 3/3; "About" opened Product dives;
+      three notes opened nothing. The note moves out from under a stationary
+      cursor between down and up, so no click reaches the `<button>` and the
+      pointerup raycast (`src/stages/desk/pick.ts:136`) resolves whatever pixel
+      is there. **Re-measure against HEAD first:** the diagnosis blamed
+      `rig.frame()` on focusin and `acd4db1` already removed that —
+      `scene.ts:659-661` now only lifts the object, which still moves the note.
+      The keyboard path is unaffected.
+- [ ] **`panel.focus()` on open is a no-op** (`src/stages/panels.ts:297`). After
+      Enter, `activeElement` is still the handle at +200/+800/+2000 ms; the same
+      call by hand once the panel is open works. It is the
+      `visibility: hidden → visible` transition (`desk-panels.css:93-100`) not
+      having recalculated in the task that sets `[data-open]`. The comment above
+      it says the point is that assistive tech announces the panel; it does not.
+- [ ] **So the focus trap never engages** (`panels.ts:232-245`) — it only acts
+      when focus is on the panel's first or last child. With Library open, four
+      Tabs land on two desk handles, the lamp grip and the like button, all
+      behind the scrim, panel still open. A keyboard user leaves the section
+      without being told.
+- [ ] **At 1440×813 three of the eight notes are never on screen**
+      (case-studies, recommendations, connect), and the recommendations and
+      connect *objects* are off-frame too, so those two have no pointer route in
+      at all. At 1920×993 all eight objects come into frame, but the connect
+      note is an ~87 px sliver with its centre off-frame left, so its label
+      still cannot be clicked. Decide whether the overview framing should be
+      aspect-aware — "click anything on the desk" is the primary invitation.
+- [ ] **The desk hint pill sits on top of "Upadhyay" at 1024px**, the exact
+      capability-gate boundary: two buttons measure past the viewport
+      (`right` 1083 and 1120 vs `clientWidth` 1024). It causes no horizontal
+      scroll, so the gate passes and it is still the worst-looking width.
+- [ ] **At 390px the "Best on desktop" chip covers the About paragraph** it is
+      meant to accompany, on first load, before anyone can dismiss it.
+- [ ] **Confirm the `plant` RLS policy is increment-only.** The anon key and
+      project URL are inlined into the scene chunk — correct and unavoidable for
+      a browser-direct PostgREST call, and correctly absent from the
+      mobile-reachable gate script — so row-level security is the only thing
+      between a reader and an arbitrary `UPDATE` of the count.
+- [ ] **The plant's ladder exists only in `tuned.json`.** `objects.ts:530` still
+      declares `[0, 1, 4, 10, 25]` and argues at length against a bigger ladder
+      ("it used to be 0/10/25/50/100 … built for traffic this site will never
+      see") — the shipped ladder, 1/20/100/200, is bigger than the one that
+      comment rejects. CLAUDE.md says tuned.json is a scratchpad: fold the four
+      numbers back and rewrite the comment around them.
+- [ ] **The working tree is dirty with tuner output** — `tuned.json` and
+      `stage.css` are modified, and every check above was run against that, not
+      against HEAD. Fold or revert before the PR.
+- [ ] **A mobile visitor cannot like the page or see the count.** All Supabase
+      code lives under `src/stages/desk/`, so the mobile network log contains no
+      Supabase, ipwho.is or Open-Meteo call at all. Deliberate today; worth
+      saying out loud whether it stays that way.
+- [ ] `/favicon.ico` → 404. Nothing on the site references it (the head names
+      the PNGs), but crawlers and link-preview bots probe the root by default.
+- [ ] Dead code `astro check` names (0 errors, 8 hints): `scene.ts:44`
+      `DESK_SIZE`, `:61` `blend`, `:403` `const bounds`, `params.ts:21` `Color`
+      — all unused; `src/content/index.ts:39,66,72,83` use zod's deprecated
+      `.url()`.
+- [ ] `THREE.WebGLShadowMap: PCFSoftShadowMap has been deprecated` on every
+      load, dev and production. Nothing casts a shadow, so the type is being set
+      for no benefit — one line, and the console goes silent.
 
 ## Next session — audit 2026-09-16
 
@@ -113,15 +214,19 @@ Content still needed before the two new objects can be wired:
   straight from the browser. Notion needed a relay because it sends no CORS
   headers and its token is a workspace key; Supabase needs none, because its
   anon key is meant to be published and row-level security is the boundary.
-  `workers/` is deleted. Remaining: paste the SQL and set the two repository
-  variables — `docs/likes.md`, ten minutes, no code.
+  `workers/` is deleted. **Done 2026-09-19:** the SQL is applied and both
+  repository variables are set — the live table answers `{"likes":60}` and the
+  plant's label on the live page agrees.
 - [ ] **The weather IP → third-party trade**, restated: `weather.ts` sends a
   visitor's IP to ipwho.is/geojs and then Open-Meteo on every load. Reversible
   in one line (`locate()`) but still needs a yes/no.
 - [ ] **`recommendations` and `connect` sit off the left edge at rest** in
   `tuned.json` (`artifact.recommendations.x -1.35`, `artifact.connect.x
   -0.99`) — both need to be re-centred onto the visible desk, not just
-  reachable via parallax.
+  reachable via parallax. Measured 2026-09-19: at 1440×813 neither object nor
+  note enters the frame at any cursor position, so neither section has a
+  pointer route in; at 1920×993 the objects arrive but connect's note is an
+  ~87 px sliver with its centre off-screen.
 
 ## Next build
 
@@ -147,7 +252,8 @@ Content still needed before the two new objects can be wired:
   reached them)*.
 - [ ] Turntable object on the desk wired to the same audio as the corner
   control (the control works everywhere; the 3D object is not yet clickable).
-- [ ] OG images per page, generated at build.
+- [ ] OG images per page, generated at build. (One static `og-card.png` ships
+  now; per-page is still open.)
 - [ ] Cookieless analytics + the two tracking questions in vision.md.
 - [ ] Real-device pass: one mid-tier Android + one iPhone, cellular.
 - [ ] Lighthouse CI gate in deploy.yml.

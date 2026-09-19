@@ -259,9 +259,30 @@ html[data-stage="desk"] [data-artifact] {
   --a: 0;
 }
 
-/* Where this section lives on the desk. It is silent until you ask: eight
- * permanent markers would be a HUD, and the desk is a room, not a game. */
-html[data-stage="desk"] [data-artifact]::after {
+/* Where this section lives on the desk — DEBUG ONLY, and that is the whole of
+ * the rule now. Set document.documentElement.dataset.stageDebug = "" to check
+ * the projection against the render without a screenshot diff.
+ *
+ * It used to exist unconditionally, at opacity 0, lit by :hover and
+ * :focus-within. Both were unreachable: a closed panel is visibility: hidden
+ * and pointer-events: none, so it can be neither hovered nor focused, and an
+ * OPEN one is force-hidden by desk-panels.css. A marker nobody could see —
+ * eight of them, each with its own will-change layer, re-transformed every
+ * frame.
+ *
+ * And it scrolled the Library sideways. `position: fixed` resolves against the
+ * nearest TRANSFORMED ancestor, and an open panel is transformed
+ * (translate(-50%,-50%) scale(1)), so the marker's containing block was the
+ * panel's own scroll box — not the viewport. --x/--y are viewport pixels, so
+ * with the camera on the bookshelf (--x: 720px, --scale: 2.37) a 44px circle
+ * became a 104px one whose right edge sat 6px past a 736px panel. overflow-y:
+ * auto computes overflow-x to auto, so those 6px were a horizontal scrollbar
+ * on the reading log — ux-rules.md rule 10. The opacity: 0 hid the circle and
+ * kept the overflow, which is the failure that rule warns about.
+ *
+ * Gating `content` and not just `opacity` is the point: an invisible box still
+ * lays out. Out of debug mode the pseudo-element does not exist. */
+html[data-stage="desk"][data-stage-debug] [data-artifact]::after {
   content: "";
   position: fixed;
   top: 0;
@@ -276,26 +297,14 @@ html[data-stage="desk"] [data-artifact]::after {
     color-mix(in srgb, var(--highlighter) 40%, transparent),
     transparent 68%
   );
-  opacity: 0;
+  /* --a folds in the off-screen case: an anchor the camera cannot see does not
+   * get a marker at the edge of the viewport. */
+  opacity: calc(var(--a) * 0.7);
   pointer-events: none;
   /* translate(-50%, -50%) last, so it centres in the already-scaled space. */
   transform: translate3d(var(--x), var(--y), 0) scale(var(--scale)) translate(-50%, -50%);
   transition: opacity var(--m-settle);
   will-change: transform, opacity;
-}
-
-/* Hover and focus, because hover is never the only way to reach anything.
- * ux-rules.md rule 7. --a folds in the off-screen case: an anchor the camera
- * cannot see does not get a marker at the edge of the viewport. */
-html[data-stage="desk"] [data-artifact]:hover::after,
-html[data-stage="desk"] [data-artifact]:focus-within::after {
-  opacity: calc(var(--a) * 0.85);
-}
-
-/* Shows every marker at once. For checking the projection against the render
- * without a screenshot diff: document.documentElement.dataset.stageDebug = "". */
-html[data-stage="desk"][data-stage-debug] [data-artifact]::after {
-  opacity: calc(var(--a) * 0.7);
 }
 
 /* --- Belt and braces ------------------------------------------------------
