@@ -155,35 +155,485 @@ figcaption {
   margin-block-start: var(--s-4);
 }
 
-/* --- Library shelf ----------------------------------------------------------
- * Dense, scannable list. Multi-column once the viewport allows it, single
- * column (no horizontal scroll risk) below that. */
+/* --- The Library: a reading log ---------------------------------------------
+ *
+ * An index, not a spreadsheet. The version this replaced gave every one of 36
+ * rows an identical `border-bottom: 1px solid var(--rule)`, and 36 identical
+ * rules is the loudest default-table signal a page can carry. They are gone.
+ * Hierarchy is carried by four rule weights and whitespace instead:
+ *
+ *   2px --text  the shelf board the reading books stand on (heaviest mark here)
+ *   1px --text  under a tier head
+ *   1px --rule  under a year
+ *   nothing     between entries
+ *
+ * Ink separates sections; space separates rows. That inversion is most of it.
+ *
+ * `container-type`, NOT a media query: this exact markup renders at 57rem inside
+ * .page and at 42rem inside a desk panel at the SAME viewport width, so a
+ * viewport query gets the panel wrong every single time.
+ *
+ * THE SUBJECT LENS. Ten generated rules (index.astro) set one inherited custom
+ * property, --mark, on anything whose data-domain or data-tag matches the
+ * checked radio. Three different materials spend it: an entry paints its margin
+ * rule, a spine paints its printed bands, a tag paints its own word. Nothing is
+ * filtered — hiding would pull up to 35 of 36 titles out of Cmd-F and out of the
+ * accessibility tree, collapse the page height under the reader, and need an
+ * empty state for the five books Notion has no subject for. A reader draws a
+ * line beside an index entry; they do not tear the page out.
+ *
+ * In a browser without :has() the rail still renders and still checks, and no
+ * mark appears: a complete index with one inert control, which is the right
+ * shape of failure.
+ */
 
-.shelf-list {
+.log {
+  container-type: inline-size;
+  container-name: log;
+}
+
+/* --- Reading now: two real books, standing -------------------------------
+ *
+ * The section's one object, and the continuity with the bookcase that was
+ * clicked to open it. Under `writing-mode: vertical-rl` the INLINE axis is
+ * vertical, so `inline-size` is the book's height and `block-size` — left auto —
+ * is its thickness. The text engine decides how fat each book is: three lines
+ * (title, author, date) is a fatter book than two, and a title that wraps is
+ * fatter still. Nothing is truncated, nothing is measured, and a misjudged font
+ * metric costs a wrapped line rather than a clipped title.
+ *
+ * Two of thirty-six titles are set vertically. The other thirty-four stay flat,
+ * where the scanning actually happens.
+ */
+
+.shelf {
+  /* The whole object — head rule and board — is as wide as the books, so the
+   * space to its right reads as margin rather than as an empty shelf. */
+  width: max-content;
+  max-width: 100%;
+  margin-block-end: var(--s-6);
+}
+
+.shelf__board {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s-4);
+  margin: 0;
+  /* Top padding is the ribbon's room — it hangs over the head of the book. */
+  padding: var(--s-4) var(--s-5) 0;
   list-style: none;
-  margin: var(--s-3) 0 0;
+  /* The board is as long as the books standing on it and no longer. A 2px rule
+   * running 900px past two books reads as an empty shelf rather than a mark. */
+  width: max-content;
+  max-width: 100%;
+  border-block-end: 2px solid var(--text);
+}
+
+.spine {
+  position: relative;
+  writing-mode: vertical-rl;
+  inline-size: 13rem;
+  padding: var(--s-4) var(--s-3);
+  background-color: var(--paper-sheet);
+  /* The two hairlines a real spine is printed with, near head and foot. They
+   * carry the subject mark, so picking History reddens the bands of a book
+   * filed under History without moving a pixel. */
+  background-image:
+    linear-gradient(var(--mark, var(--rule)), var(--mark, var(--rule))),
+    linear-gradient(var(--mark, var(--rule)), var(--mark, var(--rule)));
+  background-size: 100% 1px;
+  background-position:
+    0 var(--s-5),
+    0 calc(100% - var(--s-5));
+  background-repeat: no-repeat;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-sheet);
+  box-shadow: var(--e-rest);
+  transition: background-image var(--m-quick);
+}
+
+/* Two books off the same shelf are not the same stock. */
+.spine:nth-child(even) {
+  background-color: var(--paper-aged);
+}
+
+/* The bookmark. The one place in this section that spends the red pen on
+ * something other than the lens, on exactly the books being read right now. */
+.spine::after {
+  content: "";
+  position: absolute;
+  top: calc(var(--s-4) * -1);
+  right: var(--s-4);
+  width: var(--s-2);
+  height: var(--s-6);
+  background-color: var(--accent);
+}
+
+.spine__title {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--t-heading-size);
+  line-height: 1.15;
+  color: var(--text);
+  overflow-wrap: break-word;
+}
+
+/* margin-block-start under vertical-rl is the gap to the LEFT: these stack as
+ * further columns across the thickness of the spine, which is how a spine is
+ * actually printed. */
+.spine__author,
+.spine__when {
+  display: block;
+  margin-block-start: var(--s-2);
+  font-family: var(--font-mono);
+  font-size: var(--t-label-size);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  overflow-wrap: break-word;
+}
+
+/* --- Colophon --------------------------------------------------------------
+ * Counts and nouns, the register of a print colophon rather than a dashboard. */
+
+.log__colophon {
+  margin: 0 0 var(--s-6);
+  max-width: none;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- The subject rail ------------------------------------------------------
+ * Eleven native radios in a fieldset: one tab stop for the whole rail, arrow
+ * keys and Home/End for free, and the count inside the label so it is announced
+ * rather than only seen. */
+
+.rail {
+  /* The clipped radios are absolutely positioned with no offsets, so they use
+   * their static position — but naming the containing block here means they
+   * cannot resolve against the fixed desk panel if that ever changes. */
+  position: relative;
+  /* A fieldset's default min-inline-size is min-content, which is how a
+   * fieldset full of chips widens a phone. */
+  min-inline-size: 0;
+  margin: 0 0 var(--s-6);
+  padding: 0;
+  border: 0;
+}
+
+.rail__legend {
+  padding: 0;
+}
+
+.rail__hint {
+  margin: var(--s-1) 0 var(--s-3);
+  max-width: var(--measure);
+  font-size: var(--t-small-size);
+  color: var(--text-muted);
+}
+
+/* Focusable, never display: none — and not paper.css's .visually-hidden, whose
+ * :not(:focus) clause would pop a naked radio out on arrow-key navigation. */
+.vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.rail__items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+.rail__item {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  /* 2.75rem is the 44px target .link-row a and .chip-link already use. */
+  min-height: 2.75rem;
+  min-width: 0;
+  max-width: 100%;
+  padding-inline: var(--s-3);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-chip);
+  font-family: var(--font-mono);
+  font-size: var(--t-label-size);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color var(--m-quick),
+    border-color var(--m-quick);
+}
+
+.rail__name {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.rail__n {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The chosen subject is the one red mark in the rail. */
+.vh:checked + .rail__item {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Drawn on the label, because the input itself is clipped to a pixel. */
+.vh:focus-visible + .rail__item {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* --- Tiers and years ------------------------------------------------------ */
+
+.tier + .tier {
+  margin-block-start: var(--s-7);
+}
+
+.tier__head {
+  margin: 0 0 var(--s-4);
+  padding-block-end: var(--s-2);
+  border-block-end: 1px solid var(--text);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--t-subhead-size);
+}
+
+.year {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin: var(--s-6) 0 var(--s-3);
+  padding-block-end: var(--s-2);
+  border-block-end: 1px solid var(--rule);
+  font-family: var(--font-mono);
+  font-size: var(--t-label-size);
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  color: var(--text-muted);
+}
+
+.tier > .year:first-of-type {
+  margin-block-start: 0;
+}
+
+/* Reverse-printed: paper on ink, a running head stamped into the log. Two hard
+ * marks down its length — the only solid ink in the section. */
+.year__n {
+  padding: var(--s-1) var(--s-2);
+  background-color: var(--text);
+  color: var(--bg);
+  font-variant-numeric: tabular-nums;
+}
+
+.year__count {
+  margin-inline-start: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Entries --------------------------------------------------------------- */
+
+.entries {
+  list-style: none;
+  margin: 0;
   padding: 0;
   max-width: none;
 }
 
-.shelf-list li {
-  padding-block: var(--s-1);
-  border-bottom: 1px solid var(--rule);
+.entry {
+  display: grid;
+  /* minmax(0, 1fr) and not 1fr: an unbreakable word in a 1fr track is exactly
+   * how a CSS grid grows a horizontal scrollbar. */
+  grid-template-columns: minmax(0, 1fr) auto;
+  /* The month sits on the title's own baseline. No optical line-height nudge to
+   * go stale when the type scale moves. */
+  align-items: baseline;
+  column-gap: var(--s-4);
+  padding-block: var(--s-2);
+  padding-inline-start: var(--s-4);
+  /* The margin the red pen lives in. The 2px is ALWAYS there, so the lens costs
+   * a colour change and zero reflow. */
+  border-inline-start: 2px solid var(--mark, transparent);
+  transition: border-color var(--m-quick);
+}
+
+.entry__line {
+  grid-column: 1;
+  margin: 0;
+  max-width: var(--measure);
+  line-height: 1.4;
   overflow-wrap: break-word;
 }
 
-.shelf-list--dense {
-  columns: 2;
-  column-gap: var(--s-6);
+.entry__title {
+  color: var(--text);
 }
 
-.shelf-list--dense li {
+.entry__author {
+  color: var(--text-muted);
+}
+
+.entry__author::before {
+  content: " · ";
+}
+
+.entry__when {
+  grid-column: 2;
+  grid-row: 1;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--t-label-size);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+
+.entry__tags {
+  grid-column: 1 / -1;
+  margin: var(--s-1) 0 0;
+  max-width: var(--measure);
+  font-family: var(--font-mono);
+  font-size: var(--t-label-size);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  line-height: 1.5;
+  color: var(--text-muted);
+  overflow-wrap: break-word;
+}
+
+/* A tag does not inherit its entry's mark — only the subject that was actually
+ * picked is underlined, not every subject on a marked book. */
+.tag {
+  --mark: initial;
+  color: var(--mark, var(--text-muted));
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--mark, transparent);
+  text-underline-offset: 0.2em;
+  transition: color var(--m-quick);
+}
+
+/* inline-block keeps the separator out of the underline. */
+.tag:not(:last-child)::after {
+  content: "·";
+  display: inline-block;
+  margin-inline: var(--s-2);
+  color: var(--text-muted);
+}
+
+/* Next up: dense, undated, alphabetical — an index rather than a log. */
+.entries--dense .entry {
+  padding-block: var(--s-1);
   break-inside: avoid;
+  font-size: var(--t-small-size);
 }
 
-@media (max-width: 36rem) {
-  .shelf-list--dense {
-    columns: 1;
+/* --- Container steps -------------------------------------------------------
+ * 34rem: the desk panel (min(46rem,88vw) less 2 × --s-7 padding = 42rem) lands
+ * here. A compact edition, not a degraded one. */
+
+@container log (min-width: 34rem) {
+  .entries--dense {
+    columns: 2;
+    column-gap: var(--s-6);
+  }
+}
+
+/* 52rem: the full document page at >=1024px. The rail leaves the top of the
+ * section and becomes the index's left margin, with real dot leaders. */
+@container log (min-width: 52rem) {
+  .log__grid {
+    display: grid;
+    grid-template-columns: 16rem minmax(0, 1fr);
+    column-gap: var(--s-7);
+    grid-template-areas:
+      "shelf    shelf"
+      "colophon colophon"
+      "rail     body";
+  }
+
+  .shelf {
+    grid-area: shelf;
+  }
+
+  .log__colophon {
+    grid-area: colophon;
+  }
+
+  .log__body {
+    grid-area: body;
+    min-width: 0;
+  }
+
+  .rail {
+    grid-area: rail;
+    position: sticky;
+    top: var(--s-5);
+    align-self: start;
+    margin: 0;
+  }
+
+  .rail__items {
+    display: block;
+  }
+
+  /* A printed index is set in the text face, not in the typed one. It is also
+   * the only thing narrow enough to fit "Psychology & Communication" and its
+   * count on one line in a 13rem margin. */
+  .rail__item {
+    /* last baseline so that a subject long enough to wrap still puts its count
+     * on the line the leader ends on. Two declarations: the first is the
+     * fallback where `last` is not understood. */
+    align-items: baseline;
+    align-items: last baseline;
+    gap: 0;
+    padding-inline: 0;
+    border: 0;
+    border-radius: 0;
+    font-family: var(--font-body);
+    font-size: var(--t-small-size);
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  /* A flexing rule between the subject and its count: the shape of a printed
+   * index, with no repeated-character hack and nothing that can overflow. */
+  .rail__name::after {
+    content: "";
+    flex: 1 1 auto;
+    min-width: var(--s-2);
+    align-self: end;
+    margin: 0 var(--s-1) 0.34em;
+    border-block-end: 1px dotted var(--rule);
+  }
+
+  .rail__name {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: baseline;
+  }
+}
+
+/* The lens leaves its mark on, so a printed page shows what was chosen. The
+ * control itself has nothing to say on paper. */
+@media print {
+  .rail {
+    display: none;
   }
 }
 
