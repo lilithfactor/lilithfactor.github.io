@@ -1,4 +1,6 @@
 ---
+import { Image } from "astro:assets";
+import type { ImageMetadata } from "astro";
 import Base from "../../layouts/Base.astro";
 import Chips from "../../components/Chips.astro";
 import { caseStudies } from "../../content/index";
@@ -31,6 +33,42 @@ const outcomes = (
 /* The narrative keeps every section in STAR order — including Results, in
  * full, in place. The grid above is the skim path, not a replacement. */
 const body = cs.body;
+
+/* Case-study screenshots were the heaviest thing on the site: six untouched
+ * PNGs, 4.4 MB, on the one page a hiring manager actually opens.
+ *
+ * Astro only optimises images it can resolve at build time, and nothing here
+ * is resolvable: the sync downloads into public/ and writes the finished URL
+ * string into content/case-studies.json. A glob over that directory is the one
+ * bridge that needs no change to the sync — Vite resolves every file, Astro's
+ * pipeline hands back ImageMetadata, and the keys map straight onto the
+ * /case-studies/<slug>/<n>.<ext> strings the JSON already carries.
+ *
+ * What it costs, plainly: public/ is still public/, so the build copies each
+ * original into dist untouched beside its optimised derivative. Nothing
+ * requests them any more — it is weight in the deploy, not on the wire.
+ * Removing it means the sync writing into src/, which is a sync change.
+ *
+ * .svg stays out of the glob on purpose: Astro turns an imported SVG into a
+ * component rather than an image. Any image the glob misses — an extension
+ * nobody has synced yet, or a file the sync recorded but failed to write —
+ * falls through to the plain <img> below and renders exactly as it did. */
+const sources = import.meta.glob<{ default: ImageMetadata }>(
+  "../../../public/case-studies/*/*.{png,jpg,jpeg,webp,avif,gif}",
+  { eager: true },
+);
+const optimised = new Map(
+  Object.entries(sources).map(([file, mod]) => [
+    file.slice(file.indexOf("/case-studies/")),
+    mod.default,
+  ]),
+);
+
+/* .page is 60rem wide with 1.5rem of gutter, so a figure is never painted
+ * wider than 912px. Anything above the source's own width would be an upscale
+ * paid for in bytes. */
+const COLUMN_PX = 912;
+const SIZES = `(min-width: 60rem) ${COLUMN_PX}px, calc(100vw - 3rem)`;
 
 /* Structured data. These eight pages are the site's indexable surface — eight
  * long-form authored documents — and nothing in the markup said so. The Article
@@ -125,29 +163,50 @@ const breadcrumbs = {
                       </a>
                     </p>
                   );
-                if (block.type === "image")
+                if (block.type === "image") {
+                  const img = optimised.get(block.src);
+                  /* block.width, not img.width. ImageMetadata is a Proxy, and
+                     any property read outside Astro's own pipeline marks the
+                     source as referenced — which keeps the untouched original
+                     in dist beside the derivatives, 11 MB nothing requests.
+                     The sync already measured the file; use its number. */
+                  const widths = [...new Set([480, COLUMN_PX, block.width])].filter(
+                    (w) => w <= block.width,
+                  );
+                  /* Empty alt on purpose, in both branches. A captioned figure
+                     is already named by its caption, and repeating the
+                     sentence makes a screen reader read it twice; an
+                     uncaptioned one has no description in Notion, and "name —
+                     supporting figure" described nothing. The real fix is an
+                     alt property on the Notion image, carried through the sync
+                     and the schema. */
                   return (
                     <figure class="case-body__figure">
-                      {/* Empty alt on purpose. A captioned figure is already
-                          named by its <figcaption>, and repeating the sentence
-                          makes a screen reader read it twice; an uncaptioned
-                          one has no description in Notion, and "<name> —
-                          supporting figure" described nothing. The real fix is
-                          an alt property on the Notion image, carried through
-                          the sync and the schema. */}
-                      <img
-                        src={block.src}
-                        alt=""
-                        width={block.width}
-                        height={block.height}
-                        loading="lazy"
-                        decoding="async"
-                      />
+                      {img ? (
+                        <Image
+                          src={img}
+                          alt=""
+                          widths={widths}
+                          sizes={SIZES}
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      ) : (
+                        <img
+                          src={block.src}
+                          alt=""
+                          width={block.width}
+                          height={block.height}
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      )}
                       {block.caption && (
                         <figcaption class="note">{block.caption}</figcaption>
                       )}
                     </figure>
                   );
+                }
                 return null;
               })}
             </section>
