@@ -649,3 +649,31 @@ html[data-panel] .desk-hint {
  * position: fixed), where it reached past the right edge and gave the Library
  * a horizontal scrollbar. The marker is debug-only now, so there is nothing
  * left to hide. See the note in stage.css. */
+
+/* --- The swap's invisible window, extended to the desk's furniture --------
+ * stage.css holds the document layer at opacity 0 across the stage flip and
+ * for two painted frames after it, so the reflow from scrolling column to
+ * fixed layer never paints: Chrome's layout-shift tracker records no rect for
+ * a fully transparent element, and neither does a reader.
+ *
+ * Everything below is created by panels.ts before the flip and styled only
+ * under html[data-stage="desk"], so each one adopts its fixed, sometimes
+ * full-viewport geometry on exactly the frame main does. That makes every one
+ * of them a candidate to become the shift main used to be — .desk-handles and
+ * .desk-hint measured as the whole 1.0 themselves the hour this was written,
+ * the moment main stopped scoring it. So they share the window. Each already
+ * transitions its own opacity, so they fade up with the layer.
+ *
+ * NOT .desk-lamp-grip, for the reason the note above gives: its opacity is an
+ * inline style the rig rewrites every frame, and a rule here would silently
+ * lose. It is a transparent circle with no paint of its own, so it has nothing
+ * to shift. .desk-plant IS here — what the rig writes on it is --a, and a rule
+ * that sets opacity outright still wins. */
+html.stage-swapping .desk-scrim,
+html.stage-swapping .desk-hint,
+html.stage-swapping .desk-handles,
+html.stage-swapping .desk-sound,
+html.stage-swapping .desk-sound__next,
+html.stage-swapping .desk-plant {
+  opacity: 0;
+}

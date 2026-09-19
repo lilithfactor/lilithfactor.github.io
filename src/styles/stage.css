@@ -240,6 +240,13 @@ html[data-stage="desk"] main {
     0 26px 60px -18px rgb(0 0 0 / 0.55);
   padding-inline: var(--s-7);
   margin-block: var(--s-8);
+  /* The other half of the swap's third beat (scene.ts). The document layer is
+   * still at opacity 0 when this rule starts applying — .stage-swapping is
+   * held for two frames past the flip so the reflow paints invisible — and
+   * this is what it fades back in with. Same duration as the canvas's own
+   * fade, so the desk and the layer standing on it arrive together instead of
+   * the masthead popping in over a half-faded stage. */
+  transition: opacity var(--m-turn);
 }
 
 /* --- Anchored sections ----------------------------------------------------
@@ -367,10 +374,15 @@ html[data-stage="desk"] .desk-lamp-grip:focus-visible {
   outline-offset: 2px;
 }
 
-/* The first beat of the desk swap: the document fades to nothing BEFORE the
- * stage attribute reflows it into panels. Opacity moves no layout, so the
- * transformation happens while nothing is visible — the reader never watches
- * their place on the page teleport. scene.ts owns the timing. */
+/* The desk swap's invisible window: the document fades to nothing BEFORE the
+ * stage attribute reflows it into panels, and STAYS at nothing for two painted
+ * frames afterwards. Opacity moves no layout, and Chrome's layout-shift
+ * tracker records no rect at all for an element whose computed opacity is 0 —
+ * so a document that goes from a centred column to a full-viewport fixed layer
+ * entirely inside this window has not, as far as any measurement or any reader
+ * is concerned, moved. The frames on the far side are the load-bearing part:
+ * without them the reflow paints straight back into a visible frame and the
+ * whole viewport scores a 1.0 shift. scene.ts owns the timing. */
 html.stage-swapping main {
   opacity: 0;
   transition: opacity 240ms ease-out;

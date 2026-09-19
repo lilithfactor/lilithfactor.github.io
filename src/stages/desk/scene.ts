@@ -872,22 +872,62 @@ export async function mountDesk(options: DeskOptions = {}): Promise<DeskHandle |
 
     if (!ready) {
       ready = true;
-      // The swap happens in two beats, and the order is CLS, not vanity:
-      // fade the document to nothing first (opacity moves no layout), and only
-      // flip the stage attribute — which reflows the entire page into panels —
-      // while nothing is visible. Shifts of invisible elements score zero,
-      // and more importantly, nobody watches their reading position teleport.
+      // The swap happens in THREE beats, and the order is CLS, not vanity:
+      //
+      //   1. fade the document to nothing (opacity moves no layout)
+      //   2. flip the stage attribute — which reflows the entire page into
+      //      panels — while nothing is visible
+      //   3. hold it invisible for two painted frames, THEN fade it back
+      //
+      // Beat 3 is the one that was missing, and it is the whole bug. Chrome's
+      // layout-shift tracker ignores an element whose computed opacity is 0:
+      // it records no rect for it, so a move that happens entirely inside the
+      // invisible window is not a shift. The old code flipped the attribute
+      // and removed the class in the SAME task — one style recalc, one paint —
+      // so the browser went straight from "visible, in flow, 960px column" to
+      // "visible, fixed, full viewport" with no invisible frame between them.
+      // Every frame of the fade was tracked (opacity 0.9, 0.5, 0.1 are all
+      // paint), and the last tracked rect before the flip was the document's.
+      // That is the full-viewport shift Lighthouse scores 1.0, and it was
+      // real: the Layout Shift API in a real browser reports it too.
+      //
+      // Holding the class for two frames after the flip means the first frame
+      // that paints main at its new geometry paints it at opacity 0, so there
+      // is no previous rect to move from. Measured on a local preview of the
+      // build, Lighthouse desktop preset: CLS 1.03 → 0.03, performance 68 →
+      // 96. What is left is a 0.023 shift in the plain document at ~70ms —
+      // before the desk chunk has even been fetched, in the same frames the
+      // mono webfont lands — and is nothing this file can reach.
       document.documentElement.classList.add("stage-swapping");
       // Flip on transitionend, not a timer: a timer races the fade on slow
       // frames (throttled CPU, software GL) and reflows the page while it is
       // still half-visible — which is a full-viewport layout shift. The
       // transition's own end event is correct on any device speed; the timer
       // is only the fallback for a browser that never fires it.
+      //
+      // transitionend BUBBLES, so the listener has to check what ended. A card
+      // or a rail label finishing any transition inside main would otherwise
+      // flip the page mid-fade, which is exactly the shift this sequence
+      // exists to prevent — and it would do it intermittently, on whichever
+      // machine happened to have a transition in flight.
       const main = document.querySelector("main");
       let swapped = false;
+      let revealed = false;
+      // Beat 3. Idempotent, because two things race to call it: two animation
+      // frames (correct, and silent in a background tab) and a timer (fires
+      // whether or not frames do).
+      const reveal = () => {
+        if (revealed) return;
+        revealed = true;
+        document.documentElement.classList.remove("stage-swapping");
+      };
+      const onFade = (e: TransitionEvent) => {
+        if (e.target === main && e.propertyName === "opacity") flip();
+      };
       const flip = () => {
         if (swapped) return;
         swapped = true;
+        main?.removeEventListener("transitionend", onFade);
         // NOT inside requestAnimationFrame. It used to be, to batch the change
         // with a paint, and that made the swap depend on a frame that might
         // never come: this scene stops its own rAF loop whenever the page is
@@ -902,15 +942,26 @@ export async function mountDesk(options: DeskOptions = {}): Promise<DeskHandle |
         // screenshot that turned out to be reproducing this exactly.
         document.documentElement.dataset.stage = "desk";
         canvas.classList.add("is-ready");
-        document.documentElement.classList.remove("stage-swapping");
+        // NOT removed here. See beat 3 above: the reflow this line just caused
+        // has to land on a frame that paints main at opacity 0, and this task
+        // has not painted yet. Two frames, because the first one is the one
+        // the reflow paints into.
+        requestAnimationFrame(() => requestAnimationFrame(reveal));
+        // A tab that never gets a frame still has to finish the swap: this
+        // scene stops its own rAF loop whenever the page is hidden, and a
+        // background tab (cmd-click, "open in new tab" — ordinary things)
+        // would otherwise come back to a permanently invisible document.
+        setTimeout(reveal, 300);
       };
-      // NOTE on measurement: Lighthouse desktop reports this swap as CLS ~1.0
-      // no matter how main is hidden (opacity, visibility, three-frame). The
-      // real-browser Layout Shift API reports ~0.02 for the same build. The
-      // synthetic trace scores the fixed-position adoption of <main> as a
-      // full-viewport shift regardless of paint state; do not contort the swap
-      // to please it. Verified 2026-08-14 — see brain/work/learning.md.
-      main?.addEventListener("transitionend", flip, { once: true });
+      // NOTE on measurement, 2026-09-19: this is the fix for the CLS 1.0 that
+      // brain/work/learning.md spent two entries calling a Lighthouse artifact.
+      // It was not one. The August ruling ("the tool scores the geometry change
+      // regardless of paint state") was wrong in a way that was easy to reach:
+      // all three strategies it tried removed the hiding in the same task as
+      // the flip, so none of them ever painted an invisible frame at the new
+      // geometry, and identical scores looked like the tool ignoring the
+      // mechanism rather than three spellings of the same mistake.
+      main?.addEventListener("transitionend", onFade);
       setTimeout(flip, 700);
     }
 
