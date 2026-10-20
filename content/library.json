@@ -167,7 +167,7 @@
       "Product & Business",
       "Psychology & Communication"
     ],
-    "status": "enqueued",
+    "status": "reading",
     "month": "Feb",
     "year": 2026,
     "order": 12
@@ -198,7 +198,7 @@
       "History",
       "Society"
     ],
-    "status": "reading",
+    "status": "done",
     "month": "Feb",
     "year": 2026,
     "order": 14
