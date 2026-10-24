@@ -1,5 +1,28 @@
 [
   {
+    "id": "403be508-b291-804d-ac5a-e6b615f5b61b",
+    "slug": "shotkala",
+    "name": "Shotkala",
+    "summary": "Making great content shouldn't mean learning technical prompting, juggling five tools, or switching to a non-native language.\n\nWith us, you just speak, in Telugu, Hindi, Punjabi, or English. We turn your work and ideas into images and finished videos into publishable content. No prompting, no ai engineering, no complexity.",
+    "productType": "AI Productivity Suite",
+    "links": [
+      {
+        "url": "https://kala.vismora.io/",
+        "label": "Visit"
+      },
+      {
+        "url": "https://drive.google.com/drive/u/0/folders/11dZavtfM2gwLiFVAkWyBP_30gkQKv7QF",
+        "label": "Visit"
+      }
+    ],
+    "kpis": [
+      "Time-to-market",
+      "Usability",
+      "Revenue"
+    ],
+    "order": 0
+  },
+  {
     "id": "3a2be508-b291-8010-93fc-daea1c14cd60",
     "slug": "muretabi",
     "name": "Muretabi",
@@ -24,7 +47,7 @@
       "Growth",
       "Engagement"
     ],
-    "order": 0
+    "order": 1
   },
   {
     "id": "371be508-b291-8002-9b38-c1b0744b2f15",
@@ -39,7 +62,7 @@
       }
     ],
     "kpis": [],
-    "order": 1
+    "order": 2
   },
   {
     "id": "325be508-b291-808a-a97f-c02a2306be00",
@@ -61,7 +84,7 @@
       "Efficiency",
       "Usability"
     ],
-    "order": 2
+    "order": 3
   },
   {
     "id": "325be508-b291-808c-b1d7-c283107fa810",
@@ -83,7 +106,7 @@
       "Efficiency",
       "Usability"
     ],
-    "order": 3
+    "order": 4
   },
   {
     "id": "2f5be508-b291-800d-8509-c105dacbd144",
@@ -101,6 +124,6 @@
       "Usability",
       "Efficiency"
     ],
-    "order": 4
+    "order": 5
   }
 ]
