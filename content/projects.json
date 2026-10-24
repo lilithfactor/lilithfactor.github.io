@@ -3,7 +3,7 @@
     "id": "403be508-b291-804d-ac5a-e6b615f5b61b",
     "slug": "shotkala",
     "name": "Shotkala",
-    "summary": "Making great content shouldn't mean learning technical prompting, juggling five tools, or switching to a non-native language.\n\nWith us, you just speak, in Telugu, Hindi, Punjabi, or English. We turn your work and ideas into images and finished videos into publishable content. No prompting, no ai engineering, no complexity.",
+    "summary": "Making great content shouldn't mean learning technical prompting, juggling five tools, or switching to a non-native language.\n\nWith us, you just speak, and we turn your  ideas into images and finished videos into publishable content. No prompting, no ai engineering, no complexity.",
     "productType": "AI Productivity Suite",
     "links": [
       {
@@ -13,6 +13,10 @@
       {
         "url": "https://drive.google.com/drive/u/0/folders/11dZavtfM2gwLiFVAkWyBP_30gkQKv7QF",
         "label": "Visit"
+      },
+      {
+        "url": "https://github.com/lilithfactor/shotkala",
+        "label": "GitHub"
       }
     ],
     "kpis": [
